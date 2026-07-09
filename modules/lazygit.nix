@@ -1,0 +1,14 @@
+{ ... }:
+{
+  programs.lazygit = {
+    enable = true;
+    settings = {
+      git.pagers = [
+        {
+          colorArg = "always";
+          pager = ''delta --dark --paging=never --line-numbers --hyperlinks --hyperlinks-file-link-format="lazygit-edit://{path}:{line}"'';
+        }
+      ];
+    };
+  };
+}

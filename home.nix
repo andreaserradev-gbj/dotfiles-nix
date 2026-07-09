@@ -4,8 +4,13 @@
   imports = [
     ./modules/starship.nix
     ./modules/shell.nix
-    ./modules/bat.nix 
+    ./modules/bat.nix
     ./modules/git.nix
+    ./modules/lazygit.nix
+    ./modules/btop.nix
+    ./modules/fastfetch.nix
+    ./modules/zellij.nix
+    ./modules/neovim.nix
   ];
 
   home.username = "andrea";
