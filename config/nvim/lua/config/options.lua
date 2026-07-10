@@ -3,9 +3,9 @@
 -- Add any additional options here
 
 vim.opt.expandtab = true
-vim.opt.tabstop = 4
-vim.opt.shiftwidth = 4
-vim.opt.softtabstop = 4
+vim.opt.tabstop = 2
+vim.opt.shiftwidth = 2
+vim.opt.softtabstop = 2
 vim.opt.textwidth = 140
 
 -- Headless SSH VM has no Wayland/X clipboard tool. Make yanks sync to the system

@@ -44,6 +44,16 @@
       ll = "eza -lg --icons";
 
       cdz = "z"; # zoxide installed below
+
+      # --- NixOS / flake (repo = ~/dotfiles-nix, host `nixos`) ---
+      nrs = "sudo nixos-rebuild switch --flake ~/dotfiles-nix#nixos"; # apply now + set as boot default
+      nrt = "sudo nixos-rebuild test --flake ~/dotfiles-nix#nixos"; # apply now, DON'T touch bootloader → reboot reverts
+      nrb = "sudo nixos-rebuild boot --flake ~/dotfiles-nix#nixos"; # stage for next boot, don't apply now
+      nfu = "nix flake update --flake ~/dotfiles-nix"; # bump inputs (nixpkgs, home-manager) → rewrites flake.lock
+      nfc = "nix flake check ~/dotfiles-nix"; # evaluate/validate the flake without building a system
+      ngl = "nixos-rebuild list-generations"; # list system generations
+      ngc = "sudo nix-collect-garbage -d"; # delete OLD generations + GC the store (reclaim disk)
+      nixcfg = "cd ~/dotfiles-nix"; # jump to the flake repo
     };
 
     sessionVariables = {
@@ -51,9 +61,6 @@
       VISUAL = "nvim";
       DIRENV_LOG_FORMAT = "";
       TODO_DIR = "${config.home.homeDirectory}/.todo";
-      CLAUDE_CODE_ENABLE_TASKS = "true";
-      CLAUDE_CODE_DISABLE_AUTO_MEMORY = "1";
-      CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION = "1";
     };
 
     initContent = ''

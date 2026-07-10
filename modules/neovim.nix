@@ -1,4 +1,9 @@
-{ pkgs, ... }:
+{
+  pkgs,
+  config,
+  lib,
+  ...
+}:
 
 {
   # Neovim + LazyVim, ported as a verbatim managed-file lua tree.
@@ -45,6 +50,13 @@
     stylua
     nixfmt # nix formatter (RFC-style official; conform maps nix -> nixfmt)
   ];
+
+  # vim.loader caches compiled Lua at ~/.cache/nvim/luac, invalidate by the source's mtime + size.
+  # If the change is not modifying the size the cache will STALE.
+  # Wipe it on every activation so the next nvim launch recompiles from the fresh store
+  home.activation.clearNvimByteCache = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    run rm -rf "${config.xdg.cacheHome}/nvim/luac"
+  '';
 
   # LazyVim config tree, copied verbatim from the repo root's config/nvim/.
   # Whole-dir symlink into ~/.config/nvim. Flakes only see git-tracked files, so

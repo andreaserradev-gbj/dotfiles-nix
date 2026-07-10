@@ -1,5 +1,5 @@
 {
-  description = "Andrea's standalone Home Manager configuration";
+  description = "Andrea's NixOs + Home Manager configuration (personal dev VM)";
 
   inputs = {
 
@@ -13,14 +13,21 @@
 
   outputs =
     { nixpkgs, home-manager, ... }:
-    let
-      system = "aarch64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
-    in
     {
-      homeConfigurations.andrea = home-manager.lib.homeManagerConfiguration {
-        inherit pkgs;
-        modules = [ ./home.nix ];
+      # One command rebuild BOTH the system and $HOME from git:
+      # sudo nixos-rebuild switch --flake .#nixos
+      nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+        system = "aarch64-linux";
+        modules = [
+          ./nixos/configuration.nix
+          home-manager.nixosModules.home-manager
+          {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.backupFileExtension = "backup";
+            home-manager.users.andrea = import ./home.nix;
+          }
+        ];
       };
     };
 }
