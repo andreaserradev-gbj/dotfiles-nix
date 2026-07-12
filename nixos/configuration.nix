@@ -2,13 +2,19 @@
 # your system. Help is available in the configuration.nix(5) man page, on
 # https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
 
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  user,
+  ...
+}:
 
 {
-  imports =
-    [ # Include the results of the hardware scan.
-      ./hardware-configuration.nix
-    ];
+  imports = [
+    # Include the results of the hardware scan.
+    ./hardware-configuration.nix
+  ];
 
   # Use the systemd-boot EFI boot loader.
   boot.loader.systemd-boot.enable = true;
@@ -26,18 +32,19 @@
   time.timeZone = "Europe/Rome";
 
   programs.zsh.enable = true;
-  
+
   # Account informations
-  users.users.andrea = {
+  users.users.${user.username} = {
     isNormalUser = true;
-    description = "Andrea";
+    description = user.fullName;
     shell = pkgs.zsh;
-    extraGroups = [ "wheel" "networkmanager" ];
-    initialPassword = "nixos"; # throwaway
-    openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINROirqL4mIWQh/x4+ka3dBvO/9mp0MTaaT3PglqAfnU andrea.serra.dev@gmail.com"
+    extraGroups = [
+      "wheel"
+      "networkmanager"
     ];
-  }; 
+    initialPassword = "nixos"; # throwaway
+    openssh.authorizedKeys.keys = [ user.sshKey ];
+  };
 
   # List packages installed in system profile.
   environment.systemPackages = with pkgs; [
@@ -56,10 +63,12 @@
   };
 
   # Modern `nix` CLI + flakes
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings.experimental-features = [
+    "nix-command"
+    "flakes"
+  ];
 
   # Set-once: pin state-format defaults to the install release. Never bump casually.
   system.stateVersion = "26.05"; # Did you read the comment?
 
 }
-

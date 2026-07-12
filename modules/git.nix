@@ -1,12 +1,12 @@
-{ ... }:
+{ user, ... }:
 {
   programs.git = {
     enable = true;
     lfs.enable = true;
     settings = {
       user = {
-        name = "Andrea Serra";
-        email = "andreaserradev-gbj@users.noreply.github.com";
+        name = user.fullName;
+        email = user.email;
       };
       init.defaultBranch = "main";
       merge.conflictStyle = "zdiff3";
