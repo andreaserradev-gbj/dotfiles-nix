@@ -41,6 +41,7 @@
     lua-language-server
     marksman
     vtsls
+    nil
 
     # Formatters (conform.nvim, PATH-resolved). node arrives transitively via the
     # node-based servers/prettier — no global node or nvm needed. (prettier is
@@ -49,6 +50,7 @@
     shfmt
     stylua
     nixfmt # nix formatter (RFC-style official; conform maps nix -> nixfmt)
+    statix
   ];
 
   # vim.loader caches compiled Lua at ~/.cache/nvim/luac, invalidate by the source's mtime + size.
