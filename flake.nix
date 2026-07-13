@@ -1,5 +1,5 @@
 {
-  description = "Personal NixOs + Home Manager configuration for a UTM dev VM)";
+  description = "Personal NixOs + Home Manager configuration for a UTM dev VM";
 
   inputs = {
 

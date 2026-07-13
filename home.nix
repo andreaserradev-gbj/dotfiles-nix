@@ -11,6 +11,7 @@
     ./modules/fastfetch.nix
     ./modules/zellij.nix
     ./modules/neovim.nix
+    ./modules/fonts.nix
   ];
 
   home.stateVersion = "26.05";
