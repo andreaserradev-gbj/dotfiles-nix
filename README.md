@@ -181,3 +181,71 @@ sudo rm /etc/nixos/configuration.nix /etc/nixos/hardware-configuration.nix
 or stub `configuration.nix` with a comment pointing at this repo. A fresh
 install regenerates `hardware-configuration.nix` regardless, so nothing here is
 load-bearing after the flake takes over.
+
+## Local console (cage + foot)
+
+The UTM window boots straight into a full-screen [foot](https://codeberg.org/dnkl/foot)
+terminal — autologin, no display manager — via [cage](https://github.com/cage-kiosk/cage),
+a single-app kiosk Wayland compositor. This is a *local* console for when SSH or
+networking is down (or during a bad rebuild), **not** a second workspace: the real
+dev loop stays SSH-from-the-Mac (see below). Everything is software-rendered — the
+VM has no usable GPU.
+
+Two layers, one rebuild:
+
+- **System** (`nixos/configuration.nix`) — `services.cage` (compositor + autologin),
+  `services.spice-vdagentd`, and the `video=` display mode.
+- **Home** (`modules/foot.nix`, `modules/fonts.nix`, `modules/starship.nix`) — the
+  terminal, its fonts, and the prompt.
+
+### Why these pieces
+
+- **cage, not a desktop.** cage shows exactly one full-screen program and *is* the
+  login: its systemd unit (`cage-tty1`) conflicts with `getty@tty1` and autologins
+  through a PAM null-password session. No greetd, no display manager.
+- **foot, not kitty/alacritty.** foot rasterizes glyphs purely on the CPU — no
+  OpenGL/EGL — so it's the one terminal that works on a GPU-less guest. GL-based
+  terminals may not even start under software rendering.
+- **`WLR_RENDERER = "pixman"` (mandatory).** Forces wlroots' pure-CPU renderer.
+  `WLR_RENDERER_ALLOW_SOFTWARE=1` (GLES2-on-llvmpipe) is *not* enough here — EGL
+  can't initialize on this guest; pixman bypasses GL entirely. Paired with
+  `WLR_NO_HARDWARE_CURSORS=1`, which fixes the cursor rendering at the wrong offset.
+- **The Nerd Font is load-bearing.** foot rasterizes glyphs via fontconfig (the
+  kernel tty can't), so a correct monospace font is the whole point of a local
+  terminal. A small `DejaVu Sans` fallback covers the few Unicode glyphs
+  JetBrainsMono Nerd Font lacks (e.g. `⇡` in the git prompt), and the starship
+  read-only symbol is set to a Nerd Font lock — so no color-emoji font is needed.
+- **`WorkingDirectory = $HOME`.** cage's unit otherwise defaults to `/`, so the
+  console would open in the root filesystem. Set on the `cage-tty1` service.
+
+### Fallback
+
+`Ctrl+Alt+F2` reaches a bare kernel tty at all times (cage keeps VT-switching via
+its `-s` flag); `Ctrl+Alt+F1` returns to foot. The tty is the true escape hatch, so
+cage never has to be bulletproof. SSH is independent of the console entirely — a
+broken compositor cannot lock you out: `ssh` in and roll back a generation.
+
+### Development stays on the Mac
+
+The GUI-in-VM is *only* the terminal. Editing, the browser, and the dev loop stay
+on the Mac over SSH. To reach a dev server running inside the VM:
+
+```sh
+ssh -L 5173:localhost:5173 nixos     # forward the VM port to the Mac
+```
+
+or bind the server to `0.0.0.0`, open the firewall port, and hit the VM's IP.
+
+### Known limitations
+
+- **Clipboard is not wired.** `spice-vdagentd` runs, but the session-side
+  `spice-vdagent` client that would sync the clipboard is never started (a bare
+  cage kiosk has nothing to autostart it). This is intentional for an insurance
+  console — use SSH for anything that needs the Mac clipboard. To enable it, have
+  cage launch a small wrapper that starts `spice-vdagent` before `exec`-ing foot.
+- **Resolution is capped by UTM, not the guest.** `boot.kernelParams` pins the
+  virtio-gpu output to `video=Virtual-1:1920x1080` (its default preferred mode is a
+  low `1280x800`), but effective sharpness is ultimately bounded by UTM's own
+  display scaling — on some setups it looks unchanged. Pick another mode from
+  `/sys/class/drm/card0-Virtual-1/modes` and/or raise foot's font `size=`; cage has
+  no output-scale knob.

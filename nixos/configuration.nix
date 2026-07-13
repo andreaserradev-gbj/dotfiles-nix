@@ -22,6 +22,11 @@
   # aarch64 UTM VM: do NOT write boot entries into firmware NVRAM
   boot.loader.efi.canTouchEfiVariables = false;
 
+  # Force the virtio-gpu display to a usable resolution. Its preferred mode is
+  # 1280x800 and there's no spice client to resize (clipboard/resize skipped by
+  # scope), so pin a mode. Connector 'Virtual-1' + mode list confirmed via /sys/class/drm.
+  boot.kernelParams = [ "video=Virtual-1:1920x1080" ];
+
   # Network identity
   networking.hostName = "nixos"; # Define your hostname.
 
@@ -61,6 +66,30 @@
       KbdInteractiveAuthentication = false;
     };
   };
+
+  # Local graphical console
+  services.spice-vdagentd.enable = true;
+
+  # cage: single-app kiosk Wayland compositor. It IS the login — its systemd
+  # unit (cage-tty1) conflicts with getty@tty1 and autologins via a PAM
+  # null-password session, launching one full-screen foot. No display manager.
+  services.cage = {
+    enable = true;
+    user = user.username;
+    program = "${pkgs.foot}/bin/foot";
+    # -s keeps VT-switching on, so Ctrl+Alt+F2 still reaches a bare tty — the
+    # real fallback if the compositor ever misbehaves.
+    extraArguments = [ "-s" ];
+    environment = {
+      # Pure-CPU rendering: no usable GPU here, so bypass GL/EGL entirely.
+      # (WLR_RENDERER_ALLOW_SOFTWARE=1 is NOT enough — EGL can't init on this guest.)
+      WLR_RENDERER = "pixman";
+      # Fix the VM cursor rendering at the wrong position.
+      WLR_NO_HARDWARE_CURSORS = "1";
+    };
+  };
+
+  systemd.services."cage-tty1".serviceConfig.WorkingDirectory = user.homeDirectory;
 
   # Modern `nix` CLI + flakes
   nix.settings.experimental-features = [

@@ -12,6 +12,7 @@
     ./modules/zellij.nix
     ./modules/neovim.nix
     ./modules/fonts.nix
+    ./modules/foot.nix
   ];
 
   home.stateVersion = "26.05";

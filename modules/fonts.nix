@@ -1,6 +1,9 @@
 { pkgs, ... }:
 {
-  home.packages = [ pkgs.nerd-fonts.jetbrains-mono ];
+  home.packages = [
+    pkgs.nerd-fonts.jetbrains-mono
+    pkgs.dejavu_fonts
+  ];
 
   fonts.fontconfig = {
     enable = true;
