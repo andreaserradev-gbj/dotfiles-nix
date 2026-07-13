@@ -19,7 +19,7 @@ umount -R /mnt 2>/dev/null || true # clean up any leftover mounts
 tmp="$(mktemp -d)"
 curl -fsSL "$DISKO_CFG" -o "$tmp/disk-config.nix"
 nix run github:nix-community/disko/latest -- \
-  --mode destroy,format,mount "$tmp/disk-config.nix"
+  --mode destroy,format,mount --yes-wipe-all-disks "$tmp/disk-config.nix"
 
 echo ">>> [2/2] nixos-install: build system + \$HOME from the flake — $FLAKE"
 nixos-install --flake "$FLAKE" --no-root-passwd
