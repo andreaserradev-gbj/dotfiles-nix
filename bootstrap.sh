@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # bootstrap.sh — one-command fresh install onto a blank UTM aarch64 VM.
 # Boot the NixOS 26.05 aarch64 minimal ISO, then:
-#   curl -sL https://raw.githubusercontent.com/andreaserradev-gbj/dotfiles-nix/main/bootstrap.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/andreaserradev-gbj/dotfiles-nix/main/bootstrap.sh | sudo bash
 set -euo pipefail
 export NIX_CONFIG="experimental-features = nix-command flakes"
 

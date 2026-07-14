@@ -24,6 +24,7 @@ Everything lives in a single flake with two layers folded together:
 
 ```
 flake.nix            nixosConfigurations.nixos (aarch64), HM as a module
+user.nix             personal identity — the one file to edit when forking
 home.nix             Home Manager entrypoint — imports modules/
 modules/*.nix        one module per tool (zsh, git, neovim, …) — 100% Nix
 config/<tool>/…      verbatim assets referenced by the modules (nvim tree,
@@ -33,22 +34,116 @@ nixos/               the system layer
 
 ## Bootstrapping a fresh VM
 
-The goal: a brand-new UTM VM ends up as an exact copy of this environment with
-one rebuild. There are two ways in — a full manual install, or cloning a saved
-UTM template that already has the base install done.
+The goal: a brand-new UTM VM ends up as an exact copy of this environment. The
+supported path is a **one-command scripted install** (`bootstrap.sh`); the manual
+steps are kept further down as a fallback/reference.
 
-### Prerequisites
+> **Forking?** Everything personal lives in one file, [`user.nix`](user.nix):
+> `username`, `fullName`, `email`, `timeZone`, and `sshKey`. Edit it in your fork
+> and commit *before* installing — `bootstrap.sh` pulls the config from git, so the
+> VM is built with whatever identity your pushed `user.nix` carries. Point the
+> bootstrap/install URLs below at your fork.
 
-- UTM on Apple Silicon (Virtualize, **not** Emulate — native aarch64).
-- The **NixOS 26.05 aarch64 minimal** ISO. Verify its SHA256 before booting it.
-- VM settings: ARM64, ~8 GB RAM / 4 cores / ~64 GB disk, **UEFI boot enabled**,
-  Shared Network.
+### 1. Create the UTM VM
 
-### 1. Base install (partition with stable labels)
+- **UTM on Apple Silicon**, **Virtualize** (native aarch64) — *not* Emulate.
+- **NixOS 26.05 aarch64 minimal** ISO — verify its SHA256, then attach it as the
+  boot image (Operating System → Other → Boot ISO Image).
+- Memory / CPU: ~8 GB RAM, 4 cores.
+- Storage: ~64 GB disk.
+- **UEFI boot enabled** (the aarch64 systemd-boot install depends on it).
+- **Shared Network** — gives the guest a host-visible NAT IP (`192.168.64.x`), so
+  you SSH to it by IP with no port-forward.
 
-Boot the ISO to the root shell and confirm networking (`ping nixos.org`).
-Partition the disk (`/dev/vda` under UTM's virtio) as GPT: a ~512 MB FAT32 ESP
-and an ext4 root. **Label them — the repo mounts by label, not UUID:**
+Boot the ISO to the installer's root shell and confirm networking (`ping nixos.org`).
+
+### 2. One-command install
+
+From the booted ISO's root shell:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/andreaserradev-gbj/dotfiles-nix/main/bootstrap.sh | sudo bash
+```
+
+`bootstrap.sh` (at the repo root) runs the whole install non-interactively:
+
+1. **disko** partitions, formats, and mounts `/dev/vda` from `nixos/disk-config.nix`
+   — GPT with a labelled `BOOT` ESP and a labelled `nixos` ext4 root. **This wipes
+   the disk** (`--yes-wipe-all-disks`).
+2. `nixos-install --flake …#nixos --no-root-passwd` builds *both* layers — system
+   and `$HOME` — straight from the flake.
+
+There's no `nixos-generate-config` and no throwaway config: the committed
+`hardware-configuration.nix` mounts by those two labels and `configuration.nix`
+already carries the EFI fix and your SSH key, so a fresh install collapses to disko
++ one `nixos-install`.
+
+> **Why `-fsSL`, not `-sL`?** `-f` makes curl fail loudly on a bad URL instead of
+> silently piping a 404 HTML page into `sudo bash` (which then surfaces as the
+> baffling `404:: command not found`). The install is also non-interactive by
+> necessity — a piped installer has no TTY, so the script passes
+> `--yes-wipe-all-disks` (disko's wipe confirm) and `--no-root-passwd`
+> (nixos-install's root-password prompt); either prompt would otherwise abort it.
+
+When it finishes:
+
+1. In UTM, detach the ISO (Drive → eject).
+2. `reboot`.
+
+The VM boots straight into the cage+foot console (autologin). Log in from the Mac
+over SSH with your key — next.
+
+### 3. SSH from the Mac
+
+Access is **key-only**: `configuration.nix` sets
+`services.openssh.settings.PasswordAuthentication = false`, so the key in `user.nix`
+is the *only* way in over the network — there is no password fallback.
+
+1. **Generate a key** on the Mac (skip if you already have one):
+
+   ```sh
+   ssh-keygen -t ed25519 -C "you@example.com"
+   ```
+
+2. **Put its public half in `user.nix`** as `sshKey = "ssh-ed25519 …";` and commit.
+   `configuration.nix` installs it into the VM's `authorizedKeys` at build time, so
+   it must be in the repo *before* the install in step 2.
+
+3. **Find the VM's IP** from the local console — it's a DHCP lease, so it can change
+   across reboots:
+
+   ```sh
+   ip -4 addr show enp0s1        # the 192.168.64.x on the virtio NIC
+   ```
+
+4. **Add a `Host` block** to the Mac's `~/.ssh/config`:
+
+   ```
+   Host nixos
+     HostName 192.168.64.12          # the IP from step 3
+     User andrea
+     IdentityFile ~/.ssh/id_ed25519
+     IdentitiesOnly yes
+     # Throwaway local VM: its host key changes across live-ISO reboots and after
+     # install, so skip the known_hosts nag. Safe ONLY for a VM you control on a
+     # private vmnet subnet — never copy these two lines to a real host.
+     StrictHostKeyChecking no
+     UserKnownHostsFile /dev/null
+   ```
+
+   Then just `ssh nixos`.
+
+> **Key-only lockout caveat.** With password auth off, a missing or wrong key means
+> no SSH access at all — recover from the local cage+foot console (autologin), fix
+> `user.nix`, and rebuild. Get the key right in `user.nix` before installing.
+
+### Manual install (fallback / reference)
+
+If you'd rather drive the install by hand — or `bootstrap.sh` won't run — do what
+the script does, by hand. Boot the ISO to the root shell, confirm networking, then:
+
+**Partition `/dev/vda` (UTM's virtio disk) as GPT with stable labels.** The repo
+mounts by label, not UUID:
 
 ```sh
 mkfs.fat -F32 -n BOOT /dev/vda1     # ESP  -> label BOOT
@@ -57,82 +152,38 @@ mount /dev/disk/by-label/nixos /mnt
 mkdir -p /mnt/boot && mount /dev/disk/by-label/BOOT /mnt/boot
 ```
 
-> **Why labels?** UUIDs are regenerated on every fresh install. This repo's
-> `nixos/hardware-configuration.nix` mounts `/` and `/boot` by the labels
-> `nixos` and `BOOT`, so it is install-independent — set the labels here and
-> the committed hardware config just works.
+> **Why labels?** UUIDs are regenerated on every fresh install. `nixos/hardware-configuration.nix`
+> mounts `/` and `/boot` by the labels `nixos` and `BOOT`, so it is
+> install-independent — set the labels here and the committed hardware config just
+> works. (`nixos/disk-config.nix` sets these same labels; disko and this manual path
+> produce an identical layout.)
 
-Generate a minimal config and make it bootable enough to install:
-
-```sh
-nixos-generate-config --root /mnt
-```
-
-Edit `/mnt/etc/nixos/configuration.nix` just enough to boot and get back in:
-
-- `boot.loader.efi.canTouchEfiVariables = false;` — **the aarch64/UTM EFI fix.**
-  UTM's firmware can't take NVRAM boot-entry writes; systemd-boot uses its
-  fallback path instead. Without this the install boots to a dead firmware menu.
-- enable flakes, and add your user with an SSH key (or keep the console password)
-  so you can reach the machine to clone.
-
-Then install and reboot:
+**Install straight from the flake** — no `nixos-generate-config`, since the
+committed config already carries the by-label mounts, the EFI fix
+(`boot.loader.efi.canTouchEfiVariables = false`, the aarch64/UTM fix — UTM's
+firmware can't take NVRAM boot-entry writes, so systemd-boot uses its fallback
+path), and your SSH key:
 
 ```sh
-nixos-install        # set the root password when prompted
+export NIX_CONFIG="experimental-features = nix-command flakes"
+nixos-install --flake github:andreaserradev-gbj/dotfiles-nix#nixos
 reboot               # detach the ISO first
 ```
 
-This base config is throwaway — the next step replaces it with the repo.
+> If a fresh VM's disk layout ever differs from the committed template, re-run
+> `nixos-generate-config`, re-apply the two by-label mount edits, and commit.
 
-### 2. Clone the repo
-
-Git isn't in the minimal system yet, so pull it in on demand:
-
-```sh
-nix-shell -p git
-git clone https://github.com/<you>/dotfiles-nix ~/dotfiles-nix
-cd ~/dotfiles-nix
-```
-
-The clone is over public HTTPS — no GitHub auth needed to *read* the repo.
-
-### 3. One rebuild for the whole environment
-
-```sh
-sudo nixos-rebuild switch --flake .#nixos \
-  --extra-experimental-features 'nix-command flakes'
-```
-
-The `--extra-experimental-features` flag is only needed for this very first
-switch, before the flake's own `nix.settings` take effect. After it lands, the
-repo enables flakes permanently and the daily command is just:
-
-```sh
-sudo nixos-rebuild switch --flake .#nixos
-```
-
-This builds *both* layers — system and `$HOME` — from git alone. No separate
-`home-manager switch`.
-
-> If the fresh VM's disk layout differs from the committed template, re-run
-> `nixos-generate-config`, re-apply the two by-label mount edits, and commit
-> the result.
-
-### 4. Open a fresh login shell
-
-The switch relocates user binaries (Home Manager `useUserPackages` moves them
-to `/etc/profiles/per-user/andrea/bin`), so the shell you ran the rebuild in
-now has stale `PATH` entries — you'll see `no such file … /.nix-profile/bin/…`.
-Log out and back in (or `ssh` in fresh). That's expected, not a failure.
-
-At this point the VM is an exact copy of the environment.
+**Stale running shell after a rebuild.** The daily `nixos-rebuild switch` relocates
+user binaries (Home Manager `useUserPackages` moves them to
+`/etc/profiles/per-user/andrea/bin`), so the shell you ran it in keeps stale `PATH`
+entries — you'll see `no such file … /.nix-profile/bin/…`. Open a fresh login shell
+(or `ssh` in again). Expected, not a failure. (A fresh install reboots anyway, so
+this only bites on daily switches.)
 
 ### Shortcut: save a UTM template
 
-Instead of repeating the manual install, snapshot a base VM once it's installed
-with the labels set and git available. Cloning that template drops you straight
-at step 2.
+Instead of repeating the install, snapshot a base VM once it's installed. Cloning
+that template drops you straight at a working system you can `nixos-rebuild` on.
 
 ## Daily workflow
 

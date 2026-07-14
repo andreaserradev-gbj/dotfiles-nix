@@ -19,6 +19,11 @@
   # Use the systemd-boot EFI boot loader.
   boot.loader.systemd-boot.enable = true;
 
+  # Cap the boot menu at the 10 most recent generations. Without this it grows
+  # unbounded; cleared generations also linger in /boot/loader/entries until a
+  # `nixos-rebuild boot`/`switch` reconciles the loader entries.
+  boot.loader.systemd-boot.configurationLimit = 10;
+
   # aarch64 UTM VM: do NOT write boot entries into firmware NVRAM
   boot.loader.efi.canTouchEfiVariables = false;
 
@@ -33,8 +38,8 @@
   # Configure network connections interactively with nmcli or nmtui.
   networking.networkmanager.enable = true;
 
-  # Set your time zone.
-  time.timeZone = "Europe/Rome";
+  # Set your time zone (lifted into user.nix — the one file a forker edits).
+  time.timeZone = user.timeZone;
 
   programs.zsh.enable = true;
 
