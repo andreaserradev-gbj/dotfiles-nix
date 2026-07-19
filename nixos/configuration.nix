@@ -27,9 +27,11 @@
   # aarch64 UTM VM: do NOT write boot entries into firmware NVRAM
   boot.loader.efi.canTouchEfiVariables = false;
 
-  # Force the virtio-gpu display to a usable resolution. Its preferred mode is
-  # 1280x800 and there's no spice client to resize (clipboard/resize skipped by
-  # scope), so pin a mode. Connector 'Virtual-1' + mode list confirmed via /sys/class/drm.
+  # Size the pre-cage *text* console (bootloader/tty) only — cage ignores this
+  # and always uses the mode the host advertises as preferred. That is set on the
+  # UTM side via '-global virtio-gpu-pci.xres/yres' QEMU args (see README, UTM
+  # setup); keep this matched to those. Do NOT try drm.edid_firmware here: a
+  # forced EDID empties the virtio-gpu mode list and kills the display.
   boot.kernelParams = [ "video=Virtual-1:1920x1080" ];
 
   # Network identity

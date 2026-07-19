@@ -54,6 +54,12 @@ steps are kept further down as a fallback/reference.
 - **UEFI boot enabled** (the aarch64 systemd-boot install depends on it).
 - **Shared Network** — gives the guest a host-visible NAT IP (`192.168.64.x`), so
   you SSH to it by IP with no port-forward.
+- **Console resolution** — QEMU's virtio-gpu advertises `1280x800` as its
+  preferred mode and the cage console always follows the host's preferred mode,
+  so without this the local console renders at 1280 wide. Add two entries under
+  VM Settings → QEMU → Arguments:
+  `-global virtio-gpu-pci.xres=1920` and `-global virtio-gpu-pci.yres=1080`.
+  Takes effect on the next full VM start (a guest reboot is not enough).
 
 Boot the ISO to the installer's root shell and confirm networking (`ping nixos.org`).
 
@@ -294,9 +300,14 @@ or bind the server to `0.0.0.0`, open the firewall port, and hit the VM's IP.
   cage kiosk has nothing to autostart it). This is intentional for an insurance
   console — use SSH for anything that needs the Mac clipboard. To enable it, have
   cage launch a small wrapper that starts `spice-vdagent` before `exec`-ing foot.
-- **Resolution is capped by UTM, not the guest.** `boot.kernelParams` pins the
-  virtio-gpu output to `video=Virtual-1:1920x1080` (its default preferred mode is a
-  low `1280x800`), but effective sharpness is ultimately bounded by UTM's own
-  display scaling — on some setups it looks unchanged. Pick another mode from
-  `/sys/class/drm/card0-Virtual-1/modes` and/or raise foot's font `size=`; cage has
-  no output-scale knob.
+- **Console resolution is set host-side, not in this repo.** cage (wlroots)
+  always uses the mode the host advertises as *preferred* — `1280x800` unless
+  told otherwise. The fix is the pair of `-global virtio-gpu-pci.xres/yres`
+  QEMU arguments from the UTM setup step; a one-time UTM setting that cannot be
+  made declarative here. Guest-side levers do NOT work, don't re-attempt them:
+  `video=Virtual-1:…` in `boot.kernelParams` only sizes the pre-cage *text*
+  console; cage ignores `wlr-randr` mode/scale requests and has no output-scale
+  knob; forcing an EDID via `drm.edid_firmware` empties the virtio-gpu mode
+  list and kills the display outright ("Display output is not active" — SSH
+  still works, revert and reboot to recover). Text size lives in
+  `modules/foot.nix` (`font = …:size=`).
