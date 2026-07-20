@@ -51,6 +51,7 @@
       nrb = "sudo nixos-rebuild boot --flake ~/dotfiles-nix#nixos"; # stage for next boot, don't apply now
       nfu = "nix flake update --flake ~/dotfiles-nix"; # bump inputs (nixpkgs, home-manager) → rewrites flake.lock
       nfc = "nix flake check ~/dotfiles-nix"; # evaluate/validate the flake without building a system
+      nfi = "nix flake init -t ~/dotfiles-nix#devshell"; # initialize a new project
       ngl = "nixos-rebuild list-generations"; # list system generations
       ngc = "sudo nix-collect-garbage -d"; # delete OLD generations + GC the store (reclaim disk)
       nixcfg = "cd ~/dotfiles-nix"; # jump to the flake repo
