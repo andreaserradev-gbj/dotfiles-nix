@@ -32,5 +32,10 @@
           }
         ];
       };
+
+      templates.devshell = {
+        path = ./templates/devshell;
+        description = "Per-project dev shell: flake + direnv";
+      };
     };
 }
