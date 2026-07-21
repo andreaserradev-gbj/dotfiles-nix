@@ -10,7 +10,7 @@ sudo nixos-rebuild switch --flake .#nixos
 ## The model
 
 macOS is the host and stays imperative (always-latest apps, browser, mail).
-The dev environment is a NixOS VM in UTM, and *that* is what this repo makes
+The dev environment is a NixOS VM in UTM, and _that_ is what this repo makes
 reproducible. NixOS is not the daily driver — it's the part I want to be able
 to rebuild from scratch and get back byte-for-byte.
 
@@ -40,13 +40,13 @@ steps are kept further down as a fallback/reference.
 
 > **Forking?** Everything personal lives in one file, [`user.nix`](user.nix):
 > `username`, `fullName`, `email`, `timeZone`, and `sshKey`. Edit it in your fork
-> and commit *before* installing — `bootstrap.sh` pulls the config from git, so the
+> and commit _before_ installing — `bootstrap.sh` pulls the config from git, so the
 > VM is built with whatever identity your pushed `user.nix` carries. Point the
 > bootstrap/install URLs below at your fork.
 
 ### 1. Create the UTM VM
 
-- **UTM on Apple Silicon**, **Virtualize** (native aarch64) — *not* Emulate.
+- **UTM on Apple Silicon**, **Virtualize** (native aarch64) — _not_ Emulate.
 - **NixOS 26.05 aarch64 minimal** ISO — verify its SHA256, then attach it as the
   boot image (Operating System → Other → Boot ISO Image).
 - Memory / CPU: ~8 GB RAM, 4 cores.
@@ -58,7 +58,7 @@ steps are kept further down as a fallback/reference.
   preferred mode and the cage console always follows the host's preferred mode,
   so without this the local console renders at 1280 wide. Add two entries under
   VM Settings → QEMU → Arguments:
-  `-global virtio-gpu-pci.xres=1920` and `-global virtio-gpu-pci.yres=1080`.
+  `-global virtio-gpu-pci.xres=1680` and `-global virtio-gpu-pci.yres=1050`.
   Takes effect on the next full VM start (a guest reboot is not enough).
 
 Boot the ISO to the installer's root shell and confirm networking (`ping nixos.org`).
@@ -76,13 +76,14 @@ curl -fsSL https://raw.githubusercontent.com/andreaserradev-gbj/dotfiles-nix/mai
 1. **disko** partitions, formats, and mounts `/dev/vda` from `nixos/disk-config.nix`
    — GPT with a labelled `BOOT` ESP and a labelled `nixos` ext4 root. **This wipes
    the disk** (`--yes-wipe-all-disks`).
-2. `nixos-install --flake …#nixos --no-root-passwd` builds *both* layers — system
+2. `nixos-install --flake …#nixos --no-root-passwd` builds _both_ layers — system
    and `$HOME` — straight from the flake.
 
 There's no `nixos-generate-config` and no throwaway config: the committed
 `hardware-configuration.nix` mounts by those two labels and `configuration.nix`
 already carries the EFI fix and your SSH key, so a fresh install collapses to disko
-+ one `nixos-install`.
+
+- one `nixos-install`.
 
 > **Why `-fsSL`, not `-sL`?** `-f` makes curl fail loudly on a bad URL instead of
 > silently piping a 404 HTML page into `sudo bash` (which then surfaces as the
@@ -103,41 +104,41 @@ over SSH with your key — next.
 
 Access is **key-only**: `configuration.nix` sets
 `services.openssh.settings.PasswordAuthentication = false`, so the key in `user.nix`
-is the *only* way in over the network — there is no password fallback.
+is the _only_ way in over the network — there is no password fallback.
 
 1. **Generate a key** on the Mac (skip if you already have one):
 
-   ```sh
-   ssh-keygen -t ed25519 -C "you@example.com"
-   ```
+    ```sh
+    ssh-keygen -t ed25519 -C "you@example.com"
+    ```
 
 2. **Put its public half in `user.nix`** as `sshKey = "ssh-ed25519 …";` and commit.
    `configuration.nix` installs it into the VM's `authorizedKeys` at build time, so
-   it must be in the repo *before* the install in step 2.
+   it must be in the repo _before_ the install in step 2.
 
 3. **Find the VM's IP** from the local console — it's a DHCP lease, so it can change
    across reboots:
 
-   ```sh
-   ip -4 addr show enp0s1        # the 192.168.64.x on the virtio NIC
-   ```
+    ```sh
+    ip -4 addr show enp0s1        # the 192.168.64.x on the virtio NIC
+    ```
 
 4. **Add a `Host` block** to the Mac's `~/.ssh/config`:
 
-   ```
-   Host nixos
-     HostName 192.168.64.12          # the IP from step 3
-     User andrea
-     IdentityFile ~/.ssh/id_ed25519
-     IdentitiesOnly yes
-     # Throwaway local VM: its host key changes across live-ISO reboots and after
-     # install, so skip the known_hosts nag. Safe ONLY for a VM you control on a
-     # private vmnet subnet — never copy these two lines to a real host.
-     StrictHostKeyChecking no
-     UserKnownHostsFile /dev/null
-   ```
+    ```
+    Host nixos
+      HostName 192.168.64.12          # the IP from step 3
+      User andrea
+      IdentityFile ~/.ssh/id_ed25519
+      IdentitiesOnly yes
+      # Throwaway local VM: its host key changes across live-ISO reboots and after
+      # install, so skip the known_hosts nag. Safe ONLY for a VM you control on a
+      # private vmnet subnet — never copy these two lines to a real host.
+      StrictHostKeyChecking no
+      UserKnownHostsFile /dev/null
+    ```
 
-   Then just `ssh nixos`.
+    Then just `ssh nixos`.
 
 > **Key-only lockout caveat.** With password auth off, a missing or wrong key means
 > no SSH access at all — recover from the local cage+foot console (autologin), fix
@@ -195,12 +196,12 @@ that template drops you straight at a working system you can `nixos-rebuild` on.
 
 Rebuild aliases (defined in `modules/shell.nix`):
 
-| alias | command |
-|-------|---------|
+| alias                 | command                                                      |
+| --------------------- | ------------------------------------------------------------ |
 | `nrs` / `nrt` / `nrb` | `nixos-rebuild switch` / `test` / `boot` (`--flake .#nixos`) |
-| `nfu` / `nfc` | `nix flake update` / `nix flake check` |
-| `ngl` / `ngc` | list / collect-garbage generations |
-| `nixcfg` | cd to this repo |
+| `nfu` / `nfc`         | `nix flake update` / `nix flake check`                       |
+| `ngl` / `ngc`         | list / collect-garbage generations                           |
+| `nixcfg`              | cd to this repo                                              |
 
 **Always `git add` before a `--flake` command.** Flakes only see git-tracked
 files, so an untracked new module or asset is invisible to the build — the
@@ -208,7 +209,7 @@ error is a confusing "file not found," not "you forgot to stage."
 
 ## Per-project dev environments
 
-Per-project toolchains live *with each project* as a Nix dev shell that direnv
+Per-project toolchains live _with each project_ as a Nix dev shell that direnv
 loads automatically on `cd` — no global installs, no `nvm use`, every repo pins
 its own versions. The starting point is a flake template in this repo
 (`templates/devshell/`, exposed as the `devshell` flake output), so a new
@@ -247,13 +248,13 @@ Gotchas:
 - **Flakes ignore untracked files.** A new `flake.nix` is invisible to
   evaluation until it's `git add`ed — the error reads "path does not exist,"
   not "you forgot to stage." Modern Nix auto-marks untracked files as
-  intent-to-add as a safety net, but that stages an *empty* placeholder, so a
+  intent-to-add as a safety net, but that stages an _empty_ placeholder, so a
   real `git add` is still required to commit content.
 - **`direnv allow` is one-time per project.** direnv never runs an `.envrc` it
   hasn't been told to trust, and only re-prompts when the file changes — a
   security boundary, since an `.envrc` runs arbitrary shell.
 - **Non-interactive SSH gets no dev shell.** direnv's auto-load hooks the
-  *interactive* prompt only, so `ssh nixos 'cd proj && node …'` won't find the
+  _interactive_ prompt only, so `ssh nixos 'cd proj && node …'` won't find the
   tools. Enter the shell explicitly: `nix develop --command node …`.
 - **Gitignore `.direnv/`.** nix-direnv caches the evaluated environment there;
   it's machine-local and must never be committed.
@@ -272,14 +273,14 @@ Gotchas:
   flake switch you can delete the stale files to enforce a single source of
   truth (see below).
 - **Stale running shell after a switch.** Any rebuild that relocates binaries
-  leaves the *current* shell pointing at old paths — open a new login shell.
+  leaves the _current_ shell pointing at old paths — open a new login shell.
 - **Neovim bytecode cache goes stale across rebuilds.** `vim.loader` keys its
   luac cache on path + mtime/size, and Nix pins mtime to 1970 with identical
   sizes on same-length edits, so it can serve stale bytecode. A Home Manager
   activation hook clears `~/.cache/nvim/luac` on every switch; the manual
   escape hatch is the same `rm -rf`.
 - **Never force-stop the VM from the macOS host.** There's no reliable ACPI
-  shutdown for NixOS-in-UTM-aarch64 — `poweroff` from *inside* the guest, or you
+  shutdown for NixOS-in-UTM-aarch64 — `poweroff` from _inside_ the guest, or you
   risk filesystem corruption.
 
 ## Cleaning up `/etc/nixos`
@@ -300,7 +301,7 @@ load-bearing after the flake takes over.
 
 The UTM window boots straight into a full-screen [foot](https://codeberg.org/dnkl/foot)
 terminal — autologin, no display manager — via [cage](https://github.com/cage-kiosk/cage),
-a single-app kiosk Wayland compositor. This is a *local* console for when SSH or
+a single-app kiosk Wayland compositor. This is a _local_ console for when SSH or
 networking is down (or during a bad rebuild), **not** a second workspace: the real
 dev loop stays SSH-from-the-Mac (see below). Everything is software-rendered — the
 VM has no usable GPU.
@@ -314,14 +315,14 @@ Two layers, one rebuild:
 
 ### Why these pieces
 
-- **cage, not a desktop.** cage shows exactly one full-screen program and *is* the
+- **cage, not a desktop.** cage shows exactly one full-screen program and _is_ the
   login: its systemd unit (`cage-tty1`) conflicts with `getty@tty1` and autologins
   through a PAM null-password session. No greetd, no display manager.
 - **foot, not kitty/alacritty.** foot rasterizes glyphs purely on the CPU — no
   OpenGL/EGL — so it's the one terminal that works on a GPU-less guest. GL-based
   terminals may not even start under software rendering.
 - **`WLR_RENDERER = "pixman"` (mandatory).** Forces wlroots' pure-CPU renderer.
-  `WLR_RENDERER_ALLOW_SOFTWARE=1` (GLES2-on-llvmpipe) is *not* enough here — EGL
+  `WLR_RENDERER_ALLOW_SOFTWARE=1` (GLES2-on-llvmpipe) is _not_ enough here — EGL
   can't initialize on this guest; pixman bypasses GL entirely. Paired with
   `WLR_NO_HARDWARE_CURSORS=1`, which fixes the cursor rendering at the wrong offset.
 - **The Nerd Font is load-bearing.** foot rasterizes glyphs via fontconfig (the
@@ -341,7 +342,7 @@ broken compositor cannot lock you out: `ssh` in and roll back a generation.
 
 ### Development stays on the Mac
 
-The GUI-in-VM is *only* the terminal. Editing, the browser, and the dev loop stay
+The GUI-in-VM is _only_ the terminal. Editing, the browser, and the dev loop stay
 on the Mac over SSH. To reach a dev server running inside the VM:
 
 ```sh
@@ -358,11 +359,11 @@ or bind the server to `0.0.0.0`, open the firewall port, and hit the VM's IP.
   console — use SSH for anything that needs the Mac clipboard. To enable it, have
   cage launch a small wrapper that starts `spice-vdagent` before `exec`-ing foot.
 - **Console resolution is set host-side, not in this repo.** cage (wlroots)
-  always uses the mode the host advertises as *preferred* — `1280x800` unless
+  always uses the mode the host advertises as _preferred_ — `1280x800` unless
   told otherwise. The fix is the pair of `-global virtio-gpu-pci.xres/yres`
   QEMU arguments from the UTM setup step; a one-time UTM setting that cannot be
   made declarative here. Guest-side levers do NOT work, don't re-attempt them:
-  `video=Virtual-1:…` in `boot.kernelParams` only sizes the pre-cage *text*
+  `video=Virtual-1:…` in `boot.kernelParams` only sizes the pre-cage _text_
   console; cage ignores `wlr-randr` mode/scale requests and has no output-scale
   knob; forcing an EDID via `drm.edid_firmware` empties the virtio-gpu mode
   list and kills the display outright ("Display output is not active" — SSH
