@@ -54,8 +54,8 @@
       nfi = "nix flake init -t ~/dotfiles-nix#devshell"; # initialize a new project
       ngl = "nixos-rebuild list-generations"; # list system generations
       ngc = "sudo nix-collect-garbage -d"; # delete OLD generations + GC the store (reclaim disk)
-      ngd = "nvd diff $(ls -v -d /nix/var/nix/profiles/system-*-link | tail -n2)"; # what the last nrs changed
-      nrp = "nvd diff /run/current-system $(nix build --no-link --print-out-paths ~/dotfiles-nix#nixosConfigurations.nixos.config.system.build.toplevel)"; # preview: what the next nrs will change (run after nfu)
+      # ngd (generation diff) is an fzf-picker function in initContent below — an alias can't take an arg
+      nrp ="nvd diff /run/current-system $(nix build --no-link --print-out-paths ~/dotfiles-nix#nixosConfigurations.nixos.config.system.build.toplevel)"; # preview: what the next nrs will change (run after nfu)
       nixcfg = "cd ~/dotfiles-nix"; # jump to the flake repo
     };
 
@@ -70,6 +70,26 @@
       # fzf navigation helpers
       fcd() { cd "$(find . -type d -not -path '*/.*' | fzf)" && l; }
       fv()  { nvim "$(find . -type f -not -path '*/.*' | fzf)"; }
+
+      # ngd — nvd generation diff via fzf. Pick ONE generation (diff vs the
+      # running system) or TAB two+ (diff oldest vs newest of the picks).
+      # Replaces the old last-two-only alias so you can reach any generation.
+      ngd() {
+        local rows sel gens
+        rows=$(nixos-rebuild list-generations 2>/dev/null | awk '
+          NR>1 { printf "%-5s %s %s   kernel %s%s\n", $1, $2, $3, $5, ($8=="True" ? "   <- current" : "") }')
+        sel=$(print -r -- "$rows" | FZF_DEFAULT_OPTS='--height=60% --layout=reverse --border --info=inline' \
+              fzf --multi --no-sort \
+                  --prompt='diff generation> ' \
+                  --header='TAB=mark more  .  1 pick = vs current  .  2+ = oldest vs newest') || return
+        [ -n "$sel" ] || return
+        gens=(''${(f)"$(print -r -- "$sel" | awk '{print $1}' | sort -n)"})
+        if (( ''${#gens} == 1 )); then
+          nvd diff /nix/var/nix/profiles/system-''${gens[1]}-link /run/current-system
+        else
+          nvd diff /nix/var/nix/profiles/system-''${gens[1]}-link /nix/var/nix/profiles/system-''${gens[-1]}-link
+        fi
+      }
 
       # fzf UI styling (from 60-fzf.zsh). Dropped: the missing fzf-preview.sh
       # preview, and the ctrl-r→git-ls-files bind that hijacked history search.
