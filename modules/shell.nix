@@ -52,9 +52,8 @@
       nfu = "nix flake update --flake ~/dotfiles-nix"; # bump inputs (nixpkgs, home-manager) → rewrites flake.lock
       nfc = "nix flake check ~/dotfiles-nix"; # evaluate/validate the flake without building a system
       nfi = "nix flake init -t ~/dotfiles-nix#devshell"; # initialize a new project
-      ngl = "nixos-rebuild list-generations"; # list system generations
-      ngc = "sudo nix-collect-garbage -d"; # delete OLD generations + GC the store (reclaim disk)
-      # ngd (generation diff) is an fzf-picker function in initContent below — an alias can't take an arg
+      ngca = "sudo nix-collect-garbage -d && sudo /run/current-system/bin/switch-to-configuration boot"; # bulk: delete ALL old generations, GC, prune boot menu
+      # ngl (list), ngd (diff) and ngc (interactive GC) are functions in initContent below, sharing the _gens formatter
       nrp ="nvd diff /run/current-system $(nix build --no-link --print-out-paths ~/dotfiles-nix#nixosConfigurations.nixos.config.system.build.toplevel)"; # preview: what the next nrs will change (run after nfu)
       nixcfg = "cd ~/dotfiles-nix"; # jump to the flake repo
     };
@@ -71,13 +70,20 @@
       fcd() { cd "$(find . -type d -not -path '*/.*' | fzf)" && l; }
       fv()  { nvim "$(find . -type f -not -path '*/.*' | fzf)"; }
 
+      # _gens — aligned generation table (gen · date · kernel · "<- current"),
+      # the single source of truth shared by ngl / ngd / ngc.
+      _gens() {
+        nixos-rebuild list-generations 2>/dev/null | awk '
+          NR>1 { printf "%-5s %s %s   kernel %s%s\n", $1, $2, $3, $5, ($8=="True" ? "   <- current" : "") }'
+      }
+      ngl() { _gens; }   # list generations, formatted like ngd/ngc
+
       # ngd — nvd generation diff via fzf. Pick ONE generation (diff vs the
       # running system) or TAB two+ (diff oldest vs newest of the picks).
       # Replaces the old last-two-only alias so you can reach any generation.
       ngd() {
         local rows sel gens
-        rows=$(nixos-rebuild list-generations 2>/dev/null | awk '
-          NR>1 { printf "%-5s %s %s   kernel %s%s\n", $1, $2, $3, $5, ($8=="True" ? "   <- current" : "") }')
+        rows=$(_gens)
         sel=$(print -r -- "$rows" | FZF_DEFAULT_OPTS='--height=60% --layout=reverse --border --info=inline' \
               fzf --multi --no-sort \
                   --prompt='diff generation> ' \
@@ -89,6 +95,27 @@
         else
           nvd diff /nix/var/nix/profiles/system-''${gens[1]}-link /nix/var/nix/profiles/system-''${gens[-1]}-link
         fi
+      }
+
+      # ngc — interactive GC. fzf-pick which generations to DELETE (the running
+      # gen is never offered), confirm, reclaim the store, prune the boot menu.
+      # Bulk "delete all old" lives on the ngca alias.
+      ngc() {
+        local rows sel gens
+        rows=$(_gens | grep -vF -- '<- current')
+        [ -n "$rows" ] || { echo "No deletable generations."; return; }
+        sel=$(print -r -- "$rows" | FZF_DEFAULT_OPTS='--height=60% --layout=reverse --border --info=inline' \
+              fzf --multi --no-sort \
+                  --prompt='delete generation> ' \
+                  --header='TAB=mark  .  ENTER=delete  .  ESC=cancel  .  current gen is protected') || return
+        [ -n "$sel" ] || return
+        gens=(''${(f)"$(print -r -- "$sel" | awk '{print $1}')"})
+        print -r -- "Delete system generations: $gens"
+        read -q "REPLY?Proceed? [y/N] " || { echo; return; }
+        echo
+        sudo nix-env -p /nix/var/nix/profiles/system --delete-generations $gens &&
+        sudo nix-collect-garbage &&
+        sudo /run/current-system/bin/switch-to-configuration boot
       }
 
       # fzf UI styling (from 60-fzf.zsh). Dropped: the missing fzf-preview.sh
