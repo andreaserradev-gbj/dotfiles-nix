@@ -54,6 +54,8 @@
       nfi = "nix flake init -t ~/dotfiles-nix#devshell"; # initialize a new project
       ngl = "nixos-rebuild list-generations"; # list system generations
       ngc = "sudo nix-collect-garbage -d"; # delete OLD generations + GC the store (reclaim disk)
+      ngd = "nvd diff $(ls -v -d /nix/var/nix/profiles/system-*-link | tail -n2)"; # what the last nrs changed
+      nrp = "nvd diff /run/current-system $(nix build --no-link --print-out-paths ~/dotfiles-nix#nixosConfigurations.nixos.config.system.build.toplevel)"; # preview: what the next nrs will change (run after nfu)
       nixcfg = "cd ~/dotfiles-nix"; # jump to the flake repo
     };
 
@@ -108,6 +110,7 @@
   home.packages = [
     pkgs.eza
     pkgs.file
+    pkgs.nvd
   ];
 
   home.sessionPath = [ "${config.home.homeDirectory}/.local/bin" ];
