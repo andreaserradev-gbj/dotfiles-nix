@@ -98,7 +98,7 @@ in
         local sel gens
         sel=$(_pick_gens "$(_gens)" 'diff generation> ' 'TAB=mark more  .  1 pick = vs current  .  2+ = oldest vs newest')
         [ -n "$sel" ] || return
-        gens=(''${(f)"$sel"})
+        gens=("''${(@f)sel}")
         if (( ''${#gens} == 1 )); then
           nvd diff /nix/var/nix/profiles/system-''${gens[1]}-link /run/current-system
         else
@@ -115,7 +115,7 @@ in
         [ -n "$rows" ] || { echo "No deletable generations."; return; }
         sel=$(_pick_gens "$rows" 'delete generation> ' 'TAB=mark  .  ENTER=delete  .  ESC=cancel  .  current gen is protected')
         [ -n "$sel" ] || return
-        gens=(''${(f)"$sel"})
+        gens=("''${(@f)sel}")
         print -r -- "Delete system generations: $gens"
         read -q "REPLY?Proceed? [y/N] " || { echo; return; }
         echo
