@@ -1,0 +1,25 @@
+#compdef pnpm pn
+
+# pnpm's shipped completion is a thin dispatcher around `pnpm
+# completion-server`: it hands the server's entire reply to _describe, so
+# `pnpm run <TAB>` offers ~50 global flags alongside the package.json scripts
+# and buries them. This is that dispatcher with the flags filtered out. They
+# come back as soon as the word being completed starts with a dash.
+#
+# Lives in config/zsh/ rather than inline in modules/shell.nix so it stays
+# lintable zsh instead of nix-escaped text; shell.nix installs it into fpath.
+
+local -a reply
+local si=$IFS
+
+IFS=$'\n' reply=($(COMP_CWORD="$((CURRENT-1))" COMP_LINE="$BUFFER" COMP_POINT="$CURSOR" SHELL=zsh pnpm completion-server -- "${words[@]}" 2>/dev/null))
+IFS=$si
+(( $#reply )) || return 1
+
+if [[ $reply[1] == __tabtab_complete_files__ ]]; then
+  _files
+  return
+fi
+
+[[ $words[CURRENT] == -* ]] || reply=( ${reply:#-*} )
+_describe 'values' reply

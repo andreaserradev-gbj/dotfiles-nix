@@ -1,12 +1,28 @@
 {
   pkgs,
   config,
+  lib,
   ...
 }:
 let
   repoName = "dotfiles-nix"; # single source for the flake repo dir
   repo = "~/${repoName}"; # shell aliases (~ expanded at runtime)
   repoAbs = "${config.home.homeDirectory}/${repoName}"; # NH_FLAKE needs an absolute path
+
+  # pnpm's shipped zsh completion is a thin dispatcher around `pnpm
+  # completion-server` that hands the server's entire reply -- ~50 global flags
+  # plus the package.json scripts -- to _describe, so `pnpm run <TAB>` buries
+  # the script names. config/zsh/_pnpm is that dispatcher with the flags
+  # filtered out; it explains itself. Shipping our own copy also drops the
+  # build-time dependency on pkgs.pnpm.
+  #
+  # It still has to be installed into fpath here: a dev shell only puts pnpm on
+  # PATH and never touches fpath, so a completion file would otherwise never be
+  # reachable. Autoloaded at Tab time, which also sidesteps direnv activating
+  # after zsh has already sourced its config.
+  pnpmZshCompletion = pkgs.runCommand "pnpm-zsh-completion" { } ''
+    install -Dm444 ${../config/zsh/_pnpm} "$out/share/zsh/site-functions/_pnpm"
+  '';
 in
 {
   programs.zsh = {
@@ -171,7 +187,17 @@ in
     pkgs.eza
     pkgs.file
     pkgs.nvd
+    pnpmZshCompletion
   ];
+
+  # compinit caches its fpath scan in ~/.zcompdump-*, and decides the cache is
+  # fresh by mtime -- but Nix pins every store mtime to 1970, so a newly added
+  # completion (e.g. pnpmZshCompletion above) is invisible and Tab silently
+  # keeps doing nothing. Same failure mode as the nvim luac cache in
+  # modules/neovim.nix. Wipe it on every activation; the next shell rebuilds it.
+  home.activation.clearZshCompdump = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    run rm -f "${config.home.homeDirectory}"/.zcompdump*
+  '';
 
   home.sessionPath = [ "${config.home.homeDirectory}/.local/bin" ];
 }
