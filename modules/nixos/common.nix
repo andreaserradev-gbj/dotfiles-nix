@@ -3,7 +3,9 @@
 # belongs in hosts/<host>/ instead, NOT here.
 {
   pkgs,
+  lib,
   user,
+  inputs,
   ...
 }:
 
@@ -37,11 +39,25 @@
     openssh.authorizedKeys.keys = [ user.sshKey ];
   };
 
+  # Upstream claude-code flake, which tracks releases ahead of nixpkgs. This is
+  # what makes `claude-code` below resolve to the flake build, not nixpkgs'.
+  nixpkgs.overlays = [ inputs.claude-code.overlays.default ];
+
+  # Named predicate rather than a blanket `allowUnfree`: anything ELSE unfree
+  # that wanders in as a dependency still fails eval instead of being waved
+  # through silently. The list is the complete set of unfree packages accepted.
+  nixpkgs.config.allowUnfreePredicate =
+    pkg:
+    builtins.elem (lib.getName pkg) [
+      "claude-code"
+    ];
+
   # List packages installed in system profile.
   environment.systemPackages = with pkgs; [
     vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
     wget
     git
+    claude-code
   ];
 
   # Enable the OpenSSH daemon.
@@ -52,6 +68,18 @@
       KbdInteractiveAuthentication = false;
     };
   };
+
+  # Ollama. Used as a CLOUD client here — no local model weights, no GPU
+  # involved — so this is identical on the aarch64 VM and on geekom.
+  #
+  # Deliberately NOT setting `services.ollama.acceleration`: it was REMOVED in
+  # 26.05 and any config that sets it fails to evaluate. Tutorials still show
+  # it. If local GPU inference is ever wanted, the replacement is
+  # `services.ollama.package = pkgs.ollama-rocm` (or -vulkan/-cuda/-cpu).
+  #
+  # The `ollama` CLI arrives automatically — the module puts cfg.package into
+  # environment.systemPackages, so listing it above would be redundant.
+  services.ollama.enable = true;
 
   # Modern `nix` CLI + flakes
   nix.settings.experimental-features = [
