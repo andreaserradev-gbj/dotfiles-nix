@@ -13,6 +13,7 @@
     ./modules/home/neovim.nix
     ./modules/home/fonts.nix
     ./modules/home/foot.nix
+    ./modules/home/desktop.nix
     ./modules/home/opencode.nix
     ./modules/home/npm.nix
   ];

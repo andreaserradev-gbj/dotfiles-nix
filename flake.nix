@@ -26,8 +26,13 @@
       # stateVersion, hardware, display stack — lives in hosts/<host>/.
       # Deliberately a plain list, not a mkSystem helper: at two hosts with no
       # builder divergence, the helper would be indirection for ~10 saved lines.
+      #
+      # desktop.nix is listed here rather than under hosts/geekom because it
+      # DEFINES the `local.desktop` option as well as consuming it: every host
+      # must be able to see the option in order to leave it off.
       commonModules = [
         ./modules/nixos/common.nix
+        ./modules/nixos/desktop.nix
         home-manager.nixosModules.home-manager
         {
           home-manager.useGlobalPkgs = true;
@@ -44,6 +49,14 @@
         specialArgs = { inherit user inputs; };
         modules = commonModules ++ [
           ./hosts/vm
+        ];
+      };
+
+      nixosConfigurations.geekom = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        specialArgs = { inherit user inputs; };
+        modules = commonModules ++ [
+          ./hosts/geekom
         ];
       };
 

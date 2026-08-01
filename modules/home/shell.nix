@@ -65,7 +65,7 @@ in
 
       cdz = "z"; # zoxide installed below
 
-      # --- NixOS / flake (repo = ~/dotfiles-nix, host `nixos`) ---
+      # --- NixOS / flake (repo = ~/dotfiles-nix; host = the local hostname) ---
       # Rebuilds/GC go through nh (see programs.nh below): automatic nvd diff, sudo
       # self-elevation, host+flake auto-detected via NH_FLAKE. Raw nixos-rebuild still works.
       nrs = "nh os switch --ask"; # build + show diff + ASK before activating + set boot default
