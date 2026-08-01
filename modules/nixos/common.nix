@@ -53,11 +53,20 @@
     ];
 
   # List packages installed in system profile.
+  #
+  # On `nodejs` being global, which LOOKS like it violates this repo's
+  # per-project-devshell rule: it is an AGENT RUNTIME, not a project toolchain.
+  # The dev-workflow skills execute from ~/.agents/skills and ~/.claude/plugins
+  # — outside any project, so no devshell can ever supply their interpreter.
+  # Same reasoning that puts the harnesses themselves here. Project toolchains
+  # still belong in per-project devshells; do not use this line as precedent.
   environment.systemPackages = with pkgs; [
     vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
     wget
     git
-    claude-code
+    claude-code # unfree — see allowUnfreePredicate above
+    opencode # second agent harness; free licence, so no predicate entry needed
+    nodejs # runtime for the skills' .cjs scripts (also provides npm/npx)
   ];
 
   # Enable the OpenSSH daemon.

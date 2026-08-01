@@ -13,6 +13,8 @@
     ./modules/home/neovim.nix
     ./modules/home/fonts.nix
     ./modules/home/foot.nix
+    ./modules/home/opencode.nix
+    ./modules/home/npm.nix
   ];
 
   home.stateVersion = "26.05";
