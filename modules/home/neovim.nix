@@ -64,5 +64,5 @@
   # Whole-dir symlink into ~/.config/nvim. Flakes only see git-tracked files, so
   # `git add config/nvim` before switching. lazy.nvim's lockfile is redirected to
   # the writable state dir (see lua/config/lazy.lua) and intentionally not committed.
-  xdg.configFile."nvim".source = ../config/nvim;
+  xdg.configFile."nvim".source = ../../config/nvim;
 }

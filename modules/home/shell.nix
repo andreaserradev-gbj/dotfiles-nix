@@ -21,7 +21,7 @@ let
   # reachable. Autoloaded at Tab time, which also sidesteps direnv activating
   # after zsh has already sourced its config.
   pnpmZshCompletion = pkgs.runCommand "pnpm-zsh-completion" { } ''
-    install -Dm444 ${../config/zsh/_pnpm} "$out/share/zsh/site-functions/_pnpm"
+    install -Dm444 ${../../config/zsh/_pnpm} "$out/share/zsh/site-functions/_pnpm"
   '';
 in
 {

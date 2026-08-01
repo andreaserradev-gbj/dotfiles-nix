@@ -7,7 +7,7 @@ export NIX_CONFIG="experimental-features = nix-command flakes"
 
 REPO="andreaserradev-gbj/dotfiles-nix"
 FLAKE="github:${REPO}#nixos"
-DISKO_CFG="https://raw.githubusercontent.com/${REPO}/main/nixos/disk-config.nix"
+DISKO_CFG="https://raw.githubusercontent.com/${REPO}/main/hosts/vm/disk-config.nix"
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "!! Must run as root — pipe into 'sudo bash'." >&2
