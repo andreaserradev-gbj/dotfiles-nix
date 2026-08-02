@@ -4,8 +4,8 @@
 # Boot the NixOS 26.05 minimal ISO for the TARGET's architecture, then:
 #   curl -fsSL https://raw.githubusercontent.com/andreaserradev-gbj/dotfiles-nix/main/bootstrap.sh | sudo bash -s -- <host>
 #
-# The `-s --` is load-bearing: without it bash consumes <host> as its own
-# argument and the script silently installs the default instead.
+# The `-s --` is load-bearing: without it bash reads <host> as a script
+# filename and exits 127 without installing anything.
 #
 # <host> defaults to `nixos`, the aarch64 UTM dev VM.
 set -euo pipefail
