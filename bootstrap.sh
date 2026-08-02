@@ -13,6 +13,18 @@ export NIX_CONFIG="experimental-features = nix-command flakes"
 
 REPO="andreaserradev-gbj/dotfiles-nix"
 
+# Pinned disko release. HAND-MAINTAINED — this script runs from a live ISO,
+# outside the flake, so it cannot inherit flake.lock's pin and needs its own
+# string. Bump it deliberately; nothing here will do it for you, and nothing
+# fails if it goes stale.
+#
+# Pinned 2026-08-02, when disko's `latest` tag and v1.13.0 both peeled to
+# de5708739256238fb912c62f03988815db89ec9a — so this pin changed nothing about
+# what an install fetches that day. It only diverges once v1.14.0 ships.
+# Resolve candidates with:
+#   git ls-remote --tags https://github.com/nix-community/disko
+DISKO_REF="v1.13.0"
+
 if [ "$#" -gt 1 ]; then
   echo "!! Too many arguments. Usage: bootstrap.sh [host]" >&2
   exit 1
@@ -94,7 +106,7 @@ fi
 # --- [3/4] Install ----------------------------------------------------------
 echo ">>> [3/4] disko: partition + format + mount $DEVICE  (THIS WIPES THE DISK)"
 umount -R /mnt 2>/dev/null || true # clean up any leftover mounts
-nix run github:nix-community/disko/latest -- \
+nix run "github:nix-community/disko/${DISKO_REF}" -- \
   --mode destroy,format,mount --yes-wipe-all-disks "$tmp/disk-config.nix"
 
 echo ">>> [4/4] nixos-install: build system + \$HOME from the flake — $FLAKE"
