@@ -57,7 +57,6 @@ in
       zshconfig = "nvim ${repo}";
 
       l = "eza --icons"; # eza installed below → works now
-      ls = "eza --icons";
       lg = "eza --tree --level=1 --icons --git --git-ignore";
       lg2 = "eza --tree --level=2 --icons --git --git-ignore";
       lg3 = "eza --tree --level=3 --icons --git --git-ignore";
