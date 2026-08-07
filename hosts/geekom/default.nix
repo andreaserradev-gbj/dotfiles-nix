@@ -18,6 +18,12 @@
   # safe and wanted. The VM sets this false — it has no persistent NVRAM.
   boot.loader.efi.canTouchEfiVariables = true;
 
+  # 20s rather than the 5s default. This box's boot menu is its only recovery
+  # path, and 5 seconds is not enough to catch when walking up to a machine that
+  # is already POSTing. The VM keeps the default: it is reachable over ssh and
+  # rebuildable from the Mac, so a missed menu costs nothing there.
+  boot.loader.timeout = 20;
+
   # Redistributable firmware blobs. Load-bearing THREE separate times here:
   #   1. amdgpu       — the Radeon 890M will not initialise without RDNA 3.5
   #                     microcode; the console falls back to simpledrm at best

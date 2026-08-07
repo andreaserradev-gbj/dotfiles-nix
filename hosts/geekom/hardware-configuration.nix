@@ -1,38 +1,38 @@
-# PLACEHOLDER — this file was NOT produced by nixos-generate-config.
+# Hardware facts for geekom, captured on the machine itself in Phase 7 with
+#   nixos-generate-config --no-filesystems --dir /tmp/cfg
 #
-# It is hand-written so that `nixosConfigurations.geekom` evaluates before the
-# hardware exists, which is the whole point of this phase: catch typos and
-# undefined options with zero hardware. Phase 7 replaces this file WHOLESALE
-# with real generated output from the actual machine.
+# `fileSystems` below is hand-written, NOT generated. disko is an install-time
+# tool in this repo — bootstrap.sh runs it standalone against a fetched copy of
+# disk-config.nix, and the flake never imports disko.nixosModules.disko — so
+# nothing else tells this host how to mount its root.
 {
+  modulesPath,
   ...
 }:
 
 {
-  # Sentinel. Makes it impossible for a stale placeholder to ship quietly —
-  # every eval and every nixos-rebuild on geekom prints this until Phase 7
-  # overwrites the file. It disappears when the file does; do not delete it on
-  # its own.
-  warnings = [
-    "geekom/hardware-configuration.nix is a PLACEHOLDER — regenerate it with nixos-generate-config (Phase 7) before trusting any build."
+  # Sets hardware.enableRedistributableFirmware with mkDefault. Inert while
+  # default.nix sets it outright; kept as the generator emitted it so firmware
+  # stays on if that line ever goes away.
+  imports = [
+    (modulesPath + "/installer/scan/not-detected.nix")
   ];
 
-  # Expected initrd set for this box: NVMe root, AHCI for the SATA bay, xHCI +
-  # USB HID so a keyboard works at the boot console.
-  #
-  # Note what is ABSENT: virtio_pci. That module is the VM's, and its presence
-  # here after Phase 7 would be positive evidence the file was copied rather
-  # than generated.
+  # Generated on the box, 2026-08-07. Two absences are the evidence this file is
+  # real rather than copied: no `virtio_pci` (that one belongs to the VM), and
+  # no `ahci` — lspci shows this board carries no SATA controller at all, so the
+  # placeholder's guess was wrong and the generated list wins.
   boot.initrd.availableKernelModules = [
     "nvme"
-    "ahci"
-    "sd_mod"
     "xhci_pci"
-    "usbhid"
+    "thunderbolt"
     "usb_storage"
+    "usbhid"
+    "sd_mod"
+    "rtsx_pci_sdmmc"
   ];
   boot.initrd.kernelModules = [ ];
-  boot.kernelModules = [ ];
+  boot.kernelModules = [ "kvm-amd" ];
   boot.extraModulePackages = [ ];
 
   # Labels must match hosts/geekom/disk-config.nix.
@@ -52,7 +52,11 @@
 
   swapDevices = [ ];
 
-  # No `nixpkgs.hostPlatform` here on purpose: the flake sets `system` for
-  # both hosts symmetrically and owns that decision. Strip it again if Phase
-  # 7's generated file reintroduces it.
+  # No `nixpkgs.hostPlatform`: the flake sets `system` for both hosts
+  # symmetrically and owns that decision. The generated file reintroduced it and
+  # it was stripped again, as Phase 7 requires.
+  #
+  # Also dropped from the generated output:
+  #   hardware.cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+  # default.nix already sets that to true outright. One owner, not two.
 }

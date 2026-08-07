@@ -26,6 +26,14 @@
 
   programs.zsh.enable = true;
 
+  # A real dynamic loader at /lib/ld-linux-*.so.*, plus NIX_LD, so prebuilt
+  # binaries fetched outside Nix can actually execute. Without this that path is
+  # stub-ld and every such binary dies with a bare "No such file or directory".
+  # That is the real cause behind the hand-maintained LSP server list and its
+  # name-mapping table in modules/home/neovim.nix: Mason downloads prebuilt
+  # binaries, so it could never have worked here.
+  programs.nix-ld.enable = true;
+
   # Account informations
   users.users.${user.username} = {
     isNormalUser = true;
