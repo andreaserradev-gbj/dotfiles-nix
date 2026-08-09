@@ -33,6 +33,7 @@
       commonModules = [
         ./modules/nixos/common.nix
         ./modules/nixos/desktop.nix
+        ./modules/nixos/gaming.nix
         home-manager.nixosModules.home-manager
         {
           home-manager.useGlobalPkgs = true;

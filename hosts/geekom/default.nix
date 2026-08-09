@@ -58,6 +58,11 @@
   # this one switches on.
   local.desktop.enable = true;
 
+  # Gaming: Steam + Vulkan (RADV for the Radeon 890M). Defined in
+  # modules/nixos/gaming.nix, which every host imports but only this one
+  # switches on.
+  local.gaming.enable = true;
+
   # Set-once: pin state-format defaults to the install release. Never bump casually.
   system.stateVersion = "26.05";
 }

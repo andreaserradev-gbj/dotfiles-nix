@@ -58,6 +58,8 @@
     pkg:
     builtins.elem (lib.getName pkg) [
       "claude-code"
+      "steam"
+      "steam-unwrapped"
     ];
 
   # List packages installed in system profile.
