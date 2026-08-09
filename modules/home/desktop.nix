@@ -15,7 +15,7 @@ lib.mkIf osConfig.local.desktop.enable {
       # Catppuccin Mocha ships built into ghostty, so unlike foot.nix this
       # needs no hand-transcribed palette — but the intent is identical: both
       # terminals must look the same as each other and as the Mac.
-      theme = "catppuccin-mocha";
+      theme = "Catppuccin Mocha";
 
       font-family = "JetBrainsMono Nerd Font";
       font-size = 12;
