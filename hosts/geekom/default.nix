@@ -53,6 +53,33 @@
   # trade a working default for a moving target.
   hardware.amdgpu.initrd.enable = true;
 
+  # THIS BOX CANNOT SUSPEND, so nothing is allowed to try. The firmware advertises
+  # S0 S4 S5 — no S3 — and /sys/power/mem_sleep offers only [s2idle]. Resume hangs
+  # hard: the journal stops dead at "Performing sleep operation 'suspend'" with not
+  # one line after it, the display gets no signal, the radio drops off the LAN, and
+  # a 10-second power-button hold is the only way back. Observed twice, 2026-08-09
+  # and 2026-08-10.
+  #
+  # Masked at the SYSTEM level on purpose. The obvious fix — GNOME Settings →
+  # Power → Automatic Suspend — writes to the logged-in user's dconf, and GDM's
+  # greeter runs as its own user (uid 60578) with its own dconf and its own 900s
+  # idle timer. That is exactly how the machine was lost on 2026-08-10: nobody had
+  # logged in, so the greeter suspended it 15 minutes after boot while the user
+  # session toggle sat there looking correct. Masking the targets is the only form
+  # that covers the greeter, every user session, AND the power menu entry.
+  #
+  # hibernate and hybrid-sleep are masked too and cost nothing: both need swap, and
+  # this disk layout creates none.
+  #
+  # Do NOT "fix" this with mem_sleep_default=deep. `deep` is absent from
+  # mem_sleep, so the kernel parameter is a silent no-op that reads as a solution.
+  systemd.targets = {
+    sleep.enable = false;
+    suspend.enable = false;
+    hibernate.enable = false;
+    hybrid-sleep.enable = false;
+  };
+
   # Graphical target: GDM + GNOME, pipewire, Brave, Bluetooth, ghostty.
   # Defined in modules/nixos/desktop.nix, which every host imports but only
   # this one switches on.
