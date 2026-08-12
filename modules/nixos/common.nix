@@ -77,6 +77,7 @@
     claude-code # unfree — see allowUnfreePredicate above
     opencode # second agent harness; free licence, so no predicate entry needed
     nodejs # runtime for the skills' .cjs scripts (also provides npm/npx)
+    jq # ollama, opencode and the flake all speak JSON; there is no python3 here
   ];
 
   # Enable the OpenSSH daemon.

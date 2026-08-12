@@ -7,6 +7,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 
@@ -41,5 +42,19 @@ in
     # it. Redundant, not accidental.
     hardware.graphics.enable = true;
     hardware.graphics.enable32Bit = true;
+
+    # MangoHud shows FPS together with GPU clock and utilisation, which is what
+    # separates a memory-bandwidth limit from a governor that never ramps.
+    # Steam's own counter shows neither, and its overlay is unreliable under
+    # Proton. Per-game Steam launch option: `mangohud %command%`.
+    #
+    # 64-bit only. A 32-bit title needs pkgsi686Linux.mangohud added as well.
+    environment.systemPackages = [ pkgs.mangohud ];
+
+    # gamemode raises the CPU governor for the lifetime of a game and drops it
+    # afterwards, so the box does not sit pinned at `performance` while idle —
+    # which matters here because this hardware idles at a GDM login screen.
+    # Games opt in per title: `gamemoderun %command%`.
+    programs.gamemode.enable = true;
   };
 }
