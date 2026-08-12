@@ -15,7 +15,7 @@ let
   cfg = config.local.desktop;
 in
 {
-  options.local.desktop.enable = lib.mkEnableOption "the GNOME desktop stack (GDM, GNOME, pipewire, Bluetooth, Brave)";
+  options.local.desktop.enable = lib.mkEnableOption "the GNOME desktop stack (GDM, GNOME, pipewire, Bluetooth, printing, Brave)";
 
   config = lib.mkIf cfg.enable {
     # GNOME's session under GDM is Wayland by default; this is what supplies
@@ -49,6 +49,30 @@ in
     # `services.blueman.enable` — GNOME owns the Bluetooth frontend; blueman
     # is the Hyprland-era REPLACEMENT for it, not something to run alongside.
     hardware.bluetooth.enable = true;
+
+    # Printing, plus the mDNS that finds the printer. Same shape as Bluetooth
+    # above, and for the same reason.
+    #
+    # Measured before this was written: the VM evaluates `services.avahi.enable
+    # = false` and geekom evaluates `true`, with no avahi anywhere in this repo.
+    # GNOME turns it on. Swap GNOME for Hyprland and printer discovery vanishes
+    # with it — silently, because cupsd would still be running and the printer
+    # would simply stop appearing. Hence the explicit `true`.
+    #
+    # `nssmdns4` is off by default and is what resolves `.local` names through
+    # NSS, so a stored `ipp://<host>.local` queue keeps working. Avahi's
+    # `openFirewall` already defaults to true, so UDP 5353 needs no line here.
+    #
+    # NO DRIVERS ON PURPOSE. The target is an HP ENVY 4500, which the Mac holds
+    # as `dnssd://HP ENVY 4500 series [B1C0AA]._ipp._tcp.local.` — an `_ipp._tcp`
+    # record, so it speaks IPP directly and CUPS can drive it with no PPD.
+    # `hplip` is the fallback if that turns out to be false, not the starting
+    # point: it is a large stack to add before driverless has been disproved.
+    services.printing.enable = true;
+    services.avahi = {
+      enable = true;
+      nssmdns4 = true;
+    };
 
     # Brave has no NixOS module (unlike programs.firefox), so it goes in as a
     # plain package. Verified at the pin: 1.92.139, MPL-2.0, meta.unfree =
