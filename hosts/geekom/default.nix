@@ -90,6 +90,12 @@
   # switches on.
   local.gaming.enable = true;
 
+  # Docker: dockerd + compose, for development. Defined in
+  # modules/nixos/docker.nix, which every host imports but only this one
+  # switches on. It also puts this user in the `docker` group, which is
+  # root-equivalent — the module says what that does and does not cost.
+  local.docker.enable = true;
+
   # Set-once: pin state-format defaults to the install release. Never bump casually.
   system.stateVersion = "26.05";
 }
