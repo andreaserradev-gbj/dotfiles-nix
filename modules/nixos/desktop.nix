@@ -15,7 +15,7 @@ let
   cfg = config.local.desktop;
 in
 {
-  options.local.desktop.enable = lib.mkEnableOption "the GNOME desktop stack (GDM, GNOME, pipewire, Bluetooth, printing, Brave)";
+  options.local.desktop.enable = lib.mkEnableOption "the GNOME desktop stack (GDM, GNOME, pipewire, Bluetooth, printing, scanning, Brave)";
 
   config = lib.mkIf cfg.enable {
     # GNOME's session under GDM is Wayland by default; this is what supplies
@@ -73,6 +73,44 @@ in
       enable = true;
       nssmdns4 = true;
     };
+
+    # Scanning, driverless over the same mDNS the printer was found on.
+    # Measured before this was written: the device advertises `_uscan._tcp` on
+    # port 8080 with `rs=/eSCL`, and `GET /eSCL/ScannerCapabilities` returns
+    # eSCL 2.1 XML. Platen only, no feeder, so no duplex option will appear.
+    #
+    # THREE THINGS DELIBERATELY NOT SET, each the obvious-looking move:
+    #   - the `scanner` group. eSCL is HTTP to a network address, so there is
+    #     no device node and udev permissions change nothing. That group is
+    #     for USB scanners.
+    #   - `hardware.sane.openFirewall`. It opens ports for `saned`, which
+    #     shares a LOCAL scanner outwards. This host is the client.
+    #   - `hplip`. The device also advertises `_scanner._tcp`, HP's own scan
+    #     protocol behind the `hpaio` backend. That is the heavier route and
+    #     eSCL answered on the first try.
+    #
+    # No frontend is added either: GNOME already installs simple-scan
+    # ("Document Scanner"). Unlike the avahi case above, that side effect is a
+    # safe one to inherit — losing it at the Hyprland swap means no scanner
+    # GUI, which is obvious, rather than a scanner that silently stops being
+    # found while the daemon keeps running.
+    hardware.sane.enable = true;
+    hardware.sane.extraBackends = [ pkgs.sane-airscan ];
+
+    # sane-backends carries its OWN `escl` backend, so before this line
+    # `scanimage -L` listed one scanner twice: `airscan:e0:HP ENVY 4500 series
+    # [B1C0AA]`, re-discovered by name, and `escl:http://192.168.68.52:8080`,
+    # a literal address baked in at discovery time.
+    #
+    # The printer now has a DHCP reservation, so this is not fixing a live
+    # break — it removes a choice that has no right answer visible in a GUI.
+    # Only the name-based entry survives a router replacement or a move to a
+    # different network, and a frontend that remembered the wrong one would
+    # fail much later with nothing pointing at the cause.
+    #
+    # The cost is real: this is the fallback if sane-airscan ever regresses.
+    # Re-enable by deleting this line, not by adding a different backend.
+    hardware.sane.disabledDefaultBackends = [ "escl" ];
 
     # Brave has no NixOS module (unlike programs.firefox), so it goes in as a
     # plain package. Verified at the pin: 1.92.139, MPL-2.0, meta.unfree =
