@@ -15,7 +15,7 @@ let
   cfg = config.local.desktop;
 in
 {
-  options.local.desktop.enable = lib.mkEnableOption "the GNOME desktop stack (GDM, GNOME, pipewire, Bluetooth, printing, scanning, Brave)";
+  options.local.desktop.enable = lib.mkEnableOption "the GNOME desktop stack (GDM, GNOME, pipewire, Bluetooth, printing, scanning, Brave, PDF tools)";
 
   config = lib.mkIf cfg.enable {
     # GNOME's session under GDM is Wayland by default; this is what supplies
@@ -113,9 +113,35 @@ in
     hardware.sane.disabledDefaultBackends = [ "escl" ];
 
     # Brave has no NixOS module (unlike programs.firefox), so it goes in as a
-    # plain package. Verified at the pin: 1.92.139, MPL-2.0, meta.unfree =
-    # false — so it needs NO allowUnfreePredicate entry in common.nix and none
-    # should be added. If a future bump makes it unfree, eval will say so.
-    environment.systemPackages = [ pkgs.brave ];
+    # plain package. It is MPL-2.0 with meta.unfree = false, so it needs NO
+    # allowUnfreePredicate entry in common.nix and none should be added.
+    #
+    # No version is named here on purpose. It moved on the first lock bump
+    # after this comment was written, and a stale literal reads as a verified
+    # fact. Nothing is lost: evaluation checks the claim that matters, so if a
+    # future bump makes Brave unfree, eval will say so.
+    #
+    # PDF work: three tools because it is three unrelated jobs, and no single
+    # Linux application covers them the way Acrobat does.
+    #   xournalpp   — annotate, and stamp a signature image onto a page
+    #   pdfarranger — reorder, merge, split, rotate, delete pages
+    #   imagemagick — `magick sig.png -fuzz 20% -transparent white out.png`,
+    #                 which is what makes a scanned signature usable on top of
+    #                 anything that is not plain white paper
+    #
+    # NOT added: libreoffice. Draw is the only route on Linux to editing text
+    # already inside a PDF, and it reimports the page as loose objects, so the
+    # layout drifts. Over a gigabyte for the one PDF job it does badly. Add it
+    # if an office suite is wanted, not as a PDF editor.
+    #
+    # Nothing here signs a PDF in the cryptographic sense. A stamped image is a
+    # picture: no certificate, no tamper evidence, and liftable by anyone with
+    # the file. PAdES/CAdES would need a different tool and a real certificate.
+    environment.systemPackages = [
+      pkgs.brave
+      pkgs.xournalpp
+      pkgs.pdfarranger
+      pkgs.imagemagick
+    ];
   };
 }
