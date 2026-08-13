@@ -142,6 +142,27 @@ in
       pkgs.xournalpp
       pkgs.pdfarranger
       pkgs.imagemagick
+
+      # PaperWM — scrollable tiling GNOME Shell extension. Lives here and not
+      # in the HM half because GNOME Shell extensions are system-wide packages
+      # loaded from /run/current-system/share/gnome-shell/extensions; Home
+      # Manager has no path that reaches it. The ENABLE state, by contrast, is
+      # per-user dconf and so belongs in the HM half (modules/home/desktop.nix).
+      #
+      # GNOME 50.4 + PaperWM v148 on this flake pin (nixos-26.05); PaperWM's
+      # upstream `release` branch advertises support for GNOME 45-50, so this
+      # is on the last supported GNOME rather than ahead of it. A GNOME 51 bump
+      # in nixpkgs will need a matching PaperWM release before `nixos-rebuild`
+      # will evaluate cleanly — the extension package's `shell-version`
+      # metadata gates this and nixpkgs carries it.
+      #
+      # PaperWM auto-disables three incompatible GNOME settings at runtime
+      # (`workspaces-only-on-primary`, `edge-tiling`, `attach-modal-dialogs`)
+      # and restores them when disabled, so there is nothing to set here for
+      # those. The known-incompatible extensions (DING, Dash to Panel, Rounded
+      # Window Corners, Space Bar) are not installed by this repo, so there is
+      # no conflict to manage either.
+      pkgs.gnomeExtensions.paperwm
     ];
   };
 }
