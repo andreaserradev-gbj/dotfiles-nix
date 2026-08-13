@@ -14,6 +14,14 @@ vim.api.nvim_create_autocmd("FileType", {
   end,
 })
 
+vim.api.nvim_create_autocmd("FileType", {
+  desc = "Silence every diagnostic source in markdown buffers",
+  pattern = "markdown",
+  callback = function(ev)
+    vim.diagnostic.enable(false, { bufnr = ev.buf })
+  end,
+})
+
 vim.api.nvim_create_autocmd("VimEnter", {
   desc = "Open Snacks explorer only when starting on a directory",
   once = true,
