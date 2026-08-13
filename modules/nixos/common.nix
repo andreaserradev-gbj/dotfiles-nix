@@ -89,13 +89,15 @@
     };
   };
 
-  # Ollama. Used as a CLOUD client here — no local model weights, no GPU
-  # involved — so this is identical on the aarch64 VM and on geekom.
+  # Ollama. The ENABLE is shared; the PACKAGE is not. This default build is
+  # CPU-only, which is all the aarch64 VM can use — it renders in software and
+  # has no GPU to talk to. geekom overrides cfg.package to ollama-vulkan in its
+  # own host file; the reasoning for Vulkan-over-ROCm lives there, next to the
+  # GPU it applies to.
   #
   # Deliberately NOT setting `services.ollama.acceleration`: it was REMOVED in
   # 26.05 and any config that sets it fails to evaluate. Tutorials still show
-  # it. If local GPU inference is ever wanted, the replacement is
-  # `services.ollama.package = pkgs.ollama-rocm` (or -vulkan/-cuda/-cpu).
+  # it. The replacement is the cfg.package swap described above.
   #
   # The `ollama` CLI arrives automatically — the module puts cfg.package into
   # environment.systemPackages, so listing it above would be redundant.

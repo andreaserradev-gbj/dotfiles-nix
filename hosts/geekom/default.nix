@@ -3,6 +3,7 @@
 # MediaTek MT7925 Wi-Fi 7 + Bluetooth combo radio.
 # Shared settings live in modules/nixos/common.nix.
 {
+  pkgs,
   ...
 }:
 
@@ -44,9 +45,8 @@
   # Deliberately NOT set: `services.xserver.videoDrivers` (that is the X11
   # driver path — amdgpu is a kernel driver and KMS is automatic; naming it
   # there is a common copy-paste that does nothing useful), and
-  # `hardware.amdgpu.opencl.enable` (ROCm). This box runs ollama as a CLOUD
-  # client — see the note in modules/nixos/common.nix — so there is no local
-  # inference to accelerate and no reason to pull in the ROCm closure.
+  # `hardware.amdgpu.opencl.enable` (ROCm). Local inference runs on Vulkan
+  # here, not ROCm — see the services.ollama.package note below.
   #
   # Also deliberately NOT set: `boot.kernelPackages`. The 26.05 default kernel
   # is new enough for both Strix Point and MT7925; pinning latest here would
@@ -89,6 +89,46 @@
   # modules/nixos/gaming.nix, which every host imports but only this one
   # switches on.
   local.gaming.enable = true;
+
+  # Local LLM inference on the Radeon 890M. common.nix enables the service with
+  # the CPU-only default package; this swaps the build, and only on this host.
+  #
+  # VULKAN, NOT ROCM, and that is not the obvious choice. This GPU is gfx1150,
+  # which ROCm has handled badly: ollama#9999 measured 6.42 tok/s on ROCm
+  # against 15.94 tok/s CPU-only on this exact part — acceleration that ran
+  # 2.5x SLOWER than no acceleration. Upstream now lists gfx1150 as supported,
+  # so that may be fixed, but Vulkan also skips the multi-GB ROCm closure and
+  # can spill into GTT when a model outgrows the 8GB VRAM carve-out. Revisit
+  # only with a measurement, not with a release note.
+  #
+  # LOAD-BEARING DEPENDENCY ON local.gaming.enable ABOVE. The Vulkan userspace
+  # driver (RADV, via mesa) arrives through hardware.graphics.enable, which is
+  # set inside the gaming module. Turning gaming off silently drops inference
+  # back to CPU — the daemon still starts and still answers, just slowly, with
+  # nothing in the journal that names the cause.
+  #
+  # No systemd changes needed: the upstream unit already ships
+  # SupplementaryGroups=render, DeviceAllow=char-drm and PrivateDevices=false,
+  # so the DynamicUser can reach /dev/dri/renderD128 as-is.
+  services.ollama.package = pkgs.ollama-vulkan;
+
+  # OLLAMA_IGPU_ENABLE IS NOT OPTIONAL HERE. Since 0.32 ollama discovers
+  # integrated GPUs and then deliberately discards them, logging
+  # "dropping integrated GPU; to enable, set OLLAMA_IGPU_ENABLE=1" at INFO and
+  # falling back to CPU. Without this the ollama-vulkan package above is inert:
+  # the daemon starts, answers every request, and looks entirely healthy while
+  # never touching the GPU. `ollama ps` showing "100% GPU" is the check.
+  #
+  # This is also what lifts the memory ceiling. The amdgpu carve-out is 8GB
+  # (mem_info_vram_total), but Vulkan reaches system RAM through GTT, so the
+  # runner reports ~19.5GiB usable and a 7B at Q4 loads all 37 layers.
+  #
+  # Worth knowing what this does and does not buy, measured on qwen2.5-coder
+  # with an identical FIM prompt: 3B goes 20 -> 22 tok/s, 1.5B goes 37 -> 41.
+  # About 10%, because the iGPU shares the CPU's LPDDR5x and token decode is
+  # bandwidth-bound, not ALU-bound. The real gain is that inference stops
+  # competing with the editor for cores.
+  services.ollama.environmentVariables.OLLAMA_IGPU_ENABLE = "1";
 
   # Docker: dockerd + compose, for development. Defined in
   # modules/nixos/docker.nix, which every host imports but only this one
