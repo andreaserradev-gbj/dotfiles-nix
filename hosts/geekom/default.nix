@@ -136,6 +136,14 @@
   # root-equivalent — the module says what that does and does not cost.
   local.docker.enable = true;
 
+  # Vial — GUI for configuring QMK/VIA keyboards in real time. Lives here and
+  # not in modules/nixos/desktop.nix because it is for a physical keyboard
+  # plugged into this box, not a general desktop app. The udev rules shipped
+  # by the package are what let the GUI talk to the controller without root;
+  # without them Vial opens but sees no device.
+  environment.systemPackages = [ pkgs.vial ];
+  services.udev.packages = [ pkgs.vial ];
+
   # Set-once: pin state-format defaults to the install release. Never bump casually.
   system.stateVersion = "26.05";
 }
