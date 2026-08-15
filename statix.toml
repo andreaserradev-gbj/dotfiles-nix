@@ -1,0 +1,30 @@
+# statix configuration — silence lints whose suggestions would ANTI-PATTERN a
+# NixOS module repo. Each one is correct Nix that statix's heuristics mis-flag.
+#
+# Disabled lints and why:
+#
+#   W20  repeated_keys      — flags `programs.zsh = ...; programs.nh = ...;` and
+#                             `home-manager = ...` appearing in adjacent module
+#                             list elements / attrsets. The NixOS module system
+#                             MERGES repeated top-level keys via mkMerge; folding
+#                             them into one attrset is valid but destroys the
+#                             one-section-per-concern layout that nixpkgs itself
+#                             uses. Not a correctness issue.
+#
+#   W10  empty_pattern      — flags `{ ... }:` and suggests `_:`. `{ ... }:` is
+#                             the conventional NixOS module signature: it says
+#                             "module that takes the args attrset and ignores
+#                             it." `_:` reads as "ignore an unnamed thing" and
+#                             is the wrong signal. nixpkgs uses `{ ... }:`
+#                             pervasively.
+#
+#   W04  manual_inherit_from — flags `email = user.email;` inside a nested
+#                             attrset and suggests `inherit user;`. That would
+#                             pull the WHOLE `user` attrset (sshKey, timeZone,
+#                             ...) into the nested scope — wrong. Only the
+#                             named fields are wanted. False positive.
+disabled = [
+  "repeated_keys"
+  "empty_pattern"
+  "manual_inherit_from"
+]

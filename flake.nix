@@ -60,5 +60,36 @@
         path = ./templates/devshell;
         description = "Per-project dev shell: flake + direnv";
       };
+
+      # `nix fmt` runs this against the flake root. nixfmt in nixpkgs 26.05 IS
+      # the RFC-style official formatter (the old `nixfmt-rfc-style` alias was
+      # removed); same package that neovim.nix installs for conform.nvim, so
+      # `nix fmt` and conform agree by construction.
+      formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt;
+      formatter.aarch64-linux = nixpkgs.legacyPackages.aarch64-linux.nixfmt;
+
+      # Minimal shell for hacking on this repo. The only tool that is NOT
+      # already on the system profile (via modules/home/neovim.nix) is deadnix;
+      # nixfmt, statix and nil are redundant here and listed only so a fresh
+      # clone has a self-contained `nix develop` / direnv that does not depend
+      # on having built and applied a host first. The pre-commit hook that
+      # .envrc installs runs `nixfmt` from this shell, so the hook works on any
+      # clone without relying on a previously-built system.
+      devShells.x86_64-linux.default = nixpkgs.legacyPackages.x86_64-linux.mkShellNoCC {
+        packages = with nixpkgs.legacyPackages.x86_64-linux; [
+          nixfmt
+          statix
+          nil
+          deadnix
+        ];
+      };
+      devShells.aarch64-linux.default = nixpkgs.legacyPackages.aarch64-linux.mkShellNoCC {
+        packages = with nixpkgs.legacyPackages.aarch64-linux; [
+          nixfmt
+          statix
+          nil
+          deadnix
+        ];
+      };
     };
 }

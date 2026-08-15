@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# pre-commit hook — run `nix fmt` on every staged .nix file.
+#
+# Self-installed into .git/hooks/pre-commit by .envrc on every direnv reload,
+# from this tracked canonical copy. Formatting uses `nixfmt` resolved by the
+# devShell's PATH (pinned via flake.lock), so it does not depend on a
+# previously-built host system.
+#
+# Behaviour:
+#   - Stages only .nix files; non-nix files are untouched.
+#   - Formats in place, then re-stages the formatted content so the commit
+#     carries the formatted version WITHOUT a second `git add` round-trip.
+#   - Aborts the commit if `nixfmt` is not on PATH (e.g. direnv not loaded),
+#     rather than silently letting unformatted code through.
+#   - Never reformats files that are not already staged, even if they live in
+#     the repo — only what is about to be committed.
+set -euo pipefail
+
+# Gather staged .nix files. `--diff-filter=d` drops deleted entries so the
+# list names files that actually exist and can be formatted.
+mapfile -t files < <(
+  git diff --cached --name-only --diff-filter=d -- '*.nix'
+)
+
+if [ "${#files[@]}" -eq 0 ]; then
+  exit 0
+fi
+
+if ! command -v nixfmt >/dev/null 2>&1; then
+  echo "!! pre-commit: nixfmt not on PATH." >&2
+  echo "   Run 'direnv allow' (or 'nix develop') to load the devShell." >&2
+  exit 1
+fi
+
+# Format in place. nixfmt exits non-zero on a parse error, which aborts the
+# commit — the right call, since a syntactically broken .nix should not land
+# even if the author tried to force it through.
+nixfmt "${files[@]}"
+
+# Re-stage the formatted content so the commit carries the formatted version
+# without requiring a manual `git add` afterwards. Files that nixfmt did not
+# change are a no-op for `git add`.
+git add -- "${files[@]}"
+
+echo "pre-commit: formatted ${#files[@]} .nix file(s) with nixfmt"

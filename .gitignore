@@ -1,4 +1,6 @@
 config/nvim/lazy-lock.json
+/.direnv
+
 /result
 
 # nix build output symlinks (nrp, nix build)
