@@ -9,12 +9,6 @@
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    # Upstream flake tracks Claude Code releases directly; nixpkgs lags behind.
-    claude-code = {
-      url = "github:sadjow/claude-code-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =

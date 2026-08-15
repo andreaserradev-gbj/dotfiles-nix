@@ -5,7 +5,6 @@
   pkgs,
   lib,
   user,
-  inputs,
   ...
 }:
 
@@ -47,17 +46,12 @@
     openssh.authorizedKeys.keys = [ user.sshKey ];
   };
 
-  # Upstream claude-code flake, which tracks releases ahead of nixpkgs. This is
-  # what makes `claude-code` below resolve to the flake build, not nixpkgs'.
-  nixpkgs.overlays = [ inputs.claude-code.overlays.default ];
-
   # Named predicate rather than a blanket `allowUnfree`: anything ELSE unfree
   # that wanders in as a dependency still fails eval instead of being waved
   # through silently. The list is the complete set of unfree packages accepted.
   nixpkgs.config.allowUnfreePredicate =
     pkg:
     builtins.elem (lib.getName pkg) [
-      "claude-code"
       "steam"
       "steam-unwrapped"
     ];
@@ -66,16 +60,15 @@
   #
   # On `nodejs` being global, which LOOKS like it violates this repo's
   # per-project-devshell rule: it is an AGENT RUNTIME, not a project toolchain.
-  # The dev-workflow skills execute from ~/.agents/skills and ~/.claude/plugins
-  # — outside any project, so no devshell can ever supply their interpreter.
-  # Same reasoning that puts the harnesses themselves here. Project toolchains
-  # still belong in per-project devshells; do not use this line as precedent.
+  # The dev-workflow skills execute from ~/.agents/skills — outside any project,
+  # so no devshell can ever supply their interpreter. Same reasoning that puts
+  # the harnesses themselves here. Project toolchains still belong in
+  # per-project devshells; do not use this line as precedent.
   environment.systemPackages = with pkgs; [
     vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
     wget
     git
-    claude-code # unfree — see allowUnfreePredicate above
-    opencode # second agent harness; free licence, so no predicate entry needed
+    opencode # agent harness; free licence, so no predicate entry needed
     nodejs # runtime for the skills' .cjs scripts (also provides npm/npx)
     jq # ollama, opencode and the flake all speak JSON; there is no python3 here
   ];

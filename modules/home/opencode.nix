@@ -7,12 +7,13 @@
   # `save_config_on_exit = false`: a tool that rewrites what Nix declares turns
   # the config into a lie.
   #
-  # claude-code needs no equivalent — nixpkgs and the sadjow flake both wrap it
-  # with DISABLE_AUTOUPDATER=1. opencode has no such wrapper, so the off switch
-  # has to come from config. Version freshness comes from `nix flake update`.
+  # claude-code is no longer installed; this module previously contrasted its
+  # DISABLE_AUTOUPDATER=1 wrapper with opencode's lack of one. opencode has no
+  # such wrapper, so the off switch has to come from config. Version freshness
+  # comes from `nix flake update`.
   #
-  # The package itself lives in environment.systemPackages next to claude-code
-  # (harnesses are machine-level); this module owns only the per-user config.
+  # The package itself lives in environment.systemPackages (the harness is
+  # machine-level); this module owns only the per-user config.
   xdg.configFile."opencode/opencode.json".text = builtins.toJSON {
     "$schema" = "https://opencode.ai/config.json";
 
