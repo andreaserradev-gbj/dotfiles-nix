@@ -20,6 +20,14 @@
   # Configure network connections interactively with nmcli or nmtui.
   networking.networkmanager.enable = true;
 
+  # Wi-Fi power saving parks the radio between beacons, so packets arriving for an
+  # idle station wait for the next DTIM instead of being delivered at once. On a
+  # mains-powered mini PC that trades interactive latency for battery life that
+  # does not exist. It measured as ~80ms round trips inbound to this host while
+  # outbound traffic to the same gateway was ~23ms — exactly the asymmetry that
+  # makes an SSH session feel laggy while throughput still looks fine.
+  networking.networkmanager.wifi.powersave = false;
+
   # Set your time zone (lifted into user.nix — the one file a forker edits).
   time.timeZone = user.timeZone;
 
