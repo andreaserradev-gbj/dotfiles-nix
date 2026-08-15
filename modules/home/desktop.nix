@@ -18,7 +18,7 @@ lib.mkIf osConfig.local.desktop.enable {
       theme = "Catppuccin Mocha";
 
       font-family = "JetBrainsMono Nerd Font";
-      font-size = 12;
+      font-size = 14;
 
       # foot's `pad = "8x8"` spelled the way ghostty spells it.
       window-padding-x = 8;
