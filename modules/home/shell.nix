@@ -73,7 +73,8 @@ in
       nrp = "nh os build"; # preview: build + diff vs current, no activation (run after nfu)
       nfu = "nix flake update --flake ${repo}"; # bump inputs (nixpkgs, home-manager) → rewrites flake.lock
       nfc = "nix flake check ${repo}"; # evaluate/validate the flake without building a system
-      nfi = "nix flake init -t ${repo}#devshell"; # initialize a new project
+      nfi = "nix flake init -t ${repo}#devshell"; # initialize a new project (node-flavored default)
+      nfp = "nix flake init -t ${repo}#python-devshell"; # initialize a Python project (uv + python3)
       ngca = "nh clean all && sudo /run/current-system/bin/switch-to-configuration boot"; # bulk GC (keep newest), then prune boot menu
       # ngl (list), ngd (diff) and ngc (interactive GC) are functions in initContent below, sharing the _gens formatter
       nixcfg = "cd ${repo}"; # jump to the flake repo

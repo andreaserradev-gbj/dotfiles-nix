@@ -79,6 +79,14 @@
     opencode # agent harness; free licence, so no predicate entry needed
     nodejs # runtime for the skills' .cjs scripts (also provides npm/npx)
     jq # ollama, opencode and the flake all speak JSON; there is no python3 here
+    uv
+    # fast Python package installer/resolver (Rust). Global for the SAME
+    # reason nodejs is: uvx (uv's nix-run equivalent) and `uv python install`
+    # are LAUNCHERS, not a project toolchain. uv fetches its own standalone
+    # Python builds (python-build-standalone) that run under programs.nix-ld
+    # above, so no global python3 is needed for one-off `uvx <tool>` runs.
+    # Cloned repos that need a flake-pinned Python use the python-devshell
+    # template instead — see templates/python-devshell/.
   ];
 
   # Enable the OpenSSH daemon.

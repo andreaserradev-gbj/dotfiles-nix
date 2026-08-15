@@ -61,6 +61,11 @@
         description = "Per-project dev shell: flake + direnv";
       };
 
+      templates.python-devshell = {
+        path = ./templates/python-devshell;
+        description = "Per-project Python dev shell: uv + python3 (pinned via flake.lock)";
+      };
+
       # `nix fmt` runs this against the flake root. nixfmt in nixpkgs 26.05 IS
       # the RFC-style official formatter (the old `nixfmt-rfc-style` alias was
       # removed); same package that neovim.nix installs for conform.nvim, so
