@@ -25,6 +25,19 @@ in
     services.displayManager.gdm.enable = true;
     services.desktopManager.gnome.enable = true;
 
+    # GDM theming is deliberately NOT applied. The greeter runs a GNOME Shell
+    # instance under the `gdm` user, and the NixOS gdm module exposes two
+    # hooks (`extraPackages` for XDG_DATA_DIRS, `programs.dconf.profiles.gdm`
+    # for the greeter's dconf DB) — but the one piece worth styling (the
+    # cursor) is blocked by the same upstream packaging issue documented in
+    # modules/home/gtk.nix: the catppuccin-cursors directory name does not
+    # match the `Name=` field GNOME resolves by, and the index.theme lacks
+    # `Inherits=hicolor`. Rather than ship a broken cursor on the login
+    # screen, GDM stays on its default Adwaita cursor. The GTK theme,
+    # wallpaper and shell theme are skipped for the reasons already
+    # documented (login screen visible ~2s per boot, greeter failure = black
+    # screen = TTY recovery).
+
     # Audio: pipewire, with the pulseaudio server it replaces switched off
     # explicitly so the two can never both be enabled.
     services.pulseaudio.enable = false;
