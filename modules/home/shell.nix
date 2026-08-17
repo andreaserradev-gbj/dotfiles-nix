@@ -78,6 +78,7 @@ in
       ngca = "nh clean all && sudo /run/current-system/bin/switch-to-configuration boot"; # bulk GC (keep newest), then prune boot menu
       # ngl (list), ngd (diff) and ngc (interactive GC) are functions in initContent below, sharing the _gens formatter
       nixcfg = "cd ${repo}"; # jump to the flake repo
+      speedtest = "NIXPKGS_ALLOW_UNFREE=1 nix run --impure nixpkgs#ookla-speedtest -- --accept-license --accept-gdpr"; # one-shot Ookla speedtest (unfree → per-invocation allow, not added to predicate)
     };
 
     sessionVariables = {
