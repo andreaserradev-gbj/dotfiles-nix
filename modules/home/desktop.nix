@@ -23,7 +23,7 @@ lib.mkIf osConfig.local.desktop.enable {
       theme = "Catppuccin Mocha";
 
       font-family = "JetBrainsMono Nerd Font";
-      font-size = 14;
+      font-size = 12;
 
       # foot's `pad = "8x8"` spelled the way ghostty spells it.
       window-padding-x = 8;
@@ -85,6 +85,21 @@ lib.mkIf osConfig.local.desktop.enable {
       # app, which is the one surface the GTK theme cannot touch. It is the
       # honest bridge between "theme GTK3" and "leave libadwaita alone".
       accent-color = "purple";
+
+      # Scales fonts only; XWayland root window stays at native 3840×2160,
+      # so games keep seeing the real panel even with this raised. Picked
+      # over `scaling-factor` (integer-only, rescales the whole output) for
+      # the same reason the desktop runs at 100%: fractional scaling on the
+      # output inflates XWayland's root window to 7680×4320 and games render
+      # four times the pixels. text-scaling-factor touches neither.
+      text-scaling-factor = 1.25;
+
+      # Pin the OUTPUT scale to 1:1 (100%). GNOME's per-display auto-default
+      # picks fractional values like 125% on a 4K panel at first login, which
+      # inflates XWayland's root window (ceil to integer 2×) and makes games
+      # render at 7680×4320. This locks it to integer 1 so the desktop output
+      # matches the panel natively and XWayland reports the real resolution.
+      scaling-factor = lib.gvariant.mkUint32 1;
 
       # Selects the GTK3 theme. The name is the directory name under
       # share/themes/, which catppuccin-gtk.override produces as
