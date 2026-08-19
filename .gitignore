@@ -1,6 +1,10 @@
 config/nvim/lazy-lock.json
 /.direnv
 
+# dev-workflow PRDs and checkpoints (local-only, never committed)
+.dev
+.dev-archive
+
 /result
 
 # nix build output symlinks (nrp, nix build)
