@@ -67,21 +67,16 @@
   # the VM does not (it has no real firmware to update).
   services.fwupd.enable = true;
 
-  # Suspend is MASKED by default on this box. Resume behavior on this
-  # hardware is UNVERIFIED — the geekom firmware advertised S0/S4/S5 and
-  # resume hung hard anyway (see hosts/geekom/default.nix:56-81). The same
-  # class of quirk can hit any machine. Remove this block ONLY after
-  # `systemctl suspend` resumes cleanly on-site:
-  #   systemctl suspend          # wait 10s, wake via power button/lid
-  #   journalctl -k -b -1        # look for a clean suspend/resume cycle
-  # Elisa is non-technical — a hard hang is a brick from her perspective;
-  # suspend is a nice-to-have, not a requirement.
-  systemd.targets = {
-    sleep.enable = false;
-    suspend.enable = false;
-    hibernate.enable = false;
-    hybrid-sleep.enable = false;
-  };
+  # Suspend was MASKED by default until verified on-site. Verified clean
+  # 2026-08-27 (Andrea on-site): `systemctl suspend` → wake via power button
+  # → journal showed a clean suspend/resume cycle, desktop and network
+  # recovered. The mask block was removed after that test. If resume ever
+  # regresses after a firmware update, restore the block from git history
+  # (see hosts/geekom/default.nix:56-81 for the full reasoning).
+  # Note: the mask covered GDM's greeter too; unmasked, GDM's greeter has its
+  # own 900s idle suspend timer — same mechanism that bricked the geekom box.
+  # If the greeter suspend ever hangs the box, re-mask rather than debugging
+  # dconf.
 
   # Set-once: pin state-format defaults to the install release. Never bump casually.
   system.stateVersion = "26.05";
