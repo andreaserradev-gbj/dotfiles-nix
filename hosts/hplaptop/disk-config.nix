@@ -16,12 +16,12 @@
   disko.devices.disk.main = {
     type = "disk";
 
-    # PLACEHOLDER — fill in at install time with the real by-id node, e.g.
-    # /dev/disk/by-id/nvme-XXXX_YYYY. WHOLE-DISK node, never a -partN symlink.
-    # Do NOT substitute /dev/sda or /dev/nvme0n1: kernel enumeration order is
-    # not stable across boots, and disko's destroy mode acts on whatever it
-    # resolves to. Use the by-id form so the target is unambiguous.
-    device = "/dev/disk/by-id/PLACEHOLDER";
+    # Real by-id node, captured on the box at install time (2026-08-27).
+    # Whole-disk node, never a -partN symlink. Do NOT substitute /dev/sda or
+    # /dev/nvme0n1: kernel enumeration order is not stable across boots, and
+    # disko's destroy mode acts on whatever it resolves to. The by-id form
+    # keeps the target unambiguous.
+    device = "/dev/disk/by-id/nvme-INTEL_SSDPEKKF256G7H_BTPY807200UQ256D";
 
     content = {
       type = "gpt";
