@@ -26,11 +26,10 @@
   # the default: it is reachable over ssh and rebuildable from the Mac.
   boot.loader.timeout = 20;
 
-  # Boot menu text size. Default "keep" uses the firmware's native mode,
-  # which on this panel means characters too small to read from arm's
-  # length. "2" = 400x300-ish grid scaled up (240 rows), legible on a laptop
-  # panel. The geekom and VM keep the default (headless/hidden menu there).
-  boot.loader.systemd-boot.consoleMode = "2";
+  # consoleMode was tried ("2", then "1" live-tested in loader.conf) to fix
+  # the tiny boot-menu text: this HP firmware ignores the GOP resize in both
+  # modes, so the setting is inert here and was reverted. The menu is only
+  # used for recovery — arrows + Enter work regardless of text size.
 
   # Redistributable firmware blobs — Wi-Fi and Bluetooth firmware for the
   # laptop's combo radio. Omitting this is the difference between a working
