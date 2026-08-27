@@ -26,6 +26,12 @@
   # the default: it is reachable over ssh and rebuildable from the Mac.
   boot.loader.timeout = 20;
 
+  # Boot menu text size. Default "keep" uses the firmware's native mode,
+  # which on this panel means characters too small to read from arm's
+  # length. "2" = 400x300-ish grid scaled up (240 rows), legible on a laptop
+  # panel. The geekom and VM keep the default (headless/hidden menu there).
+  boot.loader.systemd-boot.consoleMode = "2";
+
   # Redistributable firmware blobs — Wi-Fi and Bluetooth firmware for the
   # laptop's combo radio. Omitting this is the difference between a working
   # desktop and a black screen with no network.
