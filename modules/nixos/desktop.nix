@@ -8,6 +8,7 @@
   config,
   lib,
   pkgs,
+  user,
   ...
 }:
 
@@ -40,6 +41,13 @@ in
     # GNOME's session under GDM is Wayland by default; this is what supplies
     # XWayland, so X11-only applications still run.
     services.xserver.enable = true;
+
+    # Graphical keyboard layout — same per-host field as the console keymap
+    # (common.nix), so TTY and GUI can never disagree. This option feeds both
+    # GDM's greeter and the XKB defaults for the session. Optional field:
+    # hosts without it keep the "us" default. GNOME's per-user input sources
+    # are set declaratively in the HM half (modules/home/desktop.nix).
+    services.xserver.xkb.layout = user.keyboardLayout or "us";
 
     services.displayManager.gdm.enable = true;
     services.desktopManager.gnome.enable = true;

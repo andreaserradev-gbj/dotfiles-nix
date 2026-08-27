@@ -16,6 +16,7 @@
   lib,
   osConfig,
   config,
+  user,
   ...
 }:
 
@@ -76,91 +77,112 @@ lib.mkIf osConfig.local.desktop.enable {
   # per-user state and this is the file that already owns the user's dconf
   # for the GNOME desktop. gtk.nix owns the PACKAGES (GTK theme, cursor,
   # wallpaper); this block owns the GNOME SETTINGS that select them.
-  dconf.settings = lib.mkIf (osConfig.local.desktop.variant == "full") {
-    "org/gnome/shell" = {
-      enabled-extensions = [ "paperwm@paperwm.github.com" ];
-      disabled-extensions = [ ];
-    };
+  #
+  # mkMerge, not a second attribute definition: the module system does not
+  # deep-merge two separately-defined `dconf.settings` attrsets from the same
+  # module (that eval error is why this block exists in this shape).
+  dconf.settings = lib.mkMerge [
+    # Gated on the field being PRESENT (not defaulted to "us"): hosts without
+    # `keyboardLayout` keep their dconf byte-identical — writing an explicit
+    # input source that matches the platform default would still move the
+    # derivation and take ownership of a key GNOME currently manages.
+    # `user` is the per-host identity attrset threaded via extraSpecialArgs.
+    (lib.mkIf (user ? keyboardLayout) {
+      "org/gnome/desktop/input-sources" = {
+        sources = [
+          (lib.hm.gvariant.mkTuple [
+            "xkb"
+            user.keyboardLayout
+          ])
+        ];
+      };
+    })
+    (lib.mkIf (osConfig.local.desktop.variant == "full") {
+      "org/gnome/shell" = {
+        enabled-extensions = [ "paperwm@paperwm.github.com" ];
+        disabled-extensions = [ ];
+      };
 
-    # Prefer-dark. GNOME's own setting; covers every app that respects
-    # `color-scheme` (libadwaita + most GTK4 apps). The Catppuccin GTK theme
-    # is dark by construction so GTK3 apps are dark regardless, but this
-    # makes the libadwaita apps that the GTK theme CAN'T reach at least use
-    # their dark variant.
-    "org/gnome/desktop/interface" = {
-      color-scheme = "prefer-dark";
+      # Prefer-dark. GNOME's own setting; covers every app that respects
+      # `color-scheme` (libadwaita + most GTK4 apps). The Catppuccin GTK theme
+      # is dark by construction so GTK3 apps are dark regardless, but this
+      # makes the libadwaita apps that the GTK theme CAN'T reach at least use
+      # their dark variant.
+      "org/gnome/desktop/interface" = {
+        color-scheme = "prefer-dark";
 
-      # Native accent color (GNOME 47+). There is no `mauve`; `purple` is the
-      # closest to Catppuccin Mocha Mauve (#cba6f7) — more saturated than the
-      # palette swatch but the same hue family. This recolors selection
-      # highlights, focus rings, switches and buttons inside every libadwaita
-      # app, which is the one surface the GTK theme cannot touch. It is the
-      # honest bridge between "theme GTK3" and "leave libadwaita alone".
-      accent-color = "purple";
+        # Native accent color (GNOME 47+). There is no `mauve`; `purple` is the
+        # closest to Catppuccin Mocha Mauve (#cba6f7) — more saturated than the
+        # palette swatch but the same hue family. This recolors selection
+        # highlights, focus rings, switches and buttons inside every libadwaita
+        # app, which is the one surface the GTK theme cannot touch. It is the
+        # honest bridge between "theme GTK3" and "leave libadwaita alone".
+        accent-color = "purple";
 
-      # Scales fonts only; XWayland root window stays at native 3840×2160,
-      # so games keep seeing the real panel even with this raised. Picked
-      # over `scaling-factor` (integer-only, rescales the whole output) for
-      # the same reason the desktop runs at 100%: fractional scaling on the
-      # output inflates XWayland's root window to 7680×4320 and games render
-      # four times the pixels. text-scaling-factor touches neither.
-      text-scaling-factor = 1.25;
+        # Scales fonts only; XWayland root window stays at native 3840×2160,
+        # so games keep seeing the real panel even with this raised. Picked
+        # over `scaling-factor` (integer-only, rescales the whole output) for
+        # the same reason the desktop runs at 100%: fractional scaling on the
+        # output inflates XWayland's root window to 7680×4320 and games render
+        # four times the pixels. text-scaling-factor touches neither.
+        text-scaling-factor = 1.25;
 
-      # Pin the OUTPUT scale to 1:1 (100%). GNOME's per-display auto-default
-      # picks fractional values like 125% on a 4K panel at first login, which
-      # inflates XWayland's root window (ceil to integer 2×) and makes games
-      # render at 7680×4320. This locks it to integer 1 so the desktop output
-      # matches the panel natively and XWayland reports the real resolution.
-      scaling-factor = lib.gvariant.mkUint32 1;
+        # Pin the OUTPUT scale to 1:1 (100%). GNOME's per-display auto-default
+        # picks fractional values like 125% on a 4K panel at first login, which
+        # inflates XWayland's root window (ceil to integer 2×) and makes games
+        # render at 7680×4320. This locks it to integer 1 so the desktop output
+        # matches the panel natively and XWayland reports the real resolution.
+        scaling-factor = lib.gvariant.mkUint32 1;
 
-      # Selects the GTK3 theme. The name is the directory name under
-      # share/themes/, which catppuccin-gtk.override produces as
-      # `catppuccin-mocha-mauve-standard` (no `+default` suffix — that's the
-      # upstream install.py naming convention, not nixpkgs' build.py one).
-      gtk-theme = "catppuccin-mocha-mauve-standard";
+        # Selects the GTK3 theme. The name is the directory name under
+        # share/themes/, which catppuccin-gtk.override produces as
+        # `catppuccin-mocha-mauve-standard` (no `+default` suffix — that's the
+        # upstream install.py naming convention, not nixpkgs' build.py one).
+        gtk-theme = "catppuccin-mocha-mauve-standard";
 
-      # Selects the icon theme. Unlike `gtk-theme`, this IS honored by
-      # GTK4/libadwaita — `GtkIconTheme` reads this key in both GTK3 and
-      # GTK4 — so Nautilus, Settings, Text Editor and every other GNOME app
-      # picks up Papirus-Dark with Catppuccin Mocha Mauve folder colors.
-      # See modules/home/gtk.nix for how the package is built.
-      icon-theme = "Papirus-Dark";
-    };
+        # Selects the icon theme. Unlike `gtk-theme`, this IS honored by
+        # GTK4/libadwaita — `GtkIconTheme` reads this key in both GTK3 and
+        # GTK4 — so Nautilus, Settings, Text Editor and every other GNOME app
+        # picks up Papirus-Dark with Catppuccin Mocha Mauve folder colors.
+        # See modules/home/gtk.nix for how the package is built.
+        icon-theme = "Papirus-Dark";
+      };
 
-    # Wallpaper. `picture-uri-dark` is what GNOME 42+ reads under
-    # `prefer-dark`; `picture-uri` is the light-mode fallback and is set to
-    # the same image so a future `color-scheme` flip does not drop to a
-    # default wallpaper. The path is a stable symlink installed by
-    # xdg.dataFile in gtk.nix — NOT a nix store path with a hash — so a
-    # wallpaper package bump never leaves a stale URI here.
-    #
-    # `picture-uri` is a `file://` URL, so the absolute path is unavoidable
-    # in the value. The username is taken from HM's evaluated
-    # `config.home.homeDirectory` rather than hardcoded so this file stays
-    # fork-friendly: the only username literal in the repo is user.nix.
-    # `config.xdg.dataHome` would be the cleaner reference, but it resolves
-    # to `$HOME/.local/share` which GNOME's background reader does NOT
-    # expand — the URI must be a real absolute path, so homeDirectory +
-    # the literal suffix it is.
-    #
-    # `picture-options = "zoom"` (per-display) is the safe default: the 4K
-    # image scales down cleanly to any single display without distortion.
-    # `"spanned"` would stretch one image across multiple monitors and
-    # needs a wider source to avoid artifacts; not in scope for one host.
-    "org/gnome/desktop/background" = {
-      picture-uri = "file://${config.home.homeDirectory}/.local/share/backgrounds/catppuccin-mocha.png";
-      picture-uri-dark = "file://${config.home.homeDirectory}/.local/share/backgrounds/catppuccin-mocha.png";
-      picture-options = "zoom";
-    };
+      # Wallpaper. `picture-uri-dark` is what GNOME 42+ reads under
+      # `prefer-dark`; `picture-uri` is the light-mode fallback and is set to
+      # the same image so a future `color-scheme` flip does not drop to a
+      # default wallpaper. The path is a stable symlink installed by
+      # xdg.dataFile in gtk.nix — NOT a nix store path with a hash — so a
+      # wallpaper package bump never leaves a stale URI here.
+      #
+      # `picture-uri` is a `file://` URL, so the absolute path is unavoidable
+      # in the value. The username is taken from HM's evaluated
+      # `config.home.homeDirectory` rather than hardcoded so this file stays
+      # fork-friendly: the only username literal in the repo is user.nix.
+      # `config.xdg.dataHome` would be the cleaner reference, but it resolves
+      # to `$HOME/.local/share` which GNOME's background reader does NOT
+      # expand — the URI must be a real absolute path, so homeDirectory +
+      # the literal suffix it is.
+      #
+      # `picture-options = "zoom"` (per-display) is the safe default: the 4K
+      # image scales down cleanly to any single display without distortion.
+      # `"spanned"` would stretch one image across multiple monitors and
+      # needs a wider source to avoid artifacts; not in scope for one host.
+      "org/gnome/desktop/background" = {
+        picture-uri = "file://${config.home.homeDirectory}/.local/share/backgrounds/catppuccin-mocha.png";
+        picture-uri-dark = "file://${config.home.homeDirectory}/.local/share/backgrounds/catppuccin-mocha.png";
+        picture-options = "zoom";
+      };
 
-    # Lock-screen wallpaper. GNOME 43+ reads `picture-uri` from the
-    # `screensaver` schema SEPARATELY from the desktop background — a detail
-    # easy to miss, leaving the lock screen on GNOME's default while the
-    # desktop is Mocha. Mirroring the same URI here keeps them in sync; if
-    # you ever want a different lock-screen image, this is the key to change.
-    "org/gnome/desktop/screensaver" = {
-      picture-uri = "file://${config.home.homeDirectory}/.local/share/backgrounds/catppuccin-mocha.png";
-      picture-options = "zoom";
-    };
-  };
+      # Lock-screen wallpaper. GNOME 43+ reads `picture-uri` from the
+      # `screensaver` schema SEPARATELY from the desktop background — a detail
+      # easy to miss, leaving the lock screen on GNOME's default while the
+      # desktop is Mocha. Mirroring the same URI here keeps them in sync; if
+      # you ever want a different lock-screen image, this is the key to change.
+      "org/gnome/desktop/screensaver" = {
+        picture-uri = "file://${config.home.homeDirectory}/.local/share/backgrounds/catppuccin-mocha.png";
+        picture-options = "zoom";
+      };
+    })
+  ];
 }

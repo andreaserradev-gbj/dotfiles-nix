@@ -29,10 +29,15 @@
   # email is configured directly in Brave with her Google account — no native
   # mail client. Adding a future non-dev HM module that consumes either field
   # on hplaptop would need both added back here.
+  #
+  # `keyboardLayout` is OPTIONAL — the other hosts omit it and keep the
+  # platform default ("us"). When present it drives the console keymap, the
+  # XKB/GDM layout and GNOME's input sources (see common.nix and desktop.nix).
   hplaptop = rec {
     username = "elisa";
     fullName = "Elisa Davi";
     timeZone = "Europe/Rome";
+    keyboardLayout = "it";
     homeDirectory = "/home/${username}";
   };
 }

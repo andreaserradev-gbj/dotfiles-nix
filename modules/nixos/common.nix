@@ -34,6 +34,12 @@
   # Set your time zone (lifted into user.nix — the one file a forker edits).
   time.timeZone = user.timeZone;
 
+  # Console (TTY) keyboard layout, lifted into user.nix like timeZone. The
+  # field is optional: hosts without it keep the kernel default ("us"). This
+  # covers the TTYs only; the graphical layout is set in desktop.nix, and the
+  # two are set from the same field so they can never disagree.
+  console.keyMap = user.keyboardLayout or "us";
+
   programs.zsh.enable = true;
 
   # Account informations
