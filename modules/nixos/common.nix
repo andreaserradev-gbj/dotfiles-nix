@@ -40,6 +40,15 @@
   # two are set from the same field so they can never disagree.
   console.keyMap = user.keyboardLayout or "us";
 
+  # System locale — messages, number/date formats, measurement units, and the
+  # default language of every app that follows the session locale (GNOME,
+  # LibreOffice, Brave, ...). Lifted into user.nix like timeZone. Optional:
+  # hosts without it keep the nixpkgs default AND the default `supportedLocales`
+  # (the config below must stay byte-identical on hosts that don't opt in —
+  # same rule that keeps the keyboard dconf key off geekom).
+  i18n.defaultLocale = user.locale or "en_US.UTF-8";
+  i18n.supportedLocales = lib.mkIf (user ? locale) [ "all" ];
+
   programs.zsh.enable = true;
 
   # Account informations

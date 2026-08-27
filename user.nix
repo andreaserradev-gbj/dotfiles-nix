@@ -33,11 +33,16 @@
   # `keyboardLayout` is OPTIONAL — the other hosts omit it and keep the
   # platform default ("us"). When present it drives the console keymap, the
   # XKB/GDM layout and GNOME's input sources (see common.nix and desktop.nix).
+  #
+  # `locale` is OPTIONAL the same way. When present it sets the whole system
+  # locale (messages, formats, measurements — see common.nix). Absent = the
+  # nixpkgs default ("en_US.UTF-8"), byte-identical behavior for existing hosts.
   hplaptop = rec {
     username = "elisa";
     fullName = "Elisa Davi";
     timeZone = "Europe/Rome";
     keyboardLayout = "it";
+    locale = "it_IT.UTF-8";
     homeDirectory = "/home/${username}";
   };
 }
