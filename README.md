@@ -232,14 +232,15 @@ over SSH with your key — next.
 
 ### 3. SSH from the Mac
 
-Access is **key-only**: `modules/nixos/common.nix` sets
+Access is **key-only**: `modules/nixos/dev.nix` sets
 `services.openssh.settings.PasswordAuthentication = false`, so the key in `user.nix`
 is the _only_ way in over the network — there is no password fallback.
 
-> **This is in the shared module, so every host inherits it.** sshd, the
-> password-auth lockout and your public key are declared once in
-> `modules/nixos/common.nix` and apply to `nixos` and `geekom` alike. A new host
-> needs nothing added for SSH — verify rather than re-implement:
+> **sshd is gated behind `local.dev.enable`, not in `common.nix`.** sshd, the
+> password-auth lockout and your public key are declared in
+> `modules/nixos/dev.nix` and apply to every host that flips `local.dev.enable =
+> true` (`nixos` and `geekom`; `hplaptop` leaves it off — no sshd there). A new
+> dev host needs nothing added for SSH — verify rather than re-implement:
 > `nix eval .#nixosConfigurations.<host>.config.services.openssh.enable`.
 
 1. **Generate a key** on the Mac (skip if you already have one):
@@ -249,7 +250,7 @@ is the _only_ way in over the network — there is no password fallback.
     ```
 
 2. **Put its public half in `user.nix`** as `sshKey = "ssh-ed25519 …";` and commit.
-   `modules/nixos/common.nix` installs it into every host's `authorizedKeys` at
+   `modules/nixos/dev.nix` installs it into every dev host's `authorizedKeys` at
    build time, so it must be in the repo _before_ the install in step 2.
 
 3. **Find the VM's IP** from the local console — it's a DHCP lease, so it can change
@@ -537,7 +538,8 @@ bluetoothctl
 ### 10. SSH, in both directions
 
 **Inbound, from the Mac.** Nothing needs adding to the NixOS config — sshd, the
-password-auth lockout and your key all arrive from `modules/nixos/common.nix`.
+password-auth lockout and your key all arrive from `modules/nixos/dev.nix`
+(gated behind `local.dev.enable`, which is true on `geekom`).
 What you do need is to clear the stale host key:
 
 ```sh
