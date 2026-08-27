@@ -1,23 +1,25 @@
 # dotfiles-nix
 
-Personal NixOS configuration for **two machines built from one flake** — an
-Apple Silicon development VM and an x86_64 desktop. One command rebuilds the
-system and my `$HOME` on either of them:
+Personal NixOS configuration for **three machines built from one flake** — an
+Apple Silicon development VM, an x86_64 desktop, and an x86_64 laptop for a
+non-technical user. One command rebuilds the system and my `$HOME` on either of
+them:
 
 ```sh
 sudo nixos-rebuild switch --flake .
 ```
 
 **No host attribute.** `nixos-rebuild` derives it from `networking.hostName`, so
-the same command is correct on both machines and there is nothing per-host to
+the same command is correct on every host and there is nothing per-host to
 remember or mistype.
 
 ## The hosts
 
-| attr     | directory       | architecture    | machine                 | console                      |
-| -------- | --------------- | --------------- | ----------------------- | ---------------------------- |
-| `nixos`  | `hosts/vm/`     | `aarch64-linux` | UTM VM on Apple Silicon | cage + foot kiosk, autologin |
-| `geekom` | `hosts/geekom/` | `x86_64-linux`  | GEEKOM A9 Max mini PC   | GNOME on GDM                 |
+| attr       | directory           | architecture    | machine                 | console                      |
+| ---------- | ------------------- | --------------- | ----------------------- | ---------------------------- |
+| `nixos`    | `hosts/vm/`         | `aarch64-linux` | UTM VM on Apple Silicon | cage + foot kiosk, autologin |
+| `geekom`   | `hosts/geekom/`     | `x86_64-linux`  | GEEKOM A9 Max mini PC   | GNOME on GDM                 |
+| `hplaptop` | `hosts/hplaptop/`   | `x86_64-linux`  | HP laptop (Intel i5)    | vanilla GNOME on GDM         |
 
 > **The VM's two names are not a typo.** Its flake attr is `nixos` because that
 > has to match `networking.hostName` — which is what the no-attr rebuild
@@ -48,18 +50,21 @@ did — see below.
 ## Layout
 
 ```
-flake.nix              nixosConfigurations.nixos (aarch64) + .geekom (x86_64)
+flake.nix              nixosConfigurations.nixos (aarch64) + .geekom + .hplaptop (x86_64)
 user.nix               personal identity — the one file to edit when forking
 home.nix               Home Manager entrypoint — imports modules/home/
 hosts/vm/              the aarch64 UTM VM
 hosts/geekom/          the x86_64 mini PC
+hosts/hplaptop/        the x86_64 HP laptop (non-technical user, no dev tooling)
   default.nix            hostName, stateVersion, hardware, display stack
   hardware-configuration.nix   by-label mounts, initrd modules
   disk-config.nix        disko layout — read by bootstrap.sh only, never imported
 modules/nixos/         system layer, shared by every host
-  common.nix             users, sshd, shell, system packages
+  common.nix             users, shell, system packages
   desktop.nix            defines AND consumes the `local.desktop` option
+  dev.nix                defines AND consumes the `local.dev` option
 modules/home/          one module per tool (zsh, git, neovim, …) — 100% Nix
+  maintenance.nix        `nrb`/`ngca` aliases for non-dev hosts (no `nh`)
 config/<tool>/…        verbatim assets referenced by the modules (nvim tree,
                        bat theme, fastfetch, zellij) — 100% non-Nix
 scripts/check-hosts.sh the multi-host regression gate
@@ -71,6 +76,24 @@ bootstrap.sh           one-command install of any host, from a live ISO
 > It defines the `local.desktop` option as well as consuming it, so every host
 > has to see it in order to leave it switched off. A host that cannot see an
 > option cannot set it to `false`.
+
+> **`local.desktop.variant` selects the desktop flavour.** `"full"` (the
+> default) ships PaperWM + Catppuccin theming via Home Manager; `"vanilla"`
+> ships plain GNOME. `geekom` keeps the default; `hplaptop` picks `"vanilla"`
+> for a non-technical user. The HM side gates on
+> `osConfig.local.desktop.variant == "full"` (see `modules/home/desktop.nix`,
+> `modules/home/gtk.nix`), so a vanilla host skips the theming modules
+> entirely. `local.desktop.libreoffice.enable` (default `false`) is a
+> sub-option only `hplaptop` flips on — Elisa needs Word/Excel for HR work.
+
+> **`modules/nixos/dev.nix` defines AND consumes the `local.dev` option.**
+> Like `desktop.nix`, it is imported by every host so every host can see the
+> option. It gates nix-ld, ollama, opencode, nodejs, uv, jq, **and** sshd +
+> `authorizedKeys` — sshd is dev/admin tooling, not a baseline. `nixos` and
+> `geekom` set `local.dev.enable = true`; `hplaptop` leaves it `false`, so it
+> has no sshd, no authorized_keys, and none of the dev packages. A
+> non-technical user's machine with no admin surface area is the whole
+> point of that host.
 
 > **`disk-config.nix` is not part of the running system.** disko is not a flake
 > input and neither host imports it; `bootstrap.sh` fetches a copy over HTTPS
@@ -607,6 +630,160 @@ by **how you get them back**, which is the only grouping that helps at 11pm:
 
 The first three take minutes if you know they are coming and cost an evening if
 you do not. Listing them is the whole point.
+
+## Installing on bare metal (hplaptop)
+
+The geekom walkthrough above covers a generic bare-metal install in detail.
+This section is the **delta** for the HP laptop — what differs, not what is the
+same. The HP laptop is a vanilla install with no GPU traps, so it is shorter;
+the one caveat that is real here is **suspend**.
+
+The host is for a non-technical user (Elisa). The design constraints follow
+from that:
+
+- **No dev tooling, no sshd.** `local.dev.enable = false` in
+  `hosts/hplaptop/default.nix` (explicit). The `dev.nix` seam gates nix-ld,
+  ollama, opencode, nodejs, uv, jq, **and** sshd + authorized_keys — all off.
+- **Vanilla GNOME**, not PaperWM + Catppuccin. `local.desktop.variant =
+  "vanilla"` skips the HM theming modules (see the callout above).
+- **LibreOffice enabled** (`local.desktop.libreoffice.enable = true`) — Elisa
+  needs Word/Excel for HR work.
+- **Bash shell, not zsh.** `users.users.elisa.shell = lib.mkForce pkgs.bash`
+  overrides `common.nix`'s bare `pkgs.zsh` (priority 50 beats 1500).
+- **Email in Brave, not Thunderbird.** Elisa's email is configured directly in
+  Brave with her Google account. There is no `email` field in her `user.nix`
+  entry and no `modules/home/mail.nix`.
+- **Wi-Fi powersave on.** `networking.networkmanager.wifi.powersave =
+  lib.mkForce true` — a laptop trades a little latency for battery life, the
+  opposite tradeoff from the mains-powered geekom box.
+- **No `sshKey` in `user.nix`.** sshd is off, so nothing consumes it. Andrea
+  maintains this box on-site; Elisa updates via `nrb` (see below).
+
+### Before you wipe
+
+Record the Windows licence key from the ACPI MSDM table (see the geekom
+section). Read the BIOS/EC versions. The HP laptop's firmware is not the
+geekom firmware — do not assume the same quirks, but the same cautions apply.
+
+### Firmware
+
+Default to not flashing (same reasoning as geekom). If you do flash, disable
+Secure Boot _after_, not before.
+
+### Install
+
+The install is the same four-phase `bootstrap.sh` flow as geekom:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/andreaserradev-gbj/dotfiles-nix/main/bootstrap.sh \
+  | sudo bash -s -- hplaptop
+```
+
+Two things must be done first, both before booting the ISO:
+
+1. **Fill in the real disk device** in `hosts/hplaptop/disk-config.nix`
+   (replace `/dev/disk/by-id/PLACEHOLDER` with the real by-id node from
+   `ls -l /dev/disk/by-id/`). Commit and push — `bootstrap.sh` fetches the
+   layout from GitHub, and refuses to run against a `PLACEHOLDER` path.
+2. **Fill in the initrd modules** in
+   `hosts/hplaptop/hardware-configuration.nix`. Run
+   `nixos-generate-config --no-filesystems --dir /tmp/cfg` on the booted ISO
+   and copy the `boot.initrd.availableKernelModules` list into the committed
+   file. The shipped template ships an empty list — it will not boot on real
+   hardware as-is. `boot.kernelModules = [ "kvm-intel" ]` is already set (this
+   is an Intel box, not AMD).
+
+The by-label mounts (`/` → `hplaptop`, `/boot` → `BOOT`) are hand-written and
+must match the labels `disk-config.nix` creates. disko and the committed
+hardware config agree by construction; verify rather than re-derive.
+
+> **Intel, not AMD.** `hardware.cpu.intel.updateMicrocode = true` (not
+> `hardware.cpu.amd`), and there is no `hardware.amdgpu.initrd.enable`. The
+> HP laptop has an Intel i5 with integrated graphics — no discrete GPU, no
+> AMD-specific firmware.
+
+### After first boot
+
+```sh
+hostname                                   # hplaptop
+uname -m                                   # x86_64
+readlink -f /run/current-system
+```
+
+> **Prove the running system came from this flake.** Evaluate
+> `.#nixosConfigurations.hplaptop.config.system.build.toplevel` and check it
+> is the **same store path** as `/run/current-system`.
+
+**Change the password immediately.** `modules/nixos/common.nix` sets
+`initialPassword`, and this repo is public. The GNOME login keyring caveat
+from the geekom section applies here too — change the password before
+launching a browser, or re-key the keyring in seahorse afterwards.
+
+**Elisa's email.** Configure her Google account directly in Brave — there is
+no Thunderbird on this host and no `email` field in `user.nix`.
+
+### Suspend — verify before unmasking
+
+Suspend is **masked by default** on this host:
+
+```nix
+systemd.targets = {
+  sleep.enable = false;
+  suspend.enable = false;
+  hibernate.enable = false;
+  hybrid-sleep.enable = false;
+};
+```
+
+The geekom box proved that "the firmware advertises S-states" is not evidence
+that resume works — its resume hangs hard with the journal stopping mid-suspend.
+The same class of quirk can hit any machine. Until this specific laptop has
+been observed to suspend and resume cleanly, the mask stays.
+
+**To verify on-site:**
+
+```sh
+# As root (or sudo):
+systemctl suspend          # wait ~10s, then wake via power button or lid open
+journalctl -k -b -1         # look for a clean suspend → resume cycle
+```
+
+If the resume is clean (the journal picks up after the suspend line, the
+desktop comes back, networking reconnects), remove the `systemd.targets` block
+from `hosts/hplaptop/default.nix`, rebuild, and commit. If it hangs, leave the
+mask in place — Elisa is non-technical, and a hard hang is a brick from her
+perspective. Suspend is a nice-to-have, not a requirement.
+
+> **The mask covers GDM's greeter too.** GNOME Settings → Power → Automatic
+> Suspend writes to the logged-in user's dconf, but GDM's greeter runs as its
+> own user with its own 900s idle timer — that is exactly how the geekom box
+> was lost (nobody logged in, greeter suspended 15 minutes after boot).
+> Masking the targets is the only form that covers the greeter, every user
+> session, and the power menu entry. See `hosts/geekom/default.nix:56-81` for
+> the full reasoning.
+
+### Updating the system
+
+Elisa has no local clone of this repo and no `nh`. Updates go through a single
+bash alias, `nrb`, defined in `modules/home/maintenance.nix` (gated on
+`!osConfig.local.dev.enable`, so it only appears on non-dev hosts):
+
+```sh
+nrb           # nixos-rebuild boot --flake github:andreaserradev-gbj/dotfiles-nix
+```
+
+`boot` (not `switch`) so a kernel or display-stack change does not tear down
+the running session — a reboot applies it. Andrea runs a full `nixos-rebuild`
+on-site visits; Elisa just runs `nrb` and reboots when prompted.
+
+> **No SSH on this host.** sshd is gated behind `local.dev.enable`, which is
+> false here. There is no network rebuild path and no authorized_keys entry.
+> Maintenance is either `nrb` (Elisa) or on-site (Andrea).
+
+### What a reinstall does not restore
+
+Same set as geekom — wifi password, Bluetooth pairings, browser profiles,
+LibreOffice state. All live outside this repo. See the geekom table above.
 
 ## Daily workflow
 

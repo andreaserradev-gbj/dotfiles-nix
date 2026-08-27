@@ -70,6 +70,17 @@
         ];
       };
 
+      nixosConfigurations.hplaptop = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        specialArgs = {
+          user = users.hplaptop;
+          inherit inputs;
+        };
+        modules = commonModules ++ [
+          ./hosts/hplaptop
+        ];
+      };
+
       templates.devshell = {
         path = ./templates/devshell;
         description = "Per-project dev shell: flake + direnv";
