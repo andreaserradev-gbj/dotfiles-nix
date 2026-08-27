@@ -56,6 +56,12 @@
         };
         "minimax-m3:cloud" = {
           name = "MiniMax M3 (cloud)";
+          attachment = true;
+          modalities.input = [
+            "text"
+            "image"
+          ];
+          modalities.output = [ "text" ];
           options.reasoningEffort = "high";
           limit = {
             context = 524288;
@@ -67,12 +73,27 @@
         # enforces the cap, so this mirrors glm-5.2:cloud's 999424 (1M minus
         # overhead) until `/api/show` is checked on this host. Output cap is
         # unverified — 131072 follows the other ollama cloud models.
-        # glm-5.3-flash is the only multimodal model here — `attachment = true`
-        # tells opencode to pass image inputs through. The other two are text-only
-        # cloud stubs, so they deliberately omit this flag.
+        # glm-5.3-flash and minimax-m3 are both multimodal (`ollama show` reports
+        # `vision` on both; models.dev live lists minimax-m3 as text+image+video).
+        # Two config keys gate image input, and they are NOT interchangeable
+        # (verified against the 1.15.10 bundle): `attachment = true` reaches
+        # `capabilities.attachment` (model-advertising / picker level), but the
+        # send-time gate in opencode reads `capabilities.input.image`, which
+        # resolves from `v.modalities.input` — NOT from `attachment`. The merge
+        # for every input modality is `config.modalities.input ?? (models.dev
+        # capabilities) ?? false`, and glm-5.3-flash is absent from models.dev,
+        # so without the explicit array opencode replaces any attached image with
+        # an "ERROR: this model does not support image input" text stub and never
+        # forwards the bytes. glm-5.2 is the only text-only stub left, so it
+        # deliberately omits both flags.
         "glm-5.3-flash:cloud" = {
           name = "GLM 5.3 Flash (cloud)";
           attachment = true;
+          modalities.input = [
+            "text"
+            "image"
+          ];
+          modalities.output = [ "text" ];
           options.reasoningEffort = "high";
           limit = {
             context = 999424;
@@ -82,7 +103,7 @@
       };
     };
 
-    model = "ollama/glm-5.2:cloud";
+    model = "ollama/glm-5.3-flash:cloud";
 
     # An absolute store path, not the README's `uvx` or `nix run`: both fetch at
     # run time, which would put a network dependency inside a config whose whole
