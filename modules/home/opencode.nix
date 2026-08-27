@@ -62,6 +62,23 @@
             output = 131072;
           };
         };
+        # glm-5.3-flash:cloud is a cloud stub proxied to ollama.com, same as the
+        # entries above. Card claims 1M context; the local daemon is what
+        # enforces the cap, so this mirrors glm-5.2:cloud's 999424 (1M minus
+        # overhead) until `/api/show` is checked on this host. Output cap is
+        # unverified — 131072 follows the other ollama cloud models.
+        # glm-5.3-flash is the only multimodal model here — `attachment = true`
+        # tells opencode to pass image inputs through. The other two are text-only
+        # cloud stubs, so they deliberately omit this flag.
+        "glm-5.3-flash:cloud" = {
+          name = "GLM 5.3 Flash (cloud)";
+          attachment = true;
+          options.reasoningEffort = "high";
+          limit = {
+            context = 999424;
+            output = 131072;
+          };
+        };
       };
     };
 
