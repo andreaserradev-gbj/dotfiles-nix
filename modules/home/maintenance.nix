@@ -32,8 +32,11 @@ lib.mkIf (!osConfig.local.dev.enable) {
 
     # Bulk GC: delete all old generations, reclaim the store, prune the boot
     # menu. Mirrors the dev-host `ngca` alias from shell.nix minus the `nh`
-    # dependency — `nix-collect-garbage` (no `--delete-old` flag) deletes
-    # everything not reachable from the current generation by default.
-    ngca = "sudo nix-collect-garbage && sudo /run/current-system/bin/switch-to-configuration boot";
+    # dependency. The `-d` flag is REQUIRED: generations are GC roots, so
+    # plain `nix-collect-garbage` deletes only unreachable store paths and
+    # keeps every old generation alive (verified on-site 2026-08-27 — five
+    # generations survived a bare run). `-d` deletes old profiles AND the
+    # store paths they point to, keeping only the current one.
+    ngca = "sudo nix-collect-garbage -d && sudo /run/current-system/bin/switch-to-configuration boot";
   };
 }
