@@ -23,7 +23,12 @@ lib.mkIf (!osConfig.local.dev.enable) {
     # Build and stage for next boot, fetching the flake from GitHub. No local
     # clone needed — `nixos-rebuild` pulls the flake into the nix store. Elisa
     # runs this after Andrea pushes a change she wants; a reboot activates it.
-    nrb = "sudo nixos-rebuild boot --flake github:andreaserradev-gbj/dotfiles-nix";
+    # `--refresh` bypasses nix's 1h tarball cache: without it, a push younger
+    # than the cache silently rebuilds the STALE commit (hit on site 2026-08-27
+    # — three `nrb`s in a row rebuilt the same old generation, "Done" each
+    # time). Re-fetching on every run is a few seconds against the GitHub
+    # tarball endpoint; a silently stale rebuild is a bug that eats an hour.
+    nrb = "sudo nixos-rebuild boot --flake github:andreaserradev-gbj/dotfiles-nix --refresh";
 
     # Bulk GC: delete all old generations, reclaim the store, prune the boot
     # menu. Mirrors the dev-host `ngca` alias from shell.nix minus the `nh`

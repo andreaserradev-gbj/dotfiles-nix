@@ -37,12 +37,16 @@
   # `locale` is OPTIONAL the same way. When present it sets the whole system
   # locale (messages, formats, measurements — see common.nix). Absent = the
   # nixpkgs default ("en_US.UTF-8"), byte-identical behavior for existing hosts.
+  #
+  # `laptop` is a boolean MARKER, not a setting: its presence flips on
+  # laptop-class power management (power-profiles-daemon — see common.nix).
   hplaptop = rec {
     username = "elisa";
     fullName = "Elisa Davi";
     timeZone = "Europe/Rome";
     keyboardLayout = "it";
     locale = "it_IT.UTF-8";
+    laptop = true;
     homeDirectory = "/home/${username}";
   };
 }

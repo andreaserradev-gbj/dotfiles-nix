@@ -49,6 +49,16 @@
   i18n.defaultLocale = user.locale or "en_US.UTF-8";
   i18n.supportedLocales = lib.mkIf (user ? locale) [ "all" ];
 
+  # Power-profiles-daemon is what GNOME's power panel talks to (the "Power
+  # Mode" selector: Performance/Balanced/Power Saver). On desktops it is
+  # pointless; on a laptop it is the switch the user is asked for. NOTE: GNOME
+  # already sets this `true` via mkDefault on every desktop host — the explicit
+  # `user ? laptop` gate would CONFLICT with that default on hosts that opt in
+  # via a different mechanism, so this is deliberately a no-op gate on the
+  # same value GNOME already sets. Left here as the seam for future
+  # laptop-only power tuning (lid, battery thresholds).
+  services.power-profiles-daemon.enable = lib.mkIf (user ? laptop) true;
+
   programs.zsh.enable = true;
 
   # Account informations
