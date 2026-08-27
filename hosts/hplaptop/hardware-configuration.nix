@@ -25,12 +25,17 @@
     (modulesPath + "/installer/scan/not-detected.nix")
   ];
 
-  # FILLED AT INSTALL — run nixos-generate-config on the box and copy the
-  # module list here. Do NOT ship a placeholder guess: a wrong list either
-  # omits a module the initrd needs (boot failure) or adds one that does
-  # nothing (clutter). The empty list below will not boot on real hardware;
-  # it exists only so the flake evaluates.
-  boot.initrd.availableKernelModules = [ ];
+  # Captured on the box at install time (2026-08-27) via
+  # nixos-generate-config --no-filesystems --dir /tmp/cfg. rtsx_pci_sdmmc is
+  # the SD card reader — present on this ProBook, harmless in the initrd.
+  boot.initrd.availableKernelModules = [
+    "xhci_pci"
+    "ahci"
+    "nvme"
+    "usb_storage"
+    "sd_mod"
+    "rtsx_pci_sdmmc"
+  ];
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ "kvm-intel" ];
   boot.extraModulePackages = [ ];
