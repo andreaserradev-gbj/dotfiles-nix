@@ -31,10 +31,12 @@
       name = "Ollama";
       options.baseURL = "http://127.0.0.1:11434/v1";
 
-      # Context is set from what OLLAMA reports (`/api/show`), not from what the
-      # model cards claim, because the local daemon is what enforces it: it caps
-      # glm-5.2 at 1000000 and minimax-m3 at 524288. models.dev lists minimax-m3
-      # at 1000000+, which would overrun this path.
+      # Context is set from what OLLAMA reports, not from what the model cards
+      # claim, because the local daemon is what enforces it. `/api/show` on
+      # 2026-08-27: glm-5.2 1048576, minimax-m3 524288, glm-5.3-flash 1048576.
+      # glm-5.2's value is set below that ceiling to the 976K the model card
+      # publishes; minimax-m3 is exactly 524288. models.dev lists minimax-m3 at
+      # 1000000+, which would overrun this path.
       #
       # `output` is not optional — opencode's schema requires it whenever
       # `limit` is present. ollama publishes no output cap, so 131072 comes from
@@ -69,10 +71,11 @@
           };
         };
         # glm-5.3-flash:cloud is a cloud stub proxied to ollama.com, same as the
-        # entries above. Card claims 1M context; the local daemon is what
-        # enforces the cap, so this mirrors glm-5.2:cloud's 999424 (1M minus
-        # overhead) until `/api/show` is checked on this host. Output cap is
-        # unverified — 131072 follows the other ollama cloud models.
+        # entries above. The model card says "1M" with no trimmed figure and
+        # `/api/show` on this host (2026-08-27) reports the full 1048576, so
+        # this stays at glm-5.2's conservative 976K; the card publishes no
+        # smaller effective value to raise it to. Output cap is unverified —
+        # 131072 follows the other ollama cloud models.
         # glm-5.3-flash and minimax-m3 are both multimodal (`ollama show` reports
         # `vision` on both; models.dev live lists minimax-m3 as text+image+video).
         # Two config keys gate image input, and they are NOT interchangeable
@@ -98,6 +101,25 @@
           limit = {
             context = 999424;
             output = 131072;
+          };
+        };
+        # qwen3-coder:30b-a3b-q4_K_M is the one LOCAL model here (the entries
+        # above are cloud stubs), so no `ollama signin` is involved and the
+        # daemon's cap is the whole story. `/api/show` on 2026-08-27 reports
+        # 262144 — matching the card's 256K native window — and the daemon's
+        # context is the GGUF-declared 262144, so the limit is exact, not
+        # conservative. Capabilities are completion/tools only: no thinking and
+        # no vision (unlike the cloud stubs, this is a non-reasoning coder), so
+        # no `attachment`/`modalities`/`reasoningEffort` — `options` stays empty
+        # since the model ships its own generation params (temp 0.7, top_p 0.8).
+        "qwen3-coder:30b-a3b-q4_K_M" = {
+          name = "Qwen3 Coder 30B A3B (local)";
+          limit = {
+            context = 262144;
+            # models.dev output figures for this model disagree across
+            # providers (32768-262000); Qwen's own docs give none. 65536 is the
+            # most common value among providers listing 262144 context.
+            output = 65536;
           };
         };
       };
