@@ -26,6 +26,9 @@
   # does not exist. It measured as ~80ms round trips inbound to this host while
   # outbound traffic to the same gateway was ~23ms — exactly the asymmetry that
   # makes an SSH session feel laggy while throughput still looks fine.
+  # Bare assignment (priority 1500); a laptop host (hplaptop) overrides to `true`
+  # with `lib.mkForce` (priority 50) — no `mkDefault` here because it would tie
+  # with nixpkgs' own `mkDefault` on the same option and cause an eval conflict.
   networking.networkmanager.wifi.powersave = false;
 
   # Set your time zone (lifted into user.nix — the one file a forker edits).
@@ -33,15 +36,10 @@
 
   programs.zsh.enable = true;
 
-  # A real dynamic loader at /lib/ld-linux-*.so.*, plus NIX_LD, so prebuilt
-  # binaries fetched outside Nix can actually execute. Without this that path is
-  # stub-ld and every such binary dies with a bare "No such file or directory".
-  # That is the real cause behind the hand-maintained LSP server list and its
-  # name-mapping table in modules/home/neovim.nix: Mason downloads prebuilt
-  # binaries, so it could never have worked here.
-  programs.nix-ld.enable = true;
-
   # Account informations
+  # `shell = pkgs.zsh` wins over nixpkgs' `mkDefault "/bin/bash"` for
+  # isNormalUser by priority (1500 > 1000). A host that wants a different
+  # shell (hplaptop → bash) overrides with `lib.mkForce` (priority 50).
   users.users.${user.username} = {
     isNormalUser = true;
     description = user.fullName;
@@ -51,7 +49,6 @@
       "networkmanager"
     ];
     initialPassword = "nixos"; # throwaway
-    openssh.authorizedKeys.keys = [ user.sshKey ];
   };
 
   # Named predicate rather than a blanket `allowUnfree`: anything ELSE unfree
@@ -66,51 +63,14 @@
 
   # List packages installed in system profile.
   #
-  # On `nodejs` being global, which LOOKS like it violates this repo's
-  # per-project-devshell rule: it is an AGENT RUNTIME, not a project toolchain.
-  # The dev-workflow skills execute from ~/.agents/skills — outside any project,
-  # so no devshell can ever supply their interpreter. Same reasoning that puts
-  # the harnesses themselves here. Project toolchains still belong in
-  # per-project devshells; do not use this line as precedent.
+  # `vim`, `wget`, `git` are baseline system tools, NOT dev tooling — `git` here
+  # is the VCS the system uses (for `nixos-rebuild`), not the user's dev git
+  # config which lives in modules/home/git.nix (and IS dev-gated).
   environment.systemPackages = with pkgs; [
     vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
     wget
     git
-    opencode # agent harness; free licence, so no predicate entry needed
-    nodejs # runtime for the skills' .cjs scripts (also provides npm/npx)
-    jq # ollama, opencode and the flake all speak JSON; there is no python3 here
-    uv
-    # fast Python package installer/resolver (Rust). Global for the SAME
-    # reason nodejs is: uvx (uv's nix-run equivalent) and `uv python install`
-    # are LAUNCHERS, not a project toolchain. uv fetches its own standalone
-    # Python builds (python-build-standalone) that run under programs.nix-ld
-    # above, so no global python3 is needed for one-off `uvx <tool>` runs.
-    # Cloned repos that need a flake-pinned Python use the python-devshell
-    # template instead — see templates/python-devshell/.
   ];
-
-  # Enable the OpenSSH daemon.
-  services.openssh = {
-    enable = true;
-    settings = {
-      PasswordAuthentication = false;
-      KbdInteractiveAuthentication = false;
-    };
-  };
-
-  # Ollama. The ENABLE is shared; the PACKAGE is not. This default build is
-  # CPU-only, which is all the aarch64 VM can use — it renders in software and
-  # has no GPU to talk to. geekom overrides cfg.package to ollama-vulkan in its
-  # own host file; the reasoning for Vulkan-over-ROCm lives there, next to the
-  # GPU it applies to.
-  #
-  # Deliberately NOT setting `services.ollama.acceleration`: it was REMOVED in
-  # 26.05 and any config that sets it fails to evaluate. Tutorials still show
-  # it. The replacement is the cfg.package swap described above.
-  #
-  # The `ollama` CLI arrives automatically — the module puts cfg.package into
-  # environment.systemPackages, so listing it above would be redundant.
-  services.ollama.enable = true;
 
   # Modern `nix` CLI + flakes
   nix.settings.experimental-features = [

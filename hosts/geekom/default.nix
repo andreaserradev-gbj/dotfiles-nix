@@ -90,7 +90,11 @@
   # switches on.
   local.gaming.enable = true;
 
-  # Local LLM inference on the Radeon 890M. common.nix enables the service with
+  # Dev tooling — nix-ld, ollama, opencode, nodejs, uv, jq, sshd — is gated
+  # behind `local.dev.enable` in modules/nixos/dev.nix. This host flips it on.
+  local.dev.enable = true;
+
+  # Local LLM inference on the Radeon 890M. dev.nix enables the service with
   # the CPU-only default package; this swaps the build, and only on this host.
   #
   # VULKAN, NOT ROCM, and that is not the obvious choice. This GPU is gfx1150,

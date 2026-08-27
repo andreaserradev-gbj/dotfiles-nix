@@ -29,6 +29,10 @@
   # Local graphical console
   services.spice-vdagentd.enable = true;
 
+  # Dev tooling — nix-ld, ollama, opencode, nodejs, uv, jq, sshd — is gated
+  # behind `local.dev.enable` in modules/nixos/dev.nix. This host flips it on.
+  local.dev.enable = true;
+
   # cage: single-app kiosk Wayland compositor. It IS the login — its systemd
   # unit (cage-tty1) conflicts with getty@tty1 and autologins via a PAM
   # null-password session, launching one full-screen foot. No display manager.

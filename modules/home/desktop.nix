@@ -5,6 +5,13 @@
 # This ADDS ghostty. It does NOT replace foot. foot stays enabled on both
 # hosts: it is the VM's login program (services.cage launches it directly) and
 # geekom's fallback if a GPU-accelerated terminal ever misbehaves.
+#
+# ghostty is gated on `desktop.enable` ALONE: a `vanilla` host (hplaptop) still
+# wants a terminal. The dconf.settings block (PaperWM, Catppuccin theme,
+# wallpaper, accent, text-scaling, scaling-factor) is gated on
+# `desktop.enable && variant == "full"` — a `vanilla` host gets plain GNOME with
+# no theming. Default `"full"` preserves geekom's behavior (drvPath must not
+# move).
 {
   lib,
   osConfig,
@@ -31,10 +38,15 @@ lib.mkIf osConfig.local.desktop.enable {
     };
   };
 
-  # PaperWM enable state. The extension PACKAGE is installed on the NixOS side
-  # (modules/nixos/desktop.nix) because GNOME Shell loads extensions from a
-  # system path Home Manager cannot reach. The ENABLE state, however, is
-  # per-user dconf under org.gnome.shell, so it belongs HERE.
+  # PaperWM enable state + Catppuccin theming. Gated on `variant == "full"`
+  # INSIDE the `desktop.enable` block: a `vanilla` host (hplaptop) gets plain
+  # GNOME with no PaperWM and no theming. Default `"full"` keeps geekom
+  # identical.
+  #
+  # The extension PACKAGE is installed on the NixOS side (modules/nixos/desktop.nix)
+  # because GNOME Shell loads extensions from a system path Home Manager
+  # cannot reach. The ENABLE state, however, is per-user dconf under
+  # org.gnome.shell, so it belongs HERE.
   #
   # `programs.dconf.enable` is already true on the NixOS side — the GNOME
   # module (services.desktopManager.gnome.enable → core-os-services) sets it,
@@ -64,7 +76,7 @@ lib.mkIf osConfig.local.desktop.enable {
   # per-user state and this is the file that already owns the user's dconf
   # for the GNOME desktop. gtk.nix owns the PACKAGES (GTK theme, cursor,
   # wallpaper); this block owns the GNOME SETTINGS that select them.
-  dconf.settings = {
+  dconf.settings = lib.mkIf (osConfig.local.desktop.variant == "full") {
     "org/gnome/shell" = {
       enabled-extensions = [ "paperwm@paperwm.github.com" ];
       disabled-extensions = [ ];

@@ -44,9 +44,10 @@ HOST="${1-nixos}"
 case "$HOST" in
   nixos) HOST_DIR="vm" ;;
   geekom) HOST_DIR="geekom" ;;
+  hplaptop) HOST_DIR="hplaptop" ;;
   *)
     echo "!! Unknown host: '$HOST'" >&2
-    echo "   Known hosts: nixos geekom" >&2
+    echo "   Known hosts: nixos geekom hplaptop" >&2
     exit 1
     ;;
 esac

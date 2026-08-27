@@ -1,6 +1,9 @@
 # Catppuccin Mocha theming for the GNOME desktop. Gated on the SAME option as
 # the NixOS half (modules/nixos/desktop.nix) so the VM kiosk — which runs a
-# cage+foot stack and never starts GNOME — cannot pick this up.
+# cage+foot stack and never starts GNOME — cannot pick this up. Additionally
+# gated on `variant == "full"`: a `vanilla` host (hplaptop) gets plain GNOME
+# with no Catppuccin theming. Default `"full"` preserves geekom's behavior
+# (drvPath must not move).
 #
 # What this DOES theme:
 #   - GTK3 apps          (catppuccin-gtk v1.0.3, archived but still in nixpkgs)
@@ -38,7 +41,7 @@
   ...
 }:
 
-lib.mkIf osConfig.local.desktop.enable {
+lib.mkIf (osConfig.local.desktop.enable && osConfig.local.desktop.variant == "full") {
   # The GTK theme package, overridden to Mocha + Mauve. The override args are
   # validated by an `lib.checkListOfEnum` in package.nix, so a typo here fails
   # at eval time rather than producing a silently-wrong theme. `accents`

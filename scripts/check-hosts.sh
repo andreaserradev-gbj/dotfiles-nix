@@ -14,7 +14,7 @@
 # move. A host that moves for a reason you cannot name has not been understood.
 set -euo pipefail
 
-HOSTS="nixos geekom"
+HOSTS="nixos geekom hplaptop"
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"

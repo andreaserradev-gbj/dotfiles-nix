@@ -15,7 +15,26 @@ let
   cfg = config.local.desktop;
 in
 {
-  options.local.desktop.enable = lib.mkEnableOption "the GNOME desktop stack (GDM, GNOME, pipewire, Bluetooth, printing, scanning, Brave, PDF tools)";
+  options.local.desktop = {
+    enable = lib.mkEnableOption "the GNOME desktop stack (GDM, GNOME, pipewire, Bluetooth, printing, scanning, Brave, PDF tools)";
+
+    # `"full"` = PaperWM + Catppuccin theming (the developer setup on geekom);
+    # `"vanilla"` = plain GNOME (Elisa's hplaptop — no PaperWM, no Catppuccin).
+    # Default `"full"` preserves existing behavior: geekom's drvPath must not
+    # move when this option is introduced. The HM half (modules/home/desktop.nix,
+    # modules/home/gtk.nix) reads `osConfig.local.desktop.variant` and gates the
+    # PaperWM/Catppuccin dconf + GTK config behind `variant == "full"`.
+    variant = lib.mkOption {
+      type = lib.types.enum [
+        "full"
+        "vanilla"
+      ];
+      default = "full";
+      description = "Desktop variant: `full` enables PaperWM + Catppuccin theming, `vanilla` ships plain GNOME.";
+    };
+
+    libreoffice.enable = lib.mkEnableOption "LibreOffice";
+  };
 
   config = lib.mkIf cfg.enable {
     # GNOME's session under GDM is Wayland by default; this is what supplies
@@ -155,27 +174,34 @@ in
       pkgs.xournalpp
       pkgs.pdfarranger
       pkgs.imagemagick
-
-      # PaperWM — scrollable tiling GNOME Shell extension. Lives here and not
-      # in the HM half because GNOME Shell extensions are system-wide packages
-      # loaded from /run/current-system/share/gnome-shell/extensions; Home
-      # Manager has no path that reaches it. The ENABLE state, by contrast, is
-      # per-user dconf and so belongs in the HM half (modules/home/desktop.nix).
-      #
-      # GNOME 50.4 + PaperWM v148 on this flake pin (nixos-26.05); PaperWM's
-      # upstream `release` branch advertises support for GNOME 45-50, so this
-      # is on the last supported GNOME rather than ahead of it. A GNOME 51 bump
-      # in nixpkgs will need a matching PaperWM release before `nixos-rebuild`
-      # will evaluate cleanly — the extension package's `shell-version`
-      # metadata gates this and nixpkgs carries it.
-      #
-      # PaperWM auto-disables three incompatible GNOME settings at runtime
-      # (`workspaces-only-on-primary`, `edge-tiling`, `attach-modal-dialogs`)
-      # and restores them when disabled, so there is nothing to set here for
-      # those. The known-incompatible extensions (DING, Dash to Panel, Rounded
-      # Window Corners, Space Bar) are not installed by this repo, so there is
-      # no conflict to manage either.
-      pkgs.gnomeExtensions.paperwm
-    ];
+    ]
+    # PaperWM — scrollable tiling GNOME Shell extension. Lives here and not
+    # in the HM half because GNOME Shell extensions are system-wide packages
+    # loaded from /run/current-system/share/gnome-shell/extensions; Home
+    # Manager has no path that reaches it. The ENABLE state, by contrast, is
+    # per-user dconf and so belongs in the HM half (modules/home/desktop.nix).
+    #
+    # Gated on `variant == "full"`: a `vanilla` host (hplaptop) wants plain
+    # GNOME with no PaperWM package in the system profile. Default `"full"`
+    # keeps geekom's closure identical.
+    #
+    # GNOME 50.4 + PaperWM v148 on this flake pin (nixos-26.05); PaperWM's
+    # upstream `release` branch advertises support for GNOME 45-50, so this
+    # is on the last supported GNOME rather than ahead of it. A GNOME 51 bump
+    # in nixpkgs will need a matching PaperWM release before `nixos-rebuild`
+    # will evaluate cleanly — the extension package's `shell-version`
+    # metadata gates this and nixpkgs carries it.
+    #
+    # PaperWM auto-disables three incompatible GNOME settings at runtime
+    # (`workspaces-only-on-primary`, `edge-tiling`, `attach-modal-dialogs`)
+    # and restores them when disabled, so there is nothing to set here for
+    # those. The known-incompatible extensions (DING, Dash to Panel, Rounded
+    # Window Corners, Space Bar) are not installed by this repo, so there is
+    # no conflict to manage either.
+    ++ lib.optionals (cfg.variant == "full") [ pkgs.gnomeExtensions.paperwm ]
+    # LibreOffice — gated on its own sub-option. Default `false` preserves
+    # existing behavior (geekom does not pull in the ~1GB closure). Only
+    # hplaptop enables it: Elisa needs Word/Excel compatibility for HR work.
+    ++ lib.optionals cfg.libreoffice.enable [ pkgs.libreoffice ];
   };
 }
