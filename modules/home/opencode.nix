@@ -1,4 +1,32 @@
 { pkgs, ... }:
+let
+  # Effort variants are what Ctrl+T ("Cycle model variants") cycles and what
+  # `/review`-style subtask commands inherit. opencode auto-derives them
+  # from models.dev, but its derivation function (verified in the 1.15.10
+  # bundle) returns NO variants for any model whose id contains "glm" — so
+  # without this block Ctrl+T shows nothing for these models and effort is
+  # fixed at whatever `options` sets. Each variant's `options` is the
+  # full passthrough object, so it must repeat the effort key it exists to
+  # vary. ollama honors low/high/max per the model cards (glm-5.3 also
+  # accepts max as its default; glm-5.3-flash publishes low/high/max).
+  #
+  # Placement is load-bearing: the schema defines `variants` per MODEL entry
+  # (`provider.<name>.models.<id>.variants`), not on the provider, and the
+  # 1.15.10 TUI builds its Ctrl+T list from exactly that path
+  # (`providers.find(...).models[modelID].variants`). At provider level the
+  # key loads silently but is dead config — "no variants available" on Ctrl+T.
+  effortVariants = {
+    low = {
+      options.reasoningEffort = "low";
+    };
+    high = {
+      options.reasoningEffort = "high";
+    };
+    max = {
+      options.reasoningEffort = "max";
+    };
+  };
+in
 {
   # opencode ships a self-updater that offers to replace a Nix-managed binary.
   # Accepting would leave the config declaring 1.15.10 while the machine ran
@@ -33,49 +61,19 @@
 
       # Context is set from what OLLAMA reports, not from what the model cards
       # claim, because the local daemon is what enforces it. `/api/show` on
-      # 2026-08-29: glm-5.2 1048576, glm-5.3-flash 1048576, glm-5.3 1048576.
-      # glm-5.2's value is set below that ceiling to the 976K the model card
-      # publishes.
+      # 2026-08-29: glm-5.3-flash and glm-5.3 both report 1048576, matching
+      # their cards' "1M" with no published trimmed figure.
       #
       # `output` is not optional — opencode's schema requires it whenever
       # `limit` is present. ollama publishes no output cap, so 131072 comes from
       # models.dev, where every provider agrees on it for the cloud stubs.
-      #
-      # Effort variants are what Ctrl+T ("Cycle model variants") cycles and what
-      # `/review`-style subtask commands inherit. opencode auto-derives them
-      # from models.dev, but its derivation function (verified in the 1.15.10
-      # bundle) returns NO variants for any model whose id contains "glm" — so
-      # without this block Ctrl+T shows nothing for these models and effort is
-      # fixed at whatever `options` below sets. Each variant's `options` is the
-      # full passthrough object, so it must repeat the effort key it exists to
-      # vary. ollama honors low/high/max per the model cards (glm-5.3 also
-      # accepts max as its default; glm-5.3-flash publishes low/high/max).
       #
       # The camelCase `reasoningEffort` key is now VERIFIED to reach ollama as
       # snake_case `reasoning_effort` (was unverified before 1.15.10): the
       # config-side options merge into providerOptions under the provider name
       # ("ollama"), and the @ai-sdk/openai-compatible adapter maps
       # `D.reasoningEffort` to `reasoning_effort` in the request body.
-      variants = {
-        low = {
-          options.reasoningEffort = "low";
-        };
-        high = {
-          options.reasoningEffort = "high";
-        };
-        max = {
-          options.reasoningEffort = "max";
-        };
-      };
       models = {
-        "glm-5.2:cloud" = {
-          name = "GLM 5.2 (cloud)";
-          options.reasoningEffort = "high";
-          limit = {
-            context = 999424;
-            output = 131072;
-          };
-        };
         "glm-5.3-flash:cloud" = {
           name = "GLM 5.3 Flash (cloud)";
           attachment = true;
@@ -85,8 +83,12 @@
           ];
           modalities.output = [ "text" ];
           options.reasoningEffort = "high";
+          # effortVariants is bound once in the `let` above; the key must be
+          # spelled `variants` (see the comment in the `let` for why this has
+          # to sit at model level and repeat `options` per variant).
+          variants = effortVariants;
           limit = {
-            context = 999424;
+            context = 1048576;
             output = 131072;
           };
         };
@@ -101,21 +103,21 @@
         # an "ERROR: this model does not support image input" text stub and never
         # forwards the bytes.
         # glm-5.3:cloud is a cloud stub proxied to ollama.com, same family as
-        # the entries above (753B; `/api/show` on 2026-08-29 reports vision is
+        # the entry above (753B; `/api/show` on 2026-08-29 reports vision is
         # ABSENT — completion/thinking/tools only, unlike glm-5.3-flash). The
-        # model card says "1M" with no trimmed figure and `/api/show` reports
-        # the full 1048576, so this stays at glm-5.2's conservative 976K; the
-        # card publishes no smaller effective value to raise it to. Output cap
-        # is unverified — 131072 follows the other ollama cloud models.
+        # card says "1M" with no trimmed figure and `/api/show` reports the
+        # full 1048576, so the limit is exact. Output cap is unverified —
+        # 131072 follows the other ollama cloud models.
         # reasoning_effort here additionally accepts `max` (default per the
         # card); `high` is kept to match the measured-behaviour pattern noted
-        # above. glm-5.2 and glm-5.3 report no vision capability, so they
-        # deliberately omit both flags.
+        # above. glm-5.3 reports no vision capability, so it deliberately
+        # omits both flags.
         "glm-5.3:cloud" = {
           name = "GLM 5.3 (cloud)";
           options.reasoningEffort = "high";
+          variants = effortVariants;
           limit = {
-            context = 999424;
+            context = 1048576;
             output = 131072;
           };
         };
@@ -151,16 +153,30 @@
     # reading is gone: glm-5.3 rejects image input, so pasted screenshots in
     # plan mode become text-only. Both are primary agents, so Tab cycles
     # between them mid-session and subagents inherit whichever is active.
-    # Effort is NOT pinned per agent — the per-model `options` default (high)
-    # applies until Ctrl+T picks a variant; `max` is the recommended resting
-    # state for plan. Any agent without a `model` key (e.g. qwen3-coder users
-    # via subagents) falls back to the top-level `model` below.
+    # plan's effort IS pinned here via `variant = "max"` — the schema's
+    # per-agent default variant, resolved when the agent's model matches and
+    # the variant exists in that model's `variants` — so the footer's model
+    # label shows the max suffix from session start. Ctrl+T can still cycle
+    # down mid-session for a quick question; build keeps no pin and rests on
+    # the per-model `options` default (high). Any agent without a `model` key
+    # (e.g. qwen3-coder users via subagents) falls back to the top-level
+    # `model` below.
     agent = {
       plan = {
         model = "ollama/glm-5.3:cloud";
+        variant = "max";
         permission = {
+          # The ONLY difference from build mode: plan cannot edit files. There
+          # is deliberately no `bash` block here — earlier experiments with
+          # `bash = "ask"` + a read-only allowlist (kept in git history) showed
+          # why: the catch-all prompts for every unlisted command, compound
+          # calls are evaluated per segment so any glue command not listed
+          # prompts the whole batch, and the allowlist chases the agent's
+          # real usage forever. With no `bash` key, plan inherits the exact
+          # same (default) bash behaviour as build; plan is kept read-only by
+          # the edit block plus its own prompt instructions, not by shell
+          # gating.
           edit = "deny";
-          bash = "ask";
         };
       };
       build.model = "ollama/glm-5.3-flash:cloud";
