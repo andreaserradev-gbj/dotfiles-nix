@@ -36,8 +36,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: actions/checkout@v7
+      # v22+ defaults to installing *Determinate* Nix (flakehub integration and
+      # its GHA-backed cache). Two reasons to turn that off here: the hosts run
+      # stock Nix, so CI should verify against what they actually run; and the
+      # Determinate cache layer emits "Failed to save/restore: Cache service
+      # …" warnings on every run when GitHub's cache service hiccups. We fetch
+      # straight from cache.nixos.org (nothing expensive or custom to cache).
+      - uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          determinate: false
       # treefmt check mode: fails on any unformatted file, format or not.
       # Small enough to piggyback here — the runner already has Nix, and a
       # formatting break should block the same way an evaluation break does.
@@ -56,8 +64,11 @@ jobs:
       matrix:
         host: [geekom, hplaptop]
     steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: actions/checkout@v7
+      # Same determinate: false reasoning as the evaluate job.
+      - uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          determinate: false
       - run: >
           nix build
           ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
