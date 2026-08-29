@@ -19,6 +19,15 @@ outside it. The template pins nixpkgs to the same release as this system flake,
 so dev shells reuse store paths already on disk instead of re-downloading a
 second nixpkgs.
 
+> **Documented exceptions to "no global installs":** `nodejs`, `uv` and
+> `python3` are on every dev host's *system* profile — as agent runtimes, not
+> project toolchains. Agent workflows execute from `~/.agents/skills` and
+> one-off agent scripting happens outside any project, where no devshell can
+> supply an interpreter. None of this replaces a devshell for project code:
+> global `pip install` fails by design on NixOS, and a project needing a
+> flake-pinned Python uses `templates/python-devshell/` (`nfp`),
+> which shadows this system interpreter with its own.
+
 > Commit the generated `flake.lock` too: it pins the exact nixpkgs revision, so
 > the shell is reproducible for anyone who builds the project.
 
