@@ -33,14 +33,13 @@
 
       # Context is set from what OLLAMA reports, not from what the model cards
       # claim, because the local daemon is what enforces it. `/api/show` on
-      # 2026-08-27: glm-5.2 1048576, minimax-m3 524288, glm-5.3-flash 1048576.
+      # 2026-08-29: glm-5.2 1048576, glm-5.3-flash 1048576, glm-5.3 1048576.
       # glm-5.2's value is set below that ceiling to the 976K the model card
-      # publishes; minimax-m3 is exactly 524288. models.dev lists minimax-m3 at
-      # 1000000+, which would overrun this path.
+      # publishes.
       #
       # `output` is not optional — opencode's schema requires it whenever
       # `limit` is present. ollama publishes no output cap, so 131072 comes from
-      # models.dev, where every provider agrees on it for both models.
+      # models.dev, where every provider agrees on it for the cloud stubs.
       #
       # `options` is a free-form passthrough to the provider SDK. ollama does
       # honour `reasoning_effort` — low vs high measured 49 vs 436 characters of
@@ -56,8 +55,8 @@
             output = 131072;
           };
         };
-        "minimax-m3:cloud" = {
-          name = "MiniMax M3 (cloud)";
+        "glm-5.3-flash:cloud" = {
+          name = "GLM 5.3 Flash (cloud)";
           attachment = true;
           modalities.input = [
             "text"
@@ -66,18 +65,10 @@
           modalities.output = [ "text" ];
           options.reasoningEffort = "high";
           limit = {
-            context = 524288;
+            context = 999424;
             output = 131072;
           };
         };
-        # glm-5.3-flash:cloud is a cloud stub proxied to ollama.com, same as the
-        # entries above. The model card says "1M" with no trimmed figure and
-        # `/api/show` on this host (2026-08-27) reports the full 1048576, so
-        # this stays at glm-5.2's conservative 976K; the card publishes no
-        # smaller effective value to raise it to. Output cap is unverified —
-        # 131072 follows the other ollama cloud models.
-        # glm-5.3-flash and minimax-m3 are both multimodal (`ollama show` reports
-        # `vision` on both; models.dev live lists minimax-m3 as text+image+video).
         # Two config keys gate image input, and they are NOT interchangeable
         # (verified against the 1.15.10 bundle): `attachment = true` reaches
         # `capabilities.attachment` (model-advertising / picker level), but the
@@ -87,16 +78,20 @@
         # capabilities) ?? false`, and glm-5.3-flash is absent from models.dev,
         # so without the explicit array opencode replaces any attached image with
         # an "ERROR: this model does not support image input" text stub and never
-        # forwards the bytes. glm-5.2 is the only text-only stub left, so it
-        # deliberately omits both flags.
-        "glm-5.3-flash:cloud" = {
-          name = "GLM 5.3 Flash (cloud)";
-          attachment = true;
-          modalities.input = [
-            "text"
-            "image"
-          ];
-          modalities.output = [ "text" ];
+        # forwards the bytes.
+        # glm-5.3:cloud is a cloud stub proxied to ollama.com, same family as
+        # the entries above (753B; `/api/show` on 2026-08-29 reports vision is
+        # ABSENT — completion/thinking/tools only, unlike glm-5.3-flash). The
+        # model card says "1M" with no trimmed figure and `/api/show` reports
+        # the full 1048576, so this stays at glm-5.2's conservative 976K; the
+        # card publishes no smaller effective value to raise it to. Output cap
+        # is unverified — 131072 follows the other ollama cloud models.
+        # reasoning_effort here additionally accepts `max` (default per the
+        # card); `high` is kept to match the measured-behaviour pattern noted
+        # above. glm-5.2 and glm-5.3 report no vision capability, so they
+        # deliberately omit both flags.
+        "glm-5.3:cloud" = {
+          name = "GLM 5.3 (cloud)";
           options.reasoningEffort = "high";
           limit = {
             context = 999424;
@@ -123,6 +118,24 @@
           };
         };
       };
+    };
+
+    # Per-agent model split instead of a single top-level default: plan mode
+    # (analysis, planning, screenshot reading) leans on glm-5.3-flash — the
+    # only entry here with vision, and the faster of the two — while build
+    # mode gets the flagship glm-5.3 for coding. Both are primary agents, so
+    # Tab cycles between them mid-session and subagents inherit whichever is
+    # active. Any agent without a `model` key (e.g. qwen3-coder users via
+    # subagents) falls back to the top-level `model` below.
+    agent = {
+      plan = {
+        model = "ollama/glm-5.3-flash:cloud";
+        permission = {
+          edit = "deny";
+          bash = "ask";
+        };
+      };
+      build.model = "ollama/glm-5.3:cloud";
     };
 
     model = "ollama/glm-5.3-flash:cloud";
