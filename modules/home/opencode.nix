@@ -41,11 +41,32 @@
       # `limit` is present. ollama publishes no output cap, so 131072 comes from
       # models.dev, where every provider agrees on it for the cloud stubs.
       #
-      # `options` is a free-form passthrough to the provider SDK. ollama does
-      # honour `reasoning_effort` — low vs high measured 49 vs 436 characters of
-      # reasoning on the same prompt — but whether opencode translates this
-      # camelCase key into that snake_case one is UNVERIFIED. Check by comparing
-      # thinking length across a change of this value before trusting it.
+      # Effort variants are what Ctrl+T ("Cycle model variants") cycles and what
+      # `/review`-style subtask commands inherit. opencode auto-derives them
+      # from models.dev, but its derivation function (verified in the 1.15.10
+      # bundle) returns NO variants for any model whose id contains "glm" — so
+      # without this block Ctrl+T shows nothing for these models and effort is
+      # fixed at whatever `options` below sets. Each variant's `options` is the
+      # full passthrough object, so it must repeat the effort key it exists to
+      # vary. ollama honors low/high/max per the model cards (glm-5.3 also
+      # accepts max as its default; glm-5.3-flash publishes low/high/max).
+      #
+      # The camelCase `reasoningEffort` key is now VERIFIED to reach ollama as
+      # snake_case `reasoning_effort` (was unverified before 1.15.10): the
+      # config-side options merge into providerOptions under the provider name
+      # ("ollama"), and the @ai-sdk/openai-compatible adapter maps
+      # `D.reasoningEffort` to `reasoning_effort` in the request body.
+      variants = {
+        low = {
+          options.reasoningEffort = "low";
+        };
+        high = {
+          options.reasoningEffort = "high";
+        };
+        max = {
+          options.reasoningEffort = "max";
+        };
+      };
       models = {
         "glm-5.2:cloud" = {
           name = "GLM 5.2 (cloud)";
@@ -121,21 +142,28 @@
     };
 
     # Per-agent model split instead of a single top-level default: plan mode
-    # (analysis, planning, screenshot reading) leans on glm-5.3-flash — the
-    # only entry here with vision, and the faster of the two — while build
-    # mode gets the flagship glm-5.3 for coding. Both are primary agents, so
-    # Tab cycles between them mid-session and subagents inherit whichever is
-    # active. Any agent without a `model` key (e.g. qwen3-coder users via
-    # subagents) falls back to the top-level `model` below.
+    # (analysis, planning, screenshot reading) leans on the flagship glm-5.3
+    # with max effort — planning is where deep thinking pays — while build mode
+    # gets the cheaper glm-5.3-flash, which per Z.ai's own benchmarks is within
+    # a few points of the flagship on coding (DeepSWE 63.4 vs 66.9, NL2Repo
+    # 56.3 vs 58.0) at roughly one-tenth the cost. plan keeps vision access in
+    # the config because glm-5.3 has none, but plan's flash-era screenshot
+    # reading is gone: glm-5.3 rejects image input, so pasted screenshots in
+    # plan mode become text-only. Both are primary agents, so Tab cycles
+    # between them mid-session and subagents inherit whichever is active.
+    # Effort is NOT pinned per agent — the per-model `options` default (high)
+    # applies until Ctrl+T picks a variant; `max` is the recommended resting
+    # state for plan. Any agent without a `model` key (e.g. qwen3-coder users
+    # via subagents) falls back to the top-level `model` below.
     agent = {
       plan = {
-        model = "ollama/glm-5.3-flash:cloud";
+        model = "ollama/glm-5.3:cloud";
         permission = {
           edit = "deny";
           bash = "ask";
         };
       };
-      build.model = "ollama/glm-5.3:cloud";
+      build.model = "ollama/glm-5.3-flash:cloud";
     };
 
     model = "ollama/glm-5.3-flash:cloud";
