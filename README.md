@@ -1,5 +1,7 @@
 # dotfiles-nix
 
+![dotfiles-nix — one flake, three machines](assets/social-preview.png)
+
 Personal NixOS configuration for **three machines built from one flake** — an
 Apple Silicon development VM, an x86_64 desktop, and an x86_64 laptop for a
 non-technical user. One command rebuilds the system and my `$HOME` on any of
