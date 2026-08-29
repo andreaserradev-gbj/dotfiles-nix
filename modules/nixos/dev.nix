@@ -1,7 +1,7 @@
 # The developer tooling seam. Imported by EVERY host through commonModules,
 # but wholly inert unless the host sets `local.dev.enable`. hplaptop leaves it
 # off: it is a non-technical user's machine with no nix-ld, ollama, opencode,
-# nodejs, uv, jq, and no sshd.
+# nodejs, uv, jq, python3, and no sshd.
 #
 # `local.*` is this repo's own option namespace — nothing upstream owns it, so
 # there is no collision risk as more seams (desktop, gaming, docker, dev, …)
@@ -18,7 +18,7 @@ let
   cfg = config.local.dev;
 in
 {
-  options.local.dev.enable = lib.mkEnableOption "developer tooling (nix-ld, ollama, opencode, nodejs, uv, jq, sshd)";
+  options.local.dev.enable = lib.mkEnableOption "developer tooling (nix-ld, ollama, opencode, nodejs, uv, jq, python3, sshd)";
 
   config = lib.mkIf cfg.enable {
     # A real dynamic loader at /lib/ld-linux-*.so.*, plus NIX_LD, so prebuilt
@@ -34,24 +34,30 @@ in
     # `local.dev.enable = false` (hplaptop) gets no sshd and no key.
     users.users.${user.username}.openssh.authorizedKeys.keys = [ user.sshKey ];
 
-    # On `nodejs` being global, which LOOKS like it violates this repo's
-    # per-project-devshell rule: it is an AGENT RUNTIME, not a project toolchain.
-    # The dev-workflow skills execute from ~/.agents/skills — outside any project,
-    # so no devshell can ever supply their interpreter. Same reasoning that puts
-    # the harnesses themselves here. Project toolchains still belong in
-    # per-project devshells; do not use this line as precedent.
+    # On `nodejs`, `uv` and `python3` being global, which LOOKS like it violates
+    # this repo's per-project-devshell rule: they are AGENT RUNTIMES, not
+    # project toolchains. The dev-workflow skills execute from
+    # ~/.agents/skills — outside any project, so no devshell can ever supply
+    # their interpreters and launchers.
+    #
+    # nodejs: runtime for the skills' .cjs scripts (also provides npm/npx).
+    # uv: fast Python package installer/resolver (Rust) and a LAUNCHER —
+    # uvx (uv's nix-run equivalent) fetches its own standalone Python builds
+    # (python-build-standalone) that run under programs.nix-ld above.
+    # python3: added 2026-08-29 after repeated one-off scripting needs
+    # (JSON/YAML validation, quick computations) from sessions outside any
+    # project — previously worked around with ad-hoc `nix shell nixpkgs#yq`.
+    # Same agent-runtime reasoning as nodejs. It is NOT a project toolchain:
+    # `pip install` outside a venv fails by design on NixOS, and project code
+    # still belongs in the python-devshell template (see below).
     environment.systemPackages = with pkgs; [
       opencode # agent harness; free licence, so no predicate entry needed
       nodejs # runtime for the skills' .cjs scripts (also provides npm/npx)
-      jq # ollama, opencode and the flake all speak JSON; there is no python3 here
+      jq # ollama, opencode and the flake all speak JSON
       uv
-      # fast Python package installer/resolver (Rust). Global for the SAME
-      # reason nodejs is: uvx (uv's nix-run equivalent) and `uv python install`
-      # are LAUNCHERS, not a project toolchain. uv fetches its own standalone
-      # Python builds (python-build-standalone) that run under programs.nix-ld
-      # above, so no global python3 is needed for one-off `uvx <tool>` runs.
       # Cloned repos that need a flake-pinned Python use the python-devshell
       # template instead — see templates/python-devshell/.
+      python3 # CPython 3.13 (26.05 default); agent one-off scripting, see above
     ];
 
     # Enable the OpenSSH daemon. Off on hplaptop (dev.enable = false) — Elisa

@@ -186,6 +186,11 @@ in
   };
   home.packages = [
     pkgs.eza
+    # GitHub CLI: PR-first workflow against this repo (branch → PR → CI runs
+    # on the PR → merge). Dev-gated with the rest of shell.nix — Elisa's
+    # hplaptop needs neither PRs nor the auth state it drops in
+    # ~/.config/gh, and her host's drvPath must not move for it.
+    pkgs.gh
     pkgs.file
     pkgs.nvd
     pnpmZshCompletion

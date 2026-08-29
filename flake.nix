@@ -91,12 +91,18 @@
         description = "Per-project Python dev shell: uv + python3 (pinned via flake.lock)";
       };
 
-      # `nix fmt` runs this against the flake root. nixfmt in nixpkgs 26.05 IS
-      # the RFC-style official formatter (the old `nixfmt-rfc-style` alias was
-      # removed); same package that neovim.nix installs for conform.nvim, so
-      # `nix fmt` and conform agree by construction.
-      formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt;
-      formatter.aarch64-linux = nixpkgs.legacyPackages.aarch64-linux.nixfmt;
+      # `nix fmt` execs this with exactly the args it was given — Nix injects
+      # no path (nix 2.34 formatter.cc). With plain `nixfmt`, a *bare* `nix fmt`
+      # therefore parses STDIN as Nix code (nixfmt Main.hs: no files →
+      # stdioTarget), so an empty/closed stdin dies with "unexpected end of
+      # input" and an interactive bare invocation blocks instead of formatting
+      # anything. `nixfmt-tree` is the upstream-blessed wrapper (treefmt
+      # configured to run nixfmt over the repo, PRJ_ROOT-aware) that makes a
+      # bare `nix fmt` format the flake root — which is what this entry has
+      # always promised. Same nixfmt binary underneath: `nix fmt`, conform.nvim
+      # and the pre-commit hook still agree with each other by construction.
+      formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt-tree;
+      formatter.aarch64-linux = nixpkgs.legacyPackages.aarch64-linux.nixfmt-tree;
 
       # Minimal shell for hacking on this repo. The only tool that is NOT
       # already on the system profile (via modules/home/neovim.nix) is deadnix;

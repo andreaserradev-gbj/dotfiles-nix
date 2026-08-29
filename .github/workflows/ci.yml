@@ -1,0 +1,75 @@
+# CI for the flake. What runs and why:
+#
+# 1. check-hosts.sh — evaluate all three hosts. Evaluation is
+#    arch-independent, so the aarch64 VM (`nixos`) is covered here too,
+#    on an x86_64 runner, at zero build cost. This is the same gate used
+#    locally, on purpose: a config that fails it should fail identically
+#    on both.
+#
+# 2. build matrix (geekom, hplaptop) — full toplevel builds. These two
+#    hosts are the ones that update *from GitHub unattended* (see
+#    doc/workflow.md); the point of CI is to surface a broken commit
+#    within minutes of it landing on `main`, before the next `nrb`
+#    picks it up — it does not retroactively remove one, and an `nrb`
+#    that races the build can still install it. The aarch64 VM is
+#    deliberately NOT built: it is local-first (rebuilt interactively
+#    with check-hosts.sh in front), and emulating a GNOME toplevel under
+#    QEMU would cost ~1h of CI per push for no risk reduction.
+#
+# Builds substitute almost entirely from cache.nixos.org because both
+# hosts pin stable 26.05 — if the "fetched" lines disappear and jobs
+# start compiling, an input has drifted off the stable channel and DRIFT
+# should be investigated, not disk space freed up. The 60-minute timeout
+# bounds exactly that drift scenario; a normal substituted build takes
+# ~10. If space ever does run out, add the runner-cleanup step from
+# https://github.com/actions/runner-images#available-images manually;
+# do not add it preemptively.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      # v22+ defaults to installing *Determinate* Nix (flakehub integration and
+      # its GHA-backed cache). Two reasons to turn that off here: the hosts run
+      # stock Nix, so CI should verify against what they actually run; and the
+      # Determinate cache layer emits "Failed to save/restore: Cache service
+      # …" warnings on every run when GitHub's cache service hiccups. We fetch
+      # straight from cache.nixos.org (nothing expensive or custom to cache).
+      - uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          determinate: false
+      # treefmt check mode: fails on any unformatted file, format or not.
+      # Small enough to piggyback here — the runner already has Nix, and a
+      # formatting break should block the same way an evaluation break does.
+      # (The local pre-commit hook only covers what is being committed; this
+      # catches everything, e.g. a hook skipped with --no-verify. On a local
+      # dirty tree, treefmt's git walk skips untracked files instead — in a
+      # fresh CI checkout every file is tracked, so the gap is CI-only.)
+      - run: nix fmt -- --ci
+      - run: ./scripts/check-hosts.sh
+
+  build:
+    needs: evaluate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        host: [geekom, hplaptop]
+    steps:
+      - uses: actions/checkout@v7
+      # Same determinate: false reasoning as the evaluate job.
+      - uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          determinate: false
+      - run: >
+          nix build
+          ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
+          --print-build-logs
