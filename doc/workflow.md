@@ -95,23 +95,32 @@ gate on GitHub for every push to `main` and every PR:
 1. **evaluate** — runs `nix fmt -- --ci` (format check, fails on an
    unformatted file) and `./scripts/check-hosts.sh` on an x86_64 runner. This
    is the same gate as above, on purpose: evaluation is arch-independent, so
-   the aarch64 VM is covered too. The format check covers everything, not just
-   the staged set the local pre-commit hook sees.
+   the aarch64 VM is covered too. In a fresh CI checkout every file is
+   git-tracked, so the format check covers everything; a local bare
+   `nix fmt` on a dirty tree skips untracked files (treefmt's git walk) and
+   then only the pre-commit hook covers the staged set.
 2. **build** — a matrix that fully builds the `geekom` and `hplaptop` toplevels
    from `cache.nixos.org` substitution (the stable-26.05 pin makes this a
-   ~minutes-long download, not a compile).
+   ~minutes-long download, not a compile). It runs only after `evaluate`
+   passes — an eval-breaking typo fails in seconds instead of wasting two
+   build runners.
 
 The point is the **`nrb` from GitHub path**: `bare-metal-hplaptop.md` has an
 unattended host (`nrb` pulls from `github:` with `--refresh`), so whatever is
 on `main` gets installed on that machine without anyone watching. CI exists so
-a commit that does not build can never sit on `main` waiting for the next
-`nrb`.
+a commit that does not build is *surfaced within minutes of landing on `main`*
+— before the next `nrb` picks it up, but not infallibly: CI starts after the
+push, so an `nrb` racing the build can still install a broken commit, and a
+red check does not revert `main` by itself. That is why AGENTS.md makes it a
+manual rule that a failing commit must be fixed or reverted before anything
+else lands on `main`.
 
 The aarch64 VM is **not** in the build matrix: it is local-first (rebuilding it
 is interactive, with `check-hosts.sh` in front), and emulating a GNOME toplevel
 under QEMU would cost ~1h of CI per push for no risk reduction. If the build
 jobs ever start *compiling* instead of substituting, look for drift (an input
-off the stable channel), not for disk space.
+off the stable channel), not for disk space — the 60-minute job timeout
+bounds what that drift scenario can burn.
 
 ## Upgrading to a new NixOS release
 
