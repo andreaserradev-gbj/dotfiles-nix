@@ -43,15 +43,9 @@ jobs:
       # Determinate cache layer emits "Failed to save/restore: Cache service
       # …" warnings on every run when GitHub's cache service hiccups. We fetch
       # straight from cache.nixos.org (nothing expensive or custom to cache).
-      - uses: DeterminateSystems/nix-installer-action@v21
+      - uses: DeterminateSystems/nix-installer-action@v22
         with:
           determinate: false
-      # v22 is knowingly skipped (reported upstream:
-      # DeterminateSystems/nix-installer-action#278): it writes the
-      # Determinate-only setting `build-provenance-tags` into
-      # /etc/nix/nix.conf even with determinate:false, so stock Nix warns on
-      # every command. v21 is identical minus that line (and its cache-layer
-      # behavior, already unwanted here). Revisit after the upstream fix.
       # treefmt check mode: fails on any unformatted file, format or not.
       # Small enough to piggyback here — the runner already has Nix, and a
       # formatting break should block the same way an evaluation break does.
@@ -71,8 +65,8 @@ jobs:
         host: [geekom, hplaptop]
     steps:
       - uses: actions/checkout@v7
-      # Same v21-over-v22 reasoning as the evaluate job above.
-      - uses: DeterminateSystems/nix-installer-action@v21
+      # Same determinate: false reasoning as the evaluate job.
+      - uses: DeterminateSystems/nix-installer-action@v22
         with:
           determinate: false
       - run: >
