@@ -31,7 +31,7 @@ lib.mkIf osConfig.local.desktop.enable {
       theme = "Catppuccin Mocha";
 
       font-family = "JetBrainsMono Nerd Font";
-      font-size = 12;
+      font-size = 14;
 
       # foot's `pad = "8x8"` spelled the way ghostty spells it.
       window-padding-x = 8;
@@ -97,10 +97,61 @@ lib.mkIf osConfig.local.desktop.enable {
         ];
       };
     })
+    # Launch keybindings: Super+Return → ghostty, Super+b → Brave. GNOME has no
+    # declarative module for these, so they go through the media-keys custom
+    # keybindings schema like everything the "Custom Shortcuts" GUI writes —
+    # dconf is per-user state and this file already owns the user's dconf for
+    # the GNOME desktop.
+    #
+    # Gated on `desktop.enable` ONLY (not the "full" variant): both vanilla and
+    # full hosts want the same two launches, and both have ghostty and Brave in
+    # their profiles — ghostty via this same module, Brave via the NixOS half.
+    # Commands are bare binary names, resolved through PATH, so no store path
+    # is baked in and a package bump cannot strand the binding.
+    #
+    # `binding` is GNOME's accelerator syntax: `<Super>` is the mod4 modifier,
+    # `Return` is the Return keysym. `<Super>Return` does not collide with any
+    # GNOME default (the built-in terminal shortcut is Ctrl+Alt+T), nor with
+    # any PaperWM default (checked against the schema shipped in
+    # gnome-shell-extension-paperwm-148; `<Super>b` only matched
+    # bracketleft/bracketright there, nothing binds the b keysym). It DOES
+    # collide with PaperWM's `new-window` default (['<Super>Return',
+    # '<Super>n']), but that default is explicitly trimmed in the full-variant
+    # block below — Shell grab-order would otherwise give PaperWM the combo
+    # and the ghostty binding would never fire on geekom.
+    {
+      "org/gnome/settings-daemon/plugins/media-keys" = {
+        custom-keybindings = [
+          "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/"
+          "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/"
+        ];
+      };
+      "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0" = {
+        name = "Terminal";
+        command = "ghostty";
+        binding = "<Super>Return";
+      };
+      "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1" = {
+        name = "Browser";
+        command = "brave";
+        binding = "<Super>b";
+      };
+    }
     (lib.mkIf (osConfig.local.desktop.variant == "full") {
       "org/gnome/shell" = {
         enabled-extensions = [ "paperwm@paperwm.github.com" ];
         disabled-extensions = [ ];
+      };
+
+      # PaperWM's `new-window` action defaults to ['<Super>Return', '<Super>n'],
+      # which collides with the custom0 terminal binding above. PaperWM
+      # proactively grabs conflicting combos on enable (overrideConflicts), and
+      # Shell grabs beat gsd media-keys, so Super+Return would duplicate the
+      # focused window instead of launching ghostty. Trim the default to just
+      # '<Super>n' so the media-keys binding owns Super+Return on the full
+      # host; vanilla hosts skip PaperWM entirely and never see this key.
+      "org/gnome/shell/extensions/paperwm/keybindings" = {
+        new-window = [ "<Super>n" ];
       };
 
       # Prefer-dark. GNOME's own setting; covers every app that respects
