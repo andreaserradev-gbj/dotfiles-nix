@@ -1,0 +1,50 @@
+# CI for the flake. What runs and why:
+#
+# 1. check-hosts.sh — evaluate all three hosts. Evaluation is
+#    arch-independent, so the aarch64 VM (`nixos`) is covered here too,
+#    on an x86_64 runner, at zero build cost. This is the same gate used
+#    locally, on purpose: a config that fails it should fail identically
+#    on both.
+#
+# 2. build matrix (geekom, hplaptop) — full toplevel builds. These two
+#    hosts are the ones that update *from GitHub unattended* (see
+#    doc/workflow.md); the point of CI is that a broken commit can never
+#    reach them. The aarch64 VM is deliberately NOT built: it is
+#    local-first (rebuilt interactively with check-hosts.sh in front),
+#    and emulating a GNOME toplevel under QEMU would cost ~1h of CI per
+#    push for no risk reduction.
+#
+# Builds substitute almost entirely from cache.nixos.org because both
+# hosts pin stable 26.05 — if the "fetched" lines disappear and jobs
+# start compiling, an input has drifted off the stable channel and DRIFT
+# should be investigated, not disk space freed up. If space ever does
+# run out, add the runner-cleanup step from
+# https://github.com/actions/runner-images#available-images manually;
+# do not add it preemptively.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - run: ./scripts/check-hosts.sh
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        host: [geekom, hplaptop]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - run: >
+          nix build
+          ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
+          --print-build-logs

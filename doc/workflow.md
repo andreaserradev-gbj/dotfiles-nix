@@ -87,6 +87,30 @@ Use the printed `drvPath` as a before/after reference around any change:
 That is the check that makes editing `modules/` safe. Touching a shared module
 should move every host's hash; touching `hosts/geekom/` should move exactly one.
 
+## CI
+
+[.github/workflows/ci.yml](../.github/workflows/ci.yml) runs the same two-stage
+gate on GitHub for every push to `main` and every PR:
+
+1. **evaluate** — runs `./scripts/check-hosts.sh` on an x86_64 runner. This is
+   the same gate as above, on purpose: evaluation is arch-independent, so the
+   aarch64 VM is covered too.
+2. **build** — a matrix that fully builds the `geekom` and `hplaptop` toplevels
+   from `cache.nixos.org` substitution (the stable-26.05 pin makes this a
+   ~minutes-long download, not a compile).
+
+The point is the **`nrb` from GitHub path**: `bare-metal-hplaptop.md` has an
+unattended host (`nrb` pulls from `github:` with `--refresh`), so whatever is
+on `main` gets installed on that machine without anyone watching. CI exists so
+a commit that does not build can never sit on `main` waiting for the next
+`nrb`.
+
+The aarch64 VM is **not** in the build matrix: it is local-first (rebuilding it
+is interactive, with `check-hosts.sh` in front), and emulating a GNOME toplevel
+under QEMU would cost ~1h of CI per push for no risk reduction. If the build
+jobs ever start *compiling* instead of substituting, look for drift (an input
+off the stable channel), not for disk space.
+
 ## Upgrading to a new NixOS release
 
 The release is pinned in exactly **two URLs** in `flake.nix`:

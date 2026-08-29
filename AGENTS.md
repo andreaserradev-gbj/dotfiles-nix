@@ -58,3 +58,7 @@ Start from the [README](README.md) for the model and the
    host change → exactly one moves).
 3. Docs changed? Check every `](...)` link resolves and keep files under
    ~500 lines (split when a doc grows past that).
+4. Push issued? `.github/workflows/ci.yml` builds `geekom` and `hplaptop` from
+   GitHub, and `hplaptop` updates itself unattended from `main` (`nrb` with
+   `--refresh`). A commit that fails CI must not be merged or sit on `main` —
+   the next `nrb` on that machine would install it.
