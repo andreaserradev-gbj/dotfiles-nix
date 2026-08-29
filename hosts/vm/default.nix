@@ -21,9 +21,10 @@
 
   # Size the pre-cage *text* console (bootloader/tty) only — cage ignores this
   # and always uses the mode the host advertises as preferred. That is set on the
-  # UTM side via '-global virtio-gpu-pci.xres/yres' QEMU args (see README, UTM
-  # setup); keep this matched to those. Do NOT try drm.edid_firmware here: a
-  # forced EDID empties the virtio-gpu mode list and kills the display.
+  # UTM side via '-global virtio-gpu-pci.xres/yres' QEMU args (see
+  # doc/install-vm.md, UTM setup); keep this matched to those. Do NOT try
+  # drm.edid_firmware here: a forced EDID empties the virtio-gpu mode list
+  # and kills the display.
   boot.kernelParams = [ "video=Virtual-1:1680x1050" ];
 
   # Local graphical console
