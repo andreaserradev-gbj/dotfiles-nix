@@ -110,3 +110,8 @@ bootstrap.sh           one-command install of any host, from a live ISO
 > `username`, `fullName`, `email`, `timeZone`, and `sshKey`. Edit it in your
 > fork and commit _before_ installing — the install walkthroughs pick this up
 > where it matters.
+
+## License
+
+[MIT](LICENSE) — fork, strip, and reuse freely; see [`user.nix`](user.nix) for
+the one file to edit when forking.
