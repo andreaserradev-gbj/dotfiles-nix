@@ -92,9 +92,11 @@ should move every host's hash; touching `hosts/geekom/` should move exactly one.
 [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs the same two-stage
 gate on GitHub for every push to `main` and every PR:
 
-1. **evaluate** — runs `./scripts/check-hosts.sh` on an x86_64 runner. This is
-   the same gate as above, on purpose: evaluation is arch-independent, so the
-   aarch64 VM is covered too.
+1. **evaluate** — runs `nix fmt -- --ci` (format check, fails on an
+   unformatted file) and `./scripts/check-hosts.sh` on an x86_64 runner. This
+   is the same gate as above, on purpose: evaluation is arch-independent, so
+   the aarch64 VM is covered too. The format check covers everything, not just
+   the staged set the local pre-commit hook sees.
 2. **build** — a matrix that fully builds the `geekom` and `hplaptop` toplevels
    from `cache.nixos.org` substitution (the stable-26.05 pin makes this a
    ~minutes-long download, not a compile).

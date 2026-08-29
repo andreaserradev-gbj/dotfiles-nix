@@ -34,6 +34,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v16
+      # treefmt check mode: fails on any unformatted file, format or not.
+      # Small enough to piggyback here — the runner already has Nix, and a
+      # formatting break should block the same way an evaluation break does.
+      # (The local pre-commit hook only covers what is being committed; this
+      # catches everything, e.g. a hook skipped with --no-verify.)
+      - run: nix fmt -- --ci
       - run: ./scripts/check-hosts.sh
 
   build:
