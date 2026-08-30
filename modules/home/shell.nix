@@ -89,6 +89,17 @@ in
     };
 
     initContent = ''
+      # CONTEXT7_API_KEY — runtime secret for the context7 MCP server
+      # (modules/home/opencode.nix reads it via {env:...} interpolation).
+      # Provisioned by sops-nix on dev-enabled hosts only (modules/nixos/dev.nix
+      # declares it; home.nix already gates shell.nix off hplaptop, so this
+      # export never even loads on a non-recipient machine). The guard keeps
+      # shells quiet on rebuilds where the secret is not provisioned yet
+      # (fresh host before its first rebuild, or a host that was never a
+      # recipient) — the variable is simply empty and opencode falls back to
+      # anonymous mode / lower rate limits.
+      export CONTEXT7_API_KEY="$(cat /run/secrets/CONTEXT7_API_KEY 2>/dev/null)"
+
       # fzf navigation helpers
       fcd() { cd "$(find . -type d -not -path '*/.*' | fzf)" && l; }
       fv()  { nvim "$(find . -type f -not -path '*/.*' | fzf)"; }

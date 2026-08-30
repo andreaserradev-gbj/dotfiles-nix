@@ -83,5 +83,37 @@ in
     # The `ollama` CLI arrives automatically — the module puts cfg.package into
     # environment.systemPackages, so listing it above would be redundant.
     services.ollama.enable = true;
+
+    # Declarative secrets (sops-nix). Two boundaries must not be conflated:
+    #
+    # 1. TRUST BOUNDARY: who can decrypt. Set in .sops.yaml by recipient
+    #    keys — hplaptop's host key is not a recipient, so even the
+    #    ciphertext copied there is opaque to it. That layer costs nothing
+    #    here; it lives in .sops.yaml.
+    # 2. DEV-GATE BOUNDARY: who declares and mounts secrets. This whole
+    #    block is inside `mkIf cfg.enable`, so hplaptop never even
+    #    evaluations sops.secrets — nothing is added to its activation
+    #    script, /run/secrets stays empty, no sops binary is pulled in.
+    #    Belt to .sops.yaml's braces: a secret nobody declares is never
+    #    shipped to the machine at all.
+    #
+    # defaultSopsFile is a STORE PATH (repo file captured by the flake),
+    # not an absolute string: that is what makes sops-nix validate at EVAL
+    # time that every declared secret key exists in the ciphertext — a
+    # missing/renamed key fails check-hosts.sh instead of failing silently
+    # at activation on a rebuild machine weeks later. Ciphertext in the
+    # store is inert; only the host's own SSH key can open it.
+    sops.defaultSopsFile = ../../secrets/andrea/secrets.yaml;
+    # Explicit for self-documentation, though sops-nix already defaults to
+    # the ed25519 host keys: a reader should not have to know upstream
+    # defaults to know how their machine unlocks secrets. (The personal age
+    # key is intentionally NOT listed: it lives in ~/.config/sops/age/ only
+    # on machines where a human edits secrets, not where they are consumed.)
+    sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+    sops.secrets.CONTEXT7_API_KEY = {
+      # Owned by the dev user so the guarded shell export can `cat` it
+      # without root; mode 0400 (sops default) keeps it single-reader.
+      owner = user.username;
+    };
   };
 }
