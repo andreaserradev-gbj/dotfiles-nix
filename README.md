@@ -2,6 +2,16 @@
 
 ![dotfiles-nix — one flake, three machines](assets/social-preview.png)
 
+> **Public for learning purposes only.** This is my personal machine
+> configuration, published so others can read, compare ideas, or fork it for
+> their own setup. It is **not** a community project: Issues, Discussions,
+> the Wiki, and Projects are disabled, and **PRs will not be accepted** — I
+> don't review them, because every commit here is verified against my own
+> machines first (a CI-green PR into `main` is what gets installed on the
+> laptop, unattended). If something here helped you, fork it — the
+> [license is MIT](#license) and stripping it to your machines is the
+> intended use. See [`user.nix`](user.nix) for the one file to edit in a fork.
+
 Personal NixOS configuration for **three machines built from one flake** — an
 Apple Silicon development VM, an x86_64 desktop, and an x86_64 laptop for a
 non-technical user. One command rebuilds the system and my `$HOME` on any of
@@ -117,4 +127,5 @@ bootstrap.sh           one-command install of any host, from a live ISO
 ## License
 
 [MIT](LICENSE) — fork, strip, and reuse freely; see [`user.nix`](user.nix) for
-the one file to edit when forking.
+the one file to edit when forking. This repo is maintained for my own
+machines only — see the notice at the top regarding contributions.
