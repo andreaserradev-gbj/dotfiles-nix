@@ -16,7 +16,8 @@ scheme does — and does not — protect against.
 
 `secrets/andrea/secrets.yaml` holds the secrets, encrypted with
 [AES256-GCM](https://en.wikipedia.org/wiki/Galois/Counter_Mode). Committed
-ciphertext looks like this (the repo copy, not an example):
+ciphertext looks like this (an abridged excerpt of the real repo file —
+metadata elided, and within the `sops:` block only the shape is shown):
 
 ```yaml
 CONTEXT7_API_KEY: ENC[AES256_GCM,data:GH6XZ2/…,iv:…,tag:…,type:str]

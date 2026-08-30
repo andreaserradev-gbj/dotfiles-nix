@@ -4,7 +4,8 @@
 #
 # TRUST BOUNDARY: hplaptop (Elisa's machine) is deliberately absent from
 # every rule. It can never decrypt anything under secrets/andrea/, and it
-# declares no sops.secrets (see modules/nixos/dev.nix gate in Phase 3).
+# declares no sops.secrets (see the sops block in modules/nixos/dev.nix,
+# which lives inside the local.dev.enable gate).
 # A future "elisa" namespace would get its own path_regex + key_groups —
 # documented in doc/secrets.md, added only when a real need exists.
 #

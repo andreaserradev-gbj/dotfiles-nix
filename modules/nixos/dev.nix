@@ -92,7 +92,7 @@ in
     #    here; it lives in .sops.yaml.
     # 2. DEV-GATE BOUNDARY: who declares and mounts secrets. This whole
     #    block is inside `mkIf cfg.enable`, so hplaptop never even
-    #    evaluations sops.secrets — nothing is added to its activation
+    #    evaluates sops.secrets — nothing is added to its activation
     #    script, /run/secrets stays empty, no sops binary is pulled in.
     #    Belt to .sops.yaml's braces: a secret nobody declares is never
     #    shipped to the machine at all.
