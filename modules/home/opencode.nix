@@ -193,5 +193,25 @@ in
       command = [ "${pkgs.mcp-nixos}/bin/mcp-nixos" ];
       enabled = true;
     };
+
+    # Remote HTTP MCP for library/API documentation search (Upstash's Context7),
+    # so no store dependency and no binary; the URL is the only contract. The
+    # Bearer key IS managed by Nix now — via sops-nix, which is why this is
+    # safe where the old plan (plaintext credential in repo or store) was not:
+    # the ciphertext in the repo/store is age-encrypted to Andrea's personal
+    # key and the host SSH keys of the dev-enabled machines only (hplaptop is
+    # not a recipient and declares no secrets). No plaintext exists outside
+    # /run/secrets — a tmpfs ramfs, mode 0400, wiped at reboot — and the shell
+    # export that copies it into the environment is guarded (modules/home/
+    # shell.nix) so hosts without the secret fall back to anonymous mode:
+    # {env:V} in opencode.json resolves at MCP connect time, client-side; an
+    # empty var yields "Bearer " (which context7 treats as anonymous) rather
+    # than a broken request.
+    mcp.context7 = {
+      type = "remote";
+      url = "https://mcp.context7.com/mcp";
+      enabled = true;
+      headers.Authorization = "Bearer {env:CONTEXT7_API_KEY}";
+    };
   };
 }

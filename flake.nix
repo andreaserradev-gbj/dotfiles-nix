@@ -9,10 +9,23 @@
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Declarative secret management (sops-nix). Follows our nixpkgs so the
+    # module pins to exactly the sops/age versions the system would build
+    # anyway — no second nixpkgs tree in the lockfile.
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
-    inputs@{ nixpkgs, home-manager, ... }:
+    inputs@{
+      nixpkgs,
+      home-manager,
+      sops-nix,
+      ...
+    }:
     let
       users = import ./user.nix;
 
@@ -34,6 +47,13 @@
         ./modules/nixos/gaming.nix
         ./modules/nixos/docker.nix
         ./modules/nixos/dev.nix
+        # sops-nix: declarative secrets. Inert on any host that declares no
+        # sops.* options — the module's config block is
+        # `mkIf (cfg.secrets != {})`, so hplaptop imports it but gets nothing
+        # from it (it is deliberately not a secret recipient). Kept in
+        # commonModules (not per-host) so the option tree exists everywhere
+        # and a host opting in later is a one-line change.
+        sops-nix.nixosModules.sops
         home-manager.nixosModules.home-manager
         (
           { user, ... }:
@@ -111,12 +131,20 @@
       # on having built and applied a host first. The pre-commit hook that
       # .envrc installs runs `nixfmt` from this shell, so the hook works on any
       # clone without relying on a previously-built system.
+      #
+      # sops / ssh-to-age / age: present so secret edits (sops
+      # secrets/andrea/secrets.yaml, recipient rekeying, age key inspection)
+      # need no ad-hoc `nix shell`. Only the repo shell carries them — hosts
+      # do not need the tools at runtime (sops-nix brings its own sops).
       devShells.x86_64-linux.default = nixpkgs.legacyPackages.x86_64-linux.mkShellNoCC {
         packages = with nixpkgs.legacyPackages.x86_64-linux; [
           nixfmt
           statix
           nil
           deadnix
+          sops
+          ssh-to-age
+          age
         ];
       };
       devShells.aarch64-linux.default = nixpkgs.legacyPackages.aarch64-linux.mkShellNoCC {
@@ -125,6 +153,9 @@
           statix
           nil
           deadnix
+          sops
+          ssh-to-age
+          age
         ];
       };
     };
