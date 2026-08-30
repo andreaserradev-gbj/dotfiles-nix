@@ -95,6 +95,7 @@ bootstrap.sh           one-command install of any host, from a live ISO
 | [doc/bare-metal-geekom.md](doc/bare-metal-geekom.md) | The full bare-metal runbook: firmware, wifi, Bluetooth, suspend |
 | [doc/bare-metal-hplaptop.md](doc/bare-metal-hplaptop.md) | The hplaptop delta: design constraints, suspend mask, updates via `nrb` |
 | [doc/workflow.md](doc/workflow.md)                 | Rebuild aliases, which command from where, release upgrades, `/etc/nixos` cleanup |
+| [doc/secrets.md](doc/secrets.md)                   | sops-nix: storage model, edit/rotate/rekey workflow, trust boundary, credential tiers |
 | [doc/dev-environments.md](doc/dev-environments.md) | Per-project dev shells: the `devshell` template, direnv, SSH port forwards |
 | [doc/vm-console.md](doc/vm-console.md)             | The cage + foot local console and its known limitations |
 | [doc/troubleshooting.md](doc/troubleshooting.md)   | Gotchas that are not tied to one workflow |
