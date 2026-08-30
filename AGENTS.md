@@ -38,6 +38,10 @@ Start from the [README](README.md) for the model and the
 - **Formatting** is `nixfmt` via `nix fmt` (pre-commit hook installed by
   `.envrc` runs it too).
 - **Language** for all docs and comments: English.
+- **Library/API docs via context7.** When a task needs library, tool, or API
+  documentation, use the `context7` MCP tools (resolve the library, then query
+  its docs) instead of relying on training data — the config lives in
+  `modules/home/opencode.nix`.
 
 ## Task routing
 

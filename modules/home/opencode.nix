@@ -193,5 +193,19 @@ in
       command = [ "${pkgs.mcp-nixos}/bin/mcp-nixos" ];
       enabled = true;
     };
+
+    # Remote HTTP MCP for library/API documentation search (Upstash's Context7),
+    # so no store dependency and no binary; the URL is the only contract. Works
+    # anonymously, but at low rate limits — if queries start throttling, a free
+    # key from context7.com/dashboard unlocks higher limits: add
+    #   headers.Authorization = "Bearer {env:CONTEXT7_API_KEY}";
+    # here and export CONTEXT7_API_KEY in the shell profile. The key is
+    # deliberately NOT managed by Nix: a credential in the repo would be a
+    # secret leak, and one in the Nix store would be world-readable.
+    mcp.context7 = {
+      type = "remote";
+      url = "https://mcp.context7.com/mcp";
+      enabled = true;
+    };
   };
 }
