@@ -1,0 +1,37 @@
+# sops recipient policy. This file is NOT secret — it lists public keys
+# only. It tells `sops` which keys to encrypt to when a file under
+# creation_rules is created or re-encrypted.
+#
+# TRUST BOUNDARY: hplaptop (Elisa's machine) is deliberately absent from
+# every rule. It can never decrypt anything under secrets/andrea/, and it
+# declares no sops.secrets (see modules/nixos/dev.nix gate in Phase 3).
+# A future "elisa" namespace would get its own path_regex + key_groups —
+# documented in doc/secrets.md, added only when a real need exists.
+#
+keys:
+  # Andrea's personal age key (~/.config/sops/age/keys.txt, sops default
+  # location). Lets Andrea edit secrets from any machine without the
+  # SSH host keys of every recipient being present.
+  - &andrea age10p2fkelpq7fdftas46spr9kduzz3qnjsc2fvlvqt3f3l0q4gc9fq74d7w4
+  # geekom host key (ssh-to-age of /etc/ssh/ssh_host_ed25519_key.pub)
+  - &geekom age137fqs8tl3uddh26gpa3rtdnxv5v059cnkzp2tmh4e22674k03yaqc8h2m9
+  # nixos VM host key. UTM VMs can be wiped: a reinstall rotates the host
+  # key, which silently locks the VM out until `sops updatekeys` rekeys the
+  # file (documented in doc/secrets.md). Accepted tradeoff — geekom alone
+  # would work but makes the VM dependent on geekom being the decryptor.
+  - &nixos age145l70p0jq0clderhywygecr9dqlnahxdq5casv6rdlamq0vz3fkshhth69
+
+creation_rules:
+  # Andrea's secrets: encrypted to all three keys.
+  #
+  # SHAMIR TRAP: inside a key_groups entry, `age:` must NOT be preceded by
+  # `-`. A leading `-` starts a SECOND group, and sops applies shamir secret
+  # splitting across groups — each group then holds only a share, so no
+  # single host can decrypt on its own. The (unindented) form below keeps
+  # everything in ONE group: every recipient fully wraps the data key.
+  - path_regex: secrets/andrea/.*\.yaml$
+    key_groups:
+    - age:
+      - *andrea
+      - *geekom
+      - *nixos
