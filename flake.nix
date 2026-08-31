@@ -20,7 +20,7 @@
   };
 
   outputs =
-    inputs@{
+    {
       nixpkgs,
       home-manager,
       sops-nix,
@@ -90,7 +90,6 @@
         system = "aarch64-linux";
         specialArgs = {
           user = users.nixos;
-          inherit inputs;
         };
         modules = commonModules ++ [
           ./hosts/vm
@@ -101,7 +100,6 @@
         system = "x86_64-linux";
         specialArgs = {
           user = users.geekom;
-          inherit inputs;
         };
         modules = commonModules ++ [
           ./hosts/geekom
@@ -112,7 +110,6 @@
         system = "x86_64-linux";
         specialArgs = {
           user = users.hplaptop;
-          inherit inputs;
         };
         modules = commonModules ++ [
           ./hosts/hplaptop
