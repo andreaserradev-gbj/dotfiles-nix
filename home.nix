@@ -53,9 +53,11 @@ in
   ];
 
   # Set-once: pin state-format defaults to the install release. Never bump casually.
-  # Wording matches hosts/vm/default.nix and hosts/geekom/default.nix on purpose —
-  # grep the phrase to find all three. This file is imported by every host, so
-  # this is the one of the three that moves two drvPaths, not one.
+  # Wording matches hosts/vm/default.nix, hosts/geekom/default.nix and
+  # hosts/hplaptop/default.nix on purpose — grep "Set-once" to find all four.
+  # The other three are `system.stateVersion`, one per host; this is the
+  # `home.stateVersion`, and home.nix is imported by every host, so this is the
+  # one of the four that moves all three drvPaths rather than just its own.
   home.stateVersion = "26.05";
 
   programs.home-manager.enable = true;

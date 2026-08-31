@@ -58,14 +58,16 @@
   local.docker.enable = false;
 
   # Elisa's shell is bash, not zsh. `common.nix` sets `shell = pkgs.zsh` as a
-  # bare assignment (priority 1500); `lib.mkForce` (priority 50) overrides it
-  # without an eval conflict. See the comment in common.nix:34.
+  # bare assignment (priority 100); `lib.mkForce` (priority 50) is lower, so it
+  # wins without an eval conflict. See the "Account informations" comment in
+  # modules/nixos/common.nix.
   users.users.elisa.shell = lib.mkForce pkgs.bash;
 
   # Wi-Fi powersave on a laptop trades a little interactive latency for
   # battery life — the opposite tradeoff from the mains-powered geekom box.
-  # `common.nix` sets this false as a bare assignment (priority 1500); this
-  # `mkForce` (priority 50) overrides it. See common.nix:23-32.
+  # `common.nix` sets this false as a bare assignment (priority 100); this
+  # `mkForce` (priority 50) is lower, so it wins. See the wifi.powersave
+  # comment in modules/nixos/common.nix.
   networking.networkmanager.wifi.powersave = lib.mkForce true;
 
   # Firmware updates for the laptop — fwupd + the LVFS. geekom has this too;

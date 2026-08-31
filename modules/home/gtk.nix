@@ -21,10 +21,13 @@
 #     version-skewed and can produce a broken-looking or fail-to-load shell.
 #     Skipped for the same reason the upstream port was archived: no
 #     confidence it won't break between GNOME releases.
-#   - GDM's GTK/wallpaper/shell. Only the GDM CURSOR is themed (from the
-#     NixOS side, where gdm lives) — the login screen is visible for ~2s per
-#     boot, and a failed greeter means a black screen recovered via TTY, so
-#     the regret-risk of styling it further is not worth the payoff.
+#   - GDM, entirely — GTK, wallpaper, shell AND cursor. The greeter keeps its
+#     stock Adwaita look; the cursor specifically is blocked by the same
+#     upstream catppuccin-cursors packaging issue described at the bottom of
+#     this file. The login screen is visible for ~2s per boot, and a failed
+#     greeter means a black screen recovered via TTY, so the regret-risk of
+#     styling it is not worth the payoff. See modules/nixos/desktop.nix, where
+#     gdm lives, for the same decision stated from the NixOS side.
 #
 # The catppuccin-gtk port was archived by its maintainers in June 2024
 # (issue #262) with the note that GTK theming has no stable API and each

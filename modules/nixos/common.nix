@@ -26,8 +26,9 @@
   # does not exist. It measured as ~80ms round trips inbound to this host while
   # outbound traffic to the same gateway was ~23ms — exactly the asymmetry that
   # makes an SSH session feel laggy while throughput still looks fine.
-  # Bare assignment (priority 1500); a laptop host (hplaptop) overrides to `true`
-  # with `lib.mkForce` (priority 50) — no `mkDefault` here because it would tie
+  # Bare assignment (priority 100, `defaultOverridePriority`); a laptop host
+  # (hplaptop) overrides to `true` with `lib.mkForce` (priority 50) — LOWER
+  # priority wins. No `mkDefault` here (priority 1000) because it would tie
   # with nixpkgs' own `mkDefault` on the same option and cause an eval conflict.
   networking.networkmanager.wifi.powersave = false;
 
@@ -63,8 +64,9 @@
 
   # Account informations
   # `shell = pkgs.zsh` wins over nixpkgs' `mkDefault "/bin/bash"` for
-  # isNormalUser by priority (1500 > 1000). A host that wants a different
-  # shell (hplaptop → bash) overrides with `lib.mkForce` (priority 50).
+  # isNormalUser by priority: a bare assignment is 100 and `mkDefault` is 1000,
+  # and LOWER wins. A host that wants a different shell (hplaptop → bash)
+  # overrides with `lib.mkForce` (priority 50), lower still.
   users.users.${user.username} = {
     isNormalUser = true;
     description = user.fullName;

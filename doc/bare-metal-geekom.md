@@ -225,11 +225,11 @@ Host geekom
   ServerAliveCountMax 3
 ```
 
-> **Do not copy the `Host nixos` block.** It carries `StrictHostKeyChecking no`,
-> `UserKnownHostsFile /dev/null` and `LogLevel ERROR`, safe only because the VM
-> is a throwaway on a private vmnet whose host key churns. This is a real machine
-> on a real LAN — those three lines would disable host-key verification on the
-> one host where it actually matters.
+> **Do not copy the `Host nixos` block.** It carries `StrictHostKeyChecking no`
+> and `UserKnownHostsFile /dev/null`, safe only because the VM is a throwaway on
+> a private vmnet whose host key churns. This is a real machine on a real LAN —
+> those two lines would disable host-key verification on the one host where it
+> actually matters.
 
 > **Pin the address with a DHCP reservation on the router**, keyed to the MAC
 > from `ip link`. The VM can hardcode an IP because UTM's vmnet assigns

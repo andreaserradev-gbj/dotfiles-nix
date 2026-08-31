@@ -68,7 +68,7 @@ user.nix               personal identity — the one file to edit when forking
 home.nix               Home Manager entrypoint — imports modules/home/
 hosts/vm/              the aarch64 UTM VM
 hosts/geekom/          the x86_64 mini PC
-hosts/hplaptop/         the x86_64 HP laptop (non-technical user, no dev tooling)
+hosts/hplaptop/        the x86_64 HP laptop (non-technical user, no dev tooling)
   default.nix            hostName, stateVersion, hardware, display stack
   hardware-configuration.nix   by-label mounts, initrd modules
   disk-config.nix        disko layout — read by bootstrap.sh only, never imported
@@ -82,7 +82,10 @@ config/<tool>/…        verbatim assets referenced by the modules (nvim tree,
                        bat theme, fastfetch, zellij) — 100% non-Nix
 doc/                   the documentation set — see the index below
 scripts/check-hosts.sh the multi-host regression gate
+scripts/pre-commit     git hook: nixfmt on staged .nix — self-installed by .envrc
+statix.toml            statix (Nix linter) config — devShell/editor only, not CI
 templates/devshell/    per-project dev shell template
+templates/python-devshell/  per-project Python dev shell template (uv)
 AGENTS.md              orientation for AI agents working in this repo
 bootstrap.sh           one-command install of any host, from a live ISO
 ```

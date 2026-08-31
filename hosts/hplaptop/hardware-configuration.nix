@@ -1,9 +1,9 @@
-# Hardware facts for hplaptop — TEMPLATE, to be filled at install time.
-#
-# Captured on the box itself with:
+# Hardware facts for hplaptop — REAL, captured at install time (2026-08-27).
+# This is no longer a template; the module list below came off the box itself
+# with:
 #   nixos-generate-config --no-filesystems --dir /tmp/cfg
-# then copy the `boot.initrd.availableKernelModules` list here. The
-# placeholder list below is empty on purpose — do NOT ship a guess.
+# If this host is ever re-templated, empty `boot.initrd.availableKernelModules`
+# rather than shipping a guess, and re-capture on the new hardware.
 #
 # `fileSystems` below is hand-written, NOT generated. disko is an install-time
 # tool in this repo — bootstrap.sh runs it standalone against a fetched copy
