@@ -1,5 +1,5 @@
-{ ... }:
-{
+{ lib, osConfig, ... }:
+lib.mkIf osConfig.local.dev.enable {
   # npm's update-notifier prints "New major version of npm available! ...
   # To update run: npm install -g npm@X" on stderr. On NixOS that advice is
   # IMPOSSIBLE to follow: npm's global prefix is the read-only nodejs store

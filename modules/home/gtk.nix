@@ -2,8 +2,10 @@
 # the NixOS half (modules/nixos/desktop.nix) so the VM kiosk — which runs a
 # cage+foot stack and never starts GNOME — cannot pick this up. Additionally
 # gated on `variant == "full"`: a `vanilla` host (hplaptop) gets plain GNOME
-# with no Catppuccin theming. Default `"full"` preserves geekom's behavior
-# (drvPath must not move).
+# with no Catppuccin theming. Default `"full"` keeps geekom themed. That
+# default was originally chosen to hold geekom's drvPath still; hash stability
+# is no longer a goal in itself (see home.nix for the invariant that replaced
+# it), but the default stands on its own merit — it is what geekom wants.
 #
 # What this DOES theme:
 #   - GTK3 apps          (catppuccin-gtk v1.0.3, archived but still in nixpkgs)

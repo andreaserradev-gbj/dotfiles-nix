@@ -1,5 +1,5 @@
-{ ... }:
-{
+{ lib, osConfig, ... }:
+lib.mkIf osConfig.local.dev.enable {
   programs.starship.enable = true;
 
   # Prompt = Starship's "pure-preset" (the Pure prompt), kept as raw TOML under

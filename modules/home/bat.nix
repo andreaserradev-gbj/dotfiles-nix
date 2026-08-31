@@ -1,5 +1,5 @@
-{ ... }:
-{
+{ lib, osConfig, ... }:
+lib.mkIf osConfig.local.dev.enable {
   programs.bat = {
     enable = true;
     config.theme = "Catppuccin Mocha";

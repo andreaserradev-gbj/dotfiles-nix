@@ -1,5 +1,10 @@
-{ user, ... }:
 {
+  lib,
+  osConfig,
+  user,
+  ...
+}:
+lib.mkIf osConfig.local.dev.enable {
   programs.git = {
     enable = true;
     lfs.enable = true;

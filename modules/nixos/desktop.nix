@@ -21,8 +21,10 @@ in
 
     # `"full"` = PaperWM + Catppuccin theming (the developer setup on geekom);
     # `"vanilla"` = plain GNOME (Elisa's hplaptop — no PaperWM, no Catppuccin).
-    # Default `"full"` preserves existing behavior: geekom's drvPath must not
-    # move when this option is introduced. The HM half (modules/home/desktop.nix,
+    # Default `"full"` is geekom's existing behaviour. It was picked so that
+    # introducing this option did not move geekom's drvPath; hash stability is
+    # no longer a goal in itself (see home.nix), but the default stands on its
+    # own merit. The HM half (modules/home/desktop.nix,
     # modules/home/gtk.nix) reads `osConfig.local.desktop.variant` and gates the
     # PaperWM/Catppuccin dconf + GTK config behind `variant == "full"`.
     variant = lib.mkOption {

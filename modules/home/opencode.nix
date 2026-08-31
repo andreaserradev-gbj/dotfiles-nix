@@ -1,4 +1,9 @@
-{ pkgs, ... }:
+{
+  lib,
+  osConfig,
+  pkgs,
+  ...
+}:
 let
   # Effort variants are what Ctrl+T ("Cycle model variants") cycles and what
   # `/review`-style subtask commands inherit. opencode auto-derives them
@@ -27,7 +32,7 @@ let
     };
   };
 in
-{
+lib.mkIf osConfig.local.dev.enable {
   # opencode ships a self-updater that offers to replace a Nix-managed binary.
   # Accepting would leave the config declaring 1.15.10 while the machine ran
   # something else — drift the drvPath gate cannot see, because it happens

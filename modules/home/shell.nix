@@ -2,6 +2,7 @@
   pkgs,
   config,
   lib,
+  osConfig,
   ...
 }:
 let
@@ -24,7 +25,7 @@ let
     install -Dm444 ${../../config/zsh/_pnpm} "$out/share/zsh/site-functions/_pnpm"
   '';
 in
-{
+lib.mkIf osConfig.local.dev.enable {
   programs.zsh = {
     enable = true;
     enableCompletion = true;

@@ -1,6 +1,31 @@
 keybinds clear-defaults=true {
     locked {
         bind "Ctrl g" { SwitchToMode "normal"; }
+        // Alt-navigation asymmetry. Documented because it reads as a typo and
+        // is not one.
+        //
+        // Upstream zellij (checked against 0.44.3, `zellij setup
+        // --dump-config`) puts every Alt binding in `shared_except "locked"`,
+        // so locked mode is pure pass-through. This config does the opposite:
+        // the `shared_among "normal" "locked"` block below pulls Alt
+        // navigation INTO locked mode. It has to — `default_mode "locked"` is
+        // set at the bottom of this file, so locked is where you actually live.
+        //
+        // Two keys were held back from that move. This unbind keeps them out
+        // even if a later edit re-adds them to a shared block:
+        //
+        //   Alt h  MoveFocusOrTab "left" — locked mode reaches focus-left via
+        //          `Alt left` instead, while Alt j/k/l still work by letter.
+        //          Different key, same capability.
+        //
+        //   Alt i  MoveTab "left" — has NO locked-mode equivalent, though its
+        //          mirror `Alt o` (MoveTab "right") is bound there. Moving a
+        //          tab leftwards requires Ctrl+g into normal mode first. This
+        //          one is a real capability gap, not a rebinding.
+        //
+        // Why these two specifically was never written down, so the above is
+        // recorded as observed behaviour, not as reconstructed intent. Both
+        // are bound normally in `normal` mode, immediately below.
         unbind "Alt h" "Alt i"
     }
     normal {
