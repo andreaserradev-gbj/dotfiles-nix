@@ -105,15 +105,24 @@
   # can spill into GTT when a model outgrows the 8GB VRAM carve-out. Revisit
   # only with a measurement, not with a release note.
   #
-  # LOAD-BEARING DEPENDENCY ON local.gaming.enable ABOVE. The Vulkan userspace
-  # driver (RADV, via mesa) arrives through hardware.graphics.enable, which is
-  # set inside the gaming module. Turning gaming off silently drops inference
-  # back to CPU — the daemon still starts and still answers, just slowly, with
-  # nothing in the journal that names the cause.
+  # The Vulkan userspace driver (RADV, via mesa) reaches userspace through
+  # `hardware.graphics.enable`, which is now stated explicitly below rather
+  # than inherited. It used to arrive ONLY as a side effect of the gaming
+  # module, so turning gaming off dropped inference back to CPU silently: the
+  # daemon still started and still answered, just slowly, with nothing in the
+  # journal naming the cause.
   #
   # No systemd changes needed: the upstream unit already ships
   # SupplementaryGroups=render, DeviceAllow=char-drm and PrivateDevices=false,
   # so the DynamicUser can reach /dev/dri/renderD128 as-is.
+  # Stated here, not left to the gaming module. Verified 2026-08-31 that on
+  # this host the option is defined only by modules/nixos/gaming.nix and
+  # nixpkgs' programs/steam.nix — nothing else. GPU inference should not
+  # depend on whether this box also games. Same value the gaming module sets,
+  # so the closure does not move while gaming stays on; the point is that it
+  # would not move if gaming were switched off either.
+  hardware.graphics.enable = true;
+
   services.ollama.package = pkgs.ollama-vulkan;
 
   # OLLAMA_IGPU_ENABLE IS NOT OPTIONAL HERE. Since 0.32 ollama discovers
@@ -133,6 +142,12 @@
   # bandwidth-bound, not ALU-bound. The real gain is that inference stops
   # competing with the editor for cores.
   services.ollama.environmentVariables.OLLAMA_IGPU_ENABLE = "1";
+
+  # Firmware updates via fwupd + the LVFS. Real UEFI hardware, same as the
+  # laptop. hosts/hplaptop/default.nix said "geekom has this too" before this
+  # line existed, which made that comment false; adding it here is what makes
+  # it true rather than editing the claim away.
+  services.fwupd.enable = true;
 
   # Docker: dockerd + compose, for development. Defined in
   # modules/nixos/docker.nix, which every host imports but only this one
