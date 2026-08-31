@@ -1,5 +1,5 @@
-{ ... }:
-{
+{ lib, osConfig, ... }:
+lib.mkIf osConfig.local.dev.enable {
   programs.btop = {
     enable = true;
     settings = {

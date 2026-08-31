@@ -16,8 +16,12 @@ Start from the [README](README.md) for the model and the
    (see [doc/workflow.md](doc/workflow.md), "Upgrading to a new NixOS release").
 3. **Blast radius: `modules/` moves every host; `hosts/<host>/` moves one.**
    Before editing a shared module, run `./scripts/check-hosts.sh` and record
-   the printed `drvPath`s; after editing, run it again — a host you did not
-   mean to touch must not move.
+   the printed `drvPath`s; after editing, run it again. A move is fine when you
+   can explain it: `nvd diff` between the two closures — or
+   `nix store diff-closures` on a host without `nvd`, which includes
+   `hplaptop` — where an empty package diff is a real explanation. A move you
+   cannot name is the failure. `hplaptop` updates unattended, so she must not
+   move unless you meant her.
 4. **`nix flake check` does not evaluate `nixosConfigurations`.** The gate is
    `./scripts/check-hosts.sh`, and its untracked-file warning comes first for a
    reason: a green result on a stale tree is worse than a red one.

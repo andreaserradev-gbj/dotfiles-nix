@@ -8,8 +8,8 @@
 # config lazygit rejects rather than one it silently upgrades. Re-check this
 # block whenever flake.lock moves nixpkgs; `lazygit --version` on a rebuilt
 # host is the check.
-{ ... }:
-{
+{ lib, osConfig, ... }:
+lib.mkIf osConfig.local.dev.enable {
   programs.lazygit = {
     enable = true;
     settings = {

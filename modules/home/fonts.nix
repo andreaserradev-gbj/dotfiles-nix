@@ -1,5 +1,10 @@
-{ pkgs, ... }:
 {
+  lib,
+  osConfig,
+  pkgs,
+  ...
+}:
+lib.mkIf osConfig.local.dev.enable {
   home.packages = [
     pkgs.nerd-fonts.jetbrains-mono
     pkgs.dejavu_fonts

@@ -10,8 +10,9 @@
 # wants a terminal. The dconf.settings block (PaperWM, Catppuccin theme,
 # wallpaper, accent, text-scaling, scaling-factor) is gated on
 # `desktop.enable && variant == "full"` — a `vanilla` host gets plain GNOME with
-# no theming. Default `"full"` preserves geekom's behavior (drvPath must not
-# move).
+# no theming. Default `"full"` keeps geekom themed — originally chosen to hold
+# geekom's drvPath still, though hash stability is no longer a goal in itself
+# (see home.nix).
 {
   lib,
   osConfig,

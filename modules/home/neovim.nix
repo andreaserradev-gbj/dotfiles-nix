@@ -2,10 +2,11 @@
   pkgs,
   config,
   lib,
+  osConfig,
   ...
 }:
 
-{
+lib.mkIf osConfig.local.dev.enable {
   # Neovim + LazyVim, ported as a verbatim managed-file lua tree.
   #
   # Style: managed-file, not native. LazyVim owns its own plugin manager
