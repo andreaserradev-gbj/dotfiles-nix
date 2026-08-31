@@ -193,7 +193,21 @@ jobs:
   # impossible.
   advance-verified:
     needs: gate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # `always()` is load-bearing and must not be "tidied away". A skipped job
+    # propagates skip TRANSITIVELY through the needs graph: when `build` skips,
+    # `gate` rescues itself with always() and passes, but anything downstream
+    # of gate still inherits that skip unless it also opts out of the default
+    # success() semantics. Without always() here, every doc- or CI-only commit
+    # would silently fail to advance `verified` — observed exactly once, on
+    # 005b6107, which left verified a commit behind main.
+    #
+    # always() alone would also run on cancellation, so the gate result is
+    # asserted explicitly rather than inherited.
+    if: >-
+      always()
+      && needs.gate.result == 'success'
+      && github.event_name == 'push'
+      && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # The one job that needs write. Scoped here rather than at workflow level
