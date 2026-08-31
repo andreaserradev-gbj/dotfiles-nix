@@ -54,7 +54,7 @@ in
       zj = "zellij"; # 4b
       lz = "lazygit"; # 4a
       cls = "clear && fastfetch"; # 4a
-      zshconfig = "nvim ${repo}";
+      zshconfig = "nvim ${repo}/modules/home/shell.nix"; # the file this shell IS; `nixcfg` covers the whole repo
 
       l = "eza --icons"; # eza installed below → works now
       lg = "eza --tree --level=1 --icons --git --git-ignore";
@@ -75,7 +75,13 @@ in
       nfc = "nix flake check ${repo}"; # evaluate/validate the flake without building a system
       nfi = "nix flake init -t ${repo}#devshell"; # initialize a new project (node-flavored default)
       nfp = "nix flake init -t ${repo}#python-devshell"; # initialize a Python project (uv + python3)
-      ngca = "nh clean all && sudo /run/current-system/bin/switch-to-configuration boot"; # bulk GC (keep newest), then prune boot menu
+      # Bulk GC (keep newest), then prune the boot menu. The pruning call comes
+      # from the PROFILE path, never `/run/current-system`: after `nrb` stages a
+      # generation the two differ, and the running system's binary rewrites the
+      # bootloader with ITSELF as default — silently discarding the staged
+      # update, no error anywhere. The profile's current generation is by
+      # definition the intended boot default.
+      ngca = "nh clean all && sudo /nix/var/nix/profiles/system/bin/switch-to-configuration boot";
       # ngl (list), ngd (diff) and ngc (interactive GC) are functions in initContent below, sharing the _gens formatter
       nixcfg = "cd ${repo}"; # jump to the flake repo
       speedtest = "NIXPKGS_ALLOW_UNFREE=1 nix run --impure nixpkgs#ookla-speedtest -- --accept-license --accept-gdpr"; # one-shot Ookla speedtest (unfree → per-invocation allow, not added to predicate)
@@ -147,7 +153,8 @@ in
 
       # ngc — interactive GC. fzf-pick which generations to DELETE (the running
       # gen is never offered), confirm, reclaim the store, prune the boot menu.
-      # Bulk "delete all old" lives on the ngca alias.
+      # Bulk "delete all old" lives on the ngca alias. The boot-menu prune uses
+      # the profile path for the reason spelled out on that alias.
       ngc() {
         local rows sel gens
         rows=$(_gens | grep -vF -- '<- current')
@@ -160,7 +167,7 @@ in
         echo
         sudo nix-env -p /nix/var/nix/profiles/system --delete-generations $gens &&
         sudo nix-collect-garbage &&
-        sudo /run/current-system/bin/switch-to-configuration boot
+        sudo /nix/var/nix/profiles/system/bin/switch-to-configuration boot
       }
 
       # fzf UI styling (from 60-fzf.zsh). Dropped: the missing fzf-preview.sh

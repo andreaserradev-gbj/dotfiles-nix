@@ -154,9 +154,9 @@ GitHub for every push to `main` and every PR, in four stages:
    CI-only commit silently fails to advance `verified` — which happened once,
    on `005b6107`.
 
-   Note that hplaptop still pulls `main` today — repointing it at `verified`
-   is a separate change; until then this job maintains a branch nothing
-   consumes.
+   hplaptop's `nrb` pulls this branch (`modules/home/maintenance.nix`), which
+   is what makes the job load-bearing rather than bookkeeping: the gate ends at
+   a machine.
 
 Because the gate is enforced, a PR cannot be merged until it reports green,
 and waiting on it by hand is wasted time. Open PRs with auto-merge and walk
@@ -178,14 +178,22 @@ latter CI is advisory: red runs still merge, `advance-verified` simply does not
 fire, and `verified` quietly stops advancing rather than loudly breaking.
 
 The point is the **`nrb` from GitHub path**: `bare-metal-hplaptop.md` has an
-unattended host (`nrb` pulls from `github:` with `--refresh`), so whatever is
-on `main` gets installed on that machine without anyone watching. CI exists so
-a commit that does not build is *surfaced within minutes of landing on `main`*
-— before the next `nrb` picks it up, but not infallibly: CI starts after the
-push, so an `nrb` racing the build can still install a broken commit, and a
-red check does not revert `main` by itself. That is why AGENTS.md makes it a
-manual rule that a failing commit must be fixed or reverted before anything
-else lands on `main`.
+unattended host (`nrb` pulls from `github:` with `--refresh`), so whatever that
+alias fetches gets installed on that machine without anyone watching. It
+fetches `verified`, and `verified` moves only when `advance-verified`
+fast-forwards it behind a green `gate`. A commit that does not build therefore
+cannot reach the laptop at all: a red `main` leaves `verified` where it was, and
+the machine keeps running the last commit that built.
+
+This was a race until `nrb` was repointed, patched until then with a human
+rule. `nrb` pulled `main` directly; CI starts *after* the push, so an `nrb`
+timed between the two could install a commit whose build had not finished, and
+a red check does not revert `main` by itself. AGENTS.md carried the
+compensating rule — a failing commit must be fixed or reverted before anything
+else lands. That rule is still worth keeping, for a different reason now:
+while `main` is red, `verified` stops advancing and the laptop quietly stops
+receiving updates. It is no longer the thing standing between a broken commit
+and the machine.
 
 The aarch64 VM is **not** in the build matrix: it is local-first (rebuilding it
 is interactive, with `check-hosts.sh` in front), and emulating a GNOME toplevel

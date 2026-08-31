@@ -2,24 +2,34 @@
 # this config or adding a host. `flake.nix` resolves the per-host attrset via
 # `specialArgs = { user = users.${hostname}; ... }` and threads it through
 # both NixOS and Home Manager.
-{
-  nixos = rec {
+let
+  # The flake every host updates ITSELF from: `modules/home/maintenance.nix`
+  # builds the `nrb` alias out of this. It lives here rather than in the
+  # module because a fork that edited only `user.nix` would otherwise keep
+  # pulling the upstream repo — on the unattended laptop, silently and
+  # forever. `bootstrap.sh` still spells the URL out; that one runs before
+  # the clone exists, so it cannot read this file and is the single
+  # unavoidable literal.
+  repo = "github:andreaserradev-gbj/dotfiles-nix";
+
+  # Both dev hosts are the same person. The file is keyed by HOSTNAME only
+  # because flake.nix looks the attrset up as `users.${hostname}`, so the
+  # person is named once here and assigned to hosts below — otherwise an
+  # email change is one edit per machine and each new host copies seven more
+  # lines of the same identity.
+  owner = rec {
     username = "andrea";
     fullName = "Andrea Serra";
     email = "andreaserradev-gbj@users.noreply.github.com";
     timeZone = "Europe/Rome";
     sshKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINROirqL4mIWQh/x4+ka3dBvO/9mp0MTaaT3PglqAfnU andrea.serra.dev@gmail.com";
     homeDirectory = "/home/${username}"; # rec lets this reference username
+    inherit repo; # `inherit` inside `rec` reads the enclosing let, not the set
   };
-
-  geekom = rec {
-    username = "andrea";
-    fullName = "Andrea Serra";
-    email = "andreaserradev-gbj@users.noreply.github.com";
-    timeZone = "Europe/Rome";
-    sshKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINROirqL4mIWQh/x4+ka3dBvO/9mp0MTaaT3PglqAfnU andrea.serra.dev@gmail.com";
-    homeDirectory = "/home/${username}";
-  };
+in
+{
+  nixos = owner;
+  geekom = owner;
 
   # Non-technical user on the hplaptop host.
   #
@@ -37,16 +47,13 @@
   # `locale` is OPTIONAL the same way. When present it sets the whole system
   # locale (messages, formats, measurements — see common.nix). Absent = the
   # nixpkgs default ("en_US.UTF-8"), byte-identical behavior for existing hosts.
-  #
-  # `laptop` is a boolean MARKER, not a setting: its presence flips on
-  # laptop-class power management (power-profiles-daemon — see common.nix).
   hplaptop = rec {
     username = "elisa";
     fullName = "Elisa Davi";
     timeZone = "Europe/Rome";
     keyboardLayout = "it";
     locale = "it_IT.UTF-8";
-    laptop = true;
     homeDirectory = "/home/${username}";
+    inherit repo;
   };
 }

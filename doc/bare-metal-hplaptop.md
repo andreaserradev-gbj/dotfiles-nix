@@ -136,12 +136,34 @@ bash alias, `nrb`, defined in `modules/home/maintenance.nix` (gated on
 `!osConfig.local.dev.enable`, so it only appears on non-dev hosts):
 
 ```sh
-nrb           # nixos-rebuild boot --flake github:andreaserradev-gbj/dotfiles-nix
+nrb    # nixos-rebuild boot --flake github:…/dotfiles-nix/verified --refresh
+ngca   # nix-collect-garbage --delete-older-than 14d, then prune the boot menu
 ```
 
 `boot` (not `switch`) so a kernel or display-stack change does not tear down
 the running session — a reboot applies it. Andrea runs a full `nixos-rebuild`
 on-site visits; Elisa just runs `nrb` and reboots when prompted.
+
+**The ref is `verified`, not `main`.** CI fast-forwards `verified` only after
+the build matrix passes, so this machine cannot fetch a commit that has not
+built — a red `main` simply leaves `verified` where it was and `nrb` installs
+nothing new. See [doc/workflow.md](workflow.md) for the pipeline.
+
+> **Transition note (one time).** The `nrb` currently installed on this laptop
+> still points at `main`; the alias text only changes once the system carrying
+> the new definition is installed. The handover is race-free because both refs
+> are equal at that moment: the next `nrb` pulls `main`, installs the
+> generation whose alias reads `verified`, and every `nrb` after that uses the
+> gated ref.
+
+`ngca` keeps a **14-day** rollback window rather than deleting every old
+generation: on this machine the boot menu is the only recovery path, and
+`-d` would delete every entry in it. It also prunes the boot menu through
+`/nix/var/nix/profiles/system/bin/switch-to-configuration` — the profile, not
+the running system. Running it against the running system after an `nrb` would
+rewrite the bootloader with the *old* system as default, silently discarding
+the staged update; `nrb`-then-reboot is exactly this host's workflow, so that
+mattered here more than anywhere.
 
 > **No SSH on this host.** sshd is gated behind `local.dev.enable`, which is
 > false here. There is no network rebuild path and no authorized_keys entry.

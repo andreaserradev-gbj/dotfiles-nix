@@ -5,6 +5,7 @@
 {
   pkgs,
   lib,
+  user,
   ...
 }:
 
@@ -57,11 +58,16 @@
   local.gaming.enable = false;
   local.docker.enable = false;
 
-  # Elisa's shell is bash, not zsh. `common.nix` sets `shell = pkgs.zsh` as a
-  # bare assignment (priority 100); `lib.mkForce` (priority 50) is lower, so it
-  # wins without an eval conflict. See the "Account informations" comment in
-  # modules/nixos/common.nix.
-  users.users.elisa.shell = lib.mkForce pkgs.bash;
+  # This host's user gets bash, not zsh. `common.nix` sets `shell = pkgs.zsh`
+  # as a bare assignment (priority 100); `lib.mkForce` (priority 50) is lower,
+  # so it wins without an eval conflict. See the "Account informations" comment
+  # in modules/nixos/common.nix.
+  #
+  # Interpolated from `user.username` rather than spelled out: a rename in
+  # user.nix would otherwise leave this defining a PHANTOM user that has only
+  # a `.shell`, which trips NixOS's isNormalUser/isSystemUser assertion with an
+  # error naming neither user.nix nor this line.
+  users.users.${user.username}.shell = lib.mkForce pkgs.bash;
 
   # Wi-Fi powersave on a laptop trades a little interactive latency for
   # battery life — the opposite tradeoff from the mains-powered geekom box.
@@ -69,6 +75,14 @@
   # `mkForce` (priority 50) is lower, so it wins. See the wifi.powersave
   # comment in modules/nixos/common.nix.
   networking.networkmanager.wifi.powersave = lib.mkForce true;
+
+  # ...and that override is the pattern for laptop-class tuning generally: it
+  # belongs in THIS file, not behind a marker field in user.nix. `user.nix`
+  # once carried a `laptop = true` marker gating power-profiles-daemon in
+  # common.nix; both were deleted, because GNOME already enables that daemon
+  # via mkDefault — the gate set a value that was never unset, and it put a
+  # machine attribute in the file that describes a person. Lid behaviour and
+  # battery thresholds, when they arrive, go here.
 
   # Firmware updates for the laptop — fwupd + the LVFS. geekom has this too;
   # the VM does not (it has no real firmware to update).
