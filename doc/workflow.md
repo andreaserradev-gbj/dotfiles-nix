@@ -140,12 +140,23 @@ GitHub for every push to `main` and every PR, in four stages:
    and `gate` — never a matrix job, whose very name depends on the matrix
    being non-empty.
 4. **advance-verified** — on a green push to `main` only, fast-forwards the
-   `verified` branch to that commit. `needs: build` is the whole point:
-   `verified` can only ever name a commit both x86_64 hosts actually built.
+   `verified` branch to that commit. `needs: gate` is the whole point:
+   `verified` can only ever name a commit whose x86_64 hosts were either built
+   here or proven byte-identical to a commit that was.
    The push is non-forced, so a diverged `verified` fails the job loudly
-   instead of being rewritten. Note that hplaptop still pulls `main` today —
-   repointing it at `verified` is a separate change; until then this job
-   maintains a branch nothing consumes.
+   instead of being rewritten.
+
+   Its `if:` starts with `always()`, which is load-bearing rather than
+   decorative. A skipped job propagates skip *transitively* through the `needs`
+   graph: when `build` skips, `gate` rescues itself with `always()` and passes,
+   but anything downstream of `gate` still inherits that skip unless it opts
+   out of the default `success()` semantics too. Without it, every doc- or
+   CI-only commit silently fails to advance `verified` — which happened once,
+   on `005b6107`.
+
+   Note that hplaptop still pulls `main` today — repointing it at `verified`
+   is a separate change; until then this job maintains a branch nothing
+   consumes.
 
 Because the gate is enforced, a PR cannot be merged until it reports green,
 and waiting on it by hand is wasted time. Open PRs with auto-merge and walk
