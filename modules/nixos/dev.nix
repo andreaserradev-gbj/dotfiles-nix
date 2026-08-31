@@ -67,6 +67,15 @@ in
       settings = {
         PasswordAuthentication = false;
         KbdInteractiveAuthentication = false;
+
+        # Explicit, though the upstream default (`prohibit-password`) is
+        # already inert here: root has no authorized key, so there is nothing
+        # for a key-only root login to match. Stating it removes the reliance
+        # on that inference — a future commit that adds a root key for some
+        # unrelated reason would otherwise silently open root SSH, and the
+        # only thing standing in the way would have been a default nobody
+        # wrote down.
+        PermitRootLogin = "no";
       };
     };
 
