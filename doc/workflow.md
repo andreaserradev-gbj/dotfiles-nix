@@ -89,21 +89,47 @@ should move every host's hash; touching `hosts/geekom/` should move exactly one.
 
 ## CI
 
-[.github/workflows/ci.yml](../.github/workflows/ci.yml) runs the same two-stage
-gate on GitHub for every push to `main` and every PR:
+[.github/workflows/ci.yml](../.github/workflows/ci.yml) runs the same gate on
+GitHub for every push to `main` and every PR, in three stages:
 
-1. **evaluate** — runs `nix fmt -- --ci` (format check, fails on an
-   unformatted file) and `./scripts/check-hosts.sh` on an x86_64 runner. This
-   is the same gate as above, on purpose: evaluation is arch-independent, so
-   the aarch64 VM is covered too. In a fresh CI checkout every file is
-   git-tracked, so the format check covers everything; a local bare
-   `nix fmt` on a dirty tree skips untracked files (treefmt's git walk) and
-   then only the pre-commit hook covers the staged set.
+1. **evaluate** — on an x86_64 runner: `nix fmt -- --ci` (format check, fails
+   on an unformatted file), `statix check .`, `deadnix --fail`, and
+   `./scripts/check-hosts.sh`. The eval step is the same gate as above, on
+   purpose: evaluation is arch-independent, so the aarch64 VM is covered too.
+   In a fresh CI checkout every file is git-tracked, so the format check covers
+   everything; a local bare `nix fmt` on a dirty tree skips untracked files
+   (treefmt's git walk) and then only the pre-commit hook covers the staged set.
+
+   **The two linters run here and nowhere else.** The pre-commit hook runs
+   `nixfmt` alone, so CI is the only place `statix` or `deadnix` can fail a
+   change — locally they are devShell tools you have to invoke yourself.
+   `deadnix` needs `--fail` to be a gate at all: without it it reports findings
+   and still exits 0. Both come from the flake's devShell, so CI and
+   `nix develop` run the same pinned versions, and `statix.toml`'s
+   disabled-lint list applies identically in both.
 2. **build** — a matrix that fully builds the `geekom` and `hplaptop` toplevels
    from `cache.nixos.org` substitution (the stable-26.05 pin makes this a
    ~minutes-long download, not a compile). It runs only after `evaluate`
    passes — an eval-breaking typo fails in seconds instead of wasting two
    build runners.
+3. **advance-verified** — on a green push to `main` only, fast-forwards the
+   `verified` branch to that commit. `needs: build` is the whole point:
+   `verified` can only ever name a commit both x86_64 hosts actually built.
+   The push is non-forced, so a diverged `verified` fails the job loudly
+   instead of being rewritten. Note that hplaptop still pulls `main` today —
+   repointing it at `verified` is a separate change; until then this job
+   maintains a branch nothing consumes.
+
+Third-party actions are pinned to full commit SHAs with the tag in a trailing
+comment. There is no dependabot here, so bumping is manual: resolve the new SHA
+with `git ls-remote --tags <repo>` and replace both the pin and the comment.
+
+Two things this file cannot assert, because they live in GitHub's UI:
+the repo's Actions **workflow permissions** must stay read-only (the workflow
+declares `permissions: contents: read`, and only `advance-verified` re-grants
+`contents: write` for itself), and **branch protection** on `main`. Without the
+latter CI is advisory: red runs still merge, `advance-verified` simply does not
+fire, and `verified` quietly stops advancing rather than loudly breaking.
 
 The point is the **`nrb` from GitHub path**: `bare-metal-hplaptop.md` has an
 unattended host (`nrb` pulls from `github:` with `--refresh`), so whatever is

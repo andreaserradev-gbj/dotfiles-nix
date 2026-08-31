@@ -9,9 +9,11 @@
 # but Elisa is non-technical and a passphrase prompt in front of every boot
 # is a brick risk that encryption-at-rest does not justify here.
 #
-# The device path is a PLACEHOLDER. bootstrap.sh refuses to run against a
-# device containing "PLACEHOLDER", so this file is safe to commit but cannot
-# accidentally wipe a real disk. Fill in the real by-id path at install time.
+# The device path below is REAL, captured on the box at install time
+# (2026-08-27) — see the by-id node further down. It is no longer a placeholder.
+# bootstrap.sh still refuses to run against any device path containing
+# "PLACEHOLDER", which is the guard a fresh fork of this file relies on: set the
+# path back to a PLACEHOLDER string if you ever re-template this host.
 {
   disko.devices.disk.main = {
     type = "disk";

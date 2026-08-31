@@ -17,7 +17,8 @@ from that:
 - **LibreOffice enabled** (`local.desktop.libreoffice.enable = true`) — Elisa
   needs Word/Excel for HR work.
 - **Bash shell, not zsh.** `users.users.elisa.shell = lib.mkForce pkgs.bash`
-  overrides `common.nix`'s bare `pkgs.zsh` (priority 50 beats 1500).
+  overrides `common.nix`'s bare `pkgs.zsh` — priority 50 beats the bare
+  assignment's 100, and lower wins.
 - **Email in Brave, not Thunderbird.** Elisa's email is configured directly in
   Brave with her Google account. There is no `email` field in her `user.nix`
   entry and no `modules/home/mail.nix`.
@@ -50,17 +51,21 @@ curl -fsSL https://raw.githubusercontent.com/andreaserradev-gbj/dotfiles-nix/mai
 
 Two things must be done first, both before booting the ISO:
 
-1. **Fill in the real disk device** in `hosts/hplaptop/disk-config.nix`
-   (replace `/dev/disk/by-id/PLACEHOLDER` with the real by-id node from
-   `ls -l /dev/disk/by-id/`). Commit and push — `bootstrap.sh` fetches the
-   layout from GitHub, and refuses to run against a `PLACEHOLDER` path.
-2. **Fill in the initrd modules** in
-   `hosts/hplaptop/hardware-configuration.nix`. Run
+1. **Confirm the disk device** in `hosts/hplaptop/disk-config.nix`. For the
+   machine this repo was installed on it is already filled in with a real by-id
+   node (captured 2026-08-27). On any OTHER machine, replace it with that box's
+   node from `ls -l /dev/disk/by-id/`, then commit and push — `bootstrap.sh`
+   fetches the layout from GitHub, and refuses to run against a path containing
+   `PLACEHOLDER`.
+2. **Confirm the initrd modules** in
+   `hosts/hplaptop/hardware-configuration.nix` — also already filled in from the
+   original install. On any OTHER machine, run
    `nixos-generate-config --no-filesystems --dir /tmp/cfg` on the booted ISO
    and copy the `boot.initrd.availableKernelModules` list into the committed
-   file. The shipped template ships an empty list — it will not boot on real
-   hardware as-is. `boot.kernelModules = [ "kvm-intel" ]` is already set (this
-   is an Intel box, not AMD).
+   file. An EMPTY list will not boot on real hardware — the committed one is
+   this ProBook's, so re-capture rather than reuse it elsewhere.
+   `boot.kernelModules = [ "kvm-intel" ]` is already set (this is an Intel box,
+   not AMD).
 
 The by-label mounts (`/` → `hplaptop`, `/boot` → `BOOT`) are hand-written and
 must match the labels `disk-config.nix` creates. disko and the committed

@@ -18,12 +18,16 @@ REPO="andreaserradev-gbj/dotfiles-nix"
 # string. Bump it deliberately; nothing here will do it for you, and nothing
 # fails if it goes stale.
 #
-# Pinned 2026-08-02, when disko's `latest` tag and v1.13.0 both peeled to
-# de5708739256238fb912c62f03988815db89ec9a — so this pin changed nothing about
-# what an install fetches that day. It only diverges once v1.14.0 ships.
-# Resolve candidates with:
+# Pinned to the COMMIT, not the tag: a tag is a movable ref, and this script
+# is fetched over the network and run as root against a blank disk — the one
+# place in the repo where "whatever that name points at today" is the wrong
+# semantics. The tag lives in the trailing comment as the human bump handle.
+#
+# Pinned 2026-08-02, when disko's `latest` tag and v1.13.0 both peeled to this
+# same commit — so the pin changed nothing about what an install fetched that
+# day. Resolve a newer candidate with:
 #   git ls-remote --tags https://github.com/nix-community/disko
-DISKO_REF="v1.13.0"
+DISKO_REF="de5708739256238fb912c62f03988815db89ec9a" # v1.13.0
 
 if [ "$#" -gt 1 ]; then
   echo "!! Too many arguments. Usage: bootstrap.sh [host]" >&2
@@ -69,21 +73,27 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 curl -fsSL "$DISKO_CFG" -o "$tmp/disk-config.nix"
 
-# Read the device back out of the layout we actually fetched, so the
-# confirmation below names the disk disko will really act on.
-DEVICE="$(sed -n 's/^[[:space:]]*device[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$tmp/disk-config.nix" | head -1)"
-if [ -z "$DEVICE" ]; then
+# Read the device(s) back out of the layout we actually fetched, so the
+# confirmation below names the disk(s) disko will really act on.
+#
+# EVERY `device =` match, not `head -1`. --yes-wipe-all-disks wipes every disk
+# the layout declares; showing only the first would have the operator confirm
+# one disk and lose several. A multi-disk layout is therefore surfaced
+# explicitly and confirmed disk by disk below.
+DEVICES="$(sed -n 's/^[[:space:]]*device[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$tmp/disk-config.nix")"
+if [ -z "$DEVICES" ]; then
   echo "!! No device path found in $DISKO_CFG" >&2
   exit 1
 fi
-case "$DEVICE" in
+case "$DEVICES" in
   *PLACEHOLDER*)
     echo "!! ${HOST}'s disk-config.nix still holds a placeholder device path:" >&2
-    echo "     $DEVICE" >&2
+    printf '     %s\n' "$DEVICES" >&2
     echo "   Replace it with the real by-id path and push before installing." >&2
     exit 1
     ;;
 esac
+DEVICE_COUNT="$(printf '%s\n' "$DEVICES" | wc -l | tr -d ' ')"
 
 # --- [2/4] Confirm ----------------------------------------------------------
 # stdin is the piped SCRIPT, not the keyboard, so the prompt must read the
@@ -91,12 +101,35 @@ esac
 echo ""
 echo "    host:   $HOST  ($FLAKE)"
 echo "    layout: $DISKO_CFG"
-echo "    DISK:   $DEVICE"
-echo "            ^ WILL BE WIPED — ALL DATA ON IT DESTROYED"
+if [ "$DEVICE_COUNT" -eq 1 ]; then
+  echo "    DISK:   $DEVICES"
+else
+  echo "    DISKS:  ($DEVICE_COUNT)"
+  while IFS= read -r dev; do printf '            %s\n' "$dev"; done <<EOF
+$DEVICES
+EOF
+fi
+echo "            ^ WILL BE WIPED — ALL DATA ON THEM DESTROYED"
 echo ""
 if ! { : < /dev/tty; } 2>/dev/null; then
   echo "!! No terminal to confirm on; refusing to wipe unattended." >&2
   exit 1
+fi
+# Multi-disk layouts get a per-disk acknowledgement before the single host-name
+# confirmation. Every host in this flake is single-disk today, so this path is
+# unreachable until someone writes a layout that is not — at which point the
+# extra friction is the point, not an annoyance.
+if [ "$DEVICE_COUNT" -gt 1 ]; then
+  echo "!! This layout declares $DEVICE_COUNT disks. ALL of them will be wiped." >&2
+  while IFS= read -r dev; do
+    read -r -p ">>> [2/4] Confirm wipe of $dev — type 'yes': " ack < /dev/tty
+    if [ "$ack" != "yes" ]; then
+      echo "Aborted — nothing was touched." >&2
+      exit 1
+    fi
+  done <<EOF
+$DEVICES
+EOF
 fi
 read -r -p ">>> [2/4] Type the host name to proceed ($HOST): " reply < /dev/tty
 if [ "$reply" != "$HOST" ]; then
@@ -105,7 +138,7 @@ if [ "$reply" != "$HOST" ]; then
 fi
 
 # --- [3/4] Install ----------------------------------------------------------
-echo ">>> [3/4] disko: partition + format + mount $DEVICE  (THIS WIPES THE DISK)"
+echo ">>> [3/4] disko: partition + format + mount (THIS WIPES THE DISK)"
 umount -R /mnt 2>/dev/null || true # clean up any leftover mounts
 nix run "github:nix-community/disko/${DISKO_REF}" -- \
   --mode destroy,format,mount --yes-wipe-all-disks "$tmp/disk-config.nix"

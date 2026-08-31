@@ -24,7 +24,7 @@
 #                             ...) into the nested scope — wrong. Only the
 #                             named fields are wanted. False positive.
 disabled = [
-  "repeated_keys"
-  "empty_pattern"
-  "manual_inherit_from"
+  "repeated_keys",
+  "empty_pattern",
+  "manual_inherit_from",
 ]

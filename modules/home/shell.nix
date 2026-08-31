@@ -88,6 +88,17 @@ in
       TODO_DIR = "${config.home.homeDirectory}/.todo";
     };
 
+    # NOTE — everything inside this `initContent` string is literal .zshrc text,
+    # comments included. Adding a line here CHANGES the derivation; it is not a
+    # free annotation the way a Nix comment (like this one) is.
+    #
+    # DO NOT COPY THE CONTEXT7_API_KEY PATTERN BELOW FOR A HIGHER-VALUE SECRET.
+    # Exporting a secret into the shell environment puts it in every child
+    # process's environ, readable via /proc/<pid>/environ and leaked by anything
+    # that dumps the environment (a crash reporter, `env` in a pasted bug report,
+    # a CI log). It is acceptable for a context7 key, which is low-value and
+    # rate-limit-scoped. Anything else — SSH keys, cloud tokens, passwords —
+    # should stay a file under /run/secrets and be read at the point of use.
     initContent = ''
       # CONTEXT7_API_KEY — runtime secret for the context7 MCP server
       # (modules/home/opencode.nix reads it via {env:...} interpolation).
