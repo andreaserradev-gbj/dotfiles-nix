@@ -81,6 +81,7 @@ modules/home/          one module per tool (zsh, git, neovim, …) — 100% Nix
 config/<tool>/…        verbatim assets referenced by the modules (nvim tree,
                        bat theme, fastfetch, zellij) — 100% non-Nix
 doc/                   the documentation set — see the index below
+scripts/changed-hosts.sh  which hosts moved since `verified` — CI's build matrix
 scripts/check-hosts.sh the multi-host regression gate
 scripts/pre-commit     git hook: nixfmt on staged .nix — self-installed by .envrc
 statix.toml            statix (Nix linter) config — applies in CI and devShell
