@@ -7,7 +7,15 @@
 #    on both. The job also runs the formatter and the two Nix linters —
 #    see the comments on those steps.
 #
-# 2. build matrix (geekom, hplaptop) — full toplevel builds. Only
+# 2. build matrix — full toplevel builds, but ONLY for hosts whose drvPath
+#    actually moved since the last commit CI built (scripts/changed-hosts.sh
+#    against `verified`). A host with an identical drvPath is not "probably
+#    fine": it is the same derivation, and that derivation already built
+#    green, so re-downloading its closure onto a fresh runner proves nothing
+#    and costs ~6 minutes for geekom alone. A doc- or CI-only change moves
+#    no host and skips the matrix entirely; a flake.lock bump moves every
+#    host and skips nothing. Candidate hosts are named here, not in the
+#    script, so this file stays the one place that says what CI builds. Only
 #    hplaptop updates *from GitHub unattended* (see doc/workflow.md);
 #    geekom is rebuilt by hand and is in the matrix because it is the
 #    other x86_64 host whose build cost is real and whose breakage would
@@ -20,7 +28,13 @@
 #    in front), and emulating a GNOME toplevel under QEMU would cost ~1h
 #    of CI per push for no risk reduction.
 #
-# 3. advance-verified — fast-forwards the `verified` branch to a `main`
+# 3. gate — the single required status check. It always runs and simply
+#    aggregates the jobs above. Requiring the matrix jobs directly would
+#    deadlock the moment a build is skipped: a required check that never
+#    reports leaves a PR waiting forever, not passing. Branch protection on
+#    `main` therefore requires `evaluate` and `gate`, never `build (…)`.
+#
+# 4. advance-verified — fast-forwards the `verified` branch to a `main`
 #    commit whose whole build matrix went green. The branch is the
 #    intended pull target for the unattended host, so that an `nrb` can
 #    only ever pick up a commit CI has already built. NOTE: hplaptop
@@ -70,6 +84,8 @@ jobs:
   evaluate:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      hosts: ${{ steps.changed.outputs.hosts }}
     steps:
       # Third-party actions are pinned to a full commit SHA: a tag is a
       # movable ref, and a compromised or retagged action runs with this
@@ -104,14 +120,34 @@ jobs:
       - run: nix develop -c statix check .
       - run: nix develop -c deadnix --fail
       - run: ./scripts/check-hosts.sh
+      # Decide the build matrix. The candidate set is `geekom hplaptop` — the
+      # x86_64 hosts. The aarch64 VM is deliberately absent for the reason in
+      # the header, and naming the candidates here keeps that policy in this
+      # file rather than duplicating it into the script.
+      #
+      # NIX_CONFIG carries the job's own token because resolving the baseline
+      # means fetching `github:owner/repo/<rev>` as a flake: unauthenticated
+      # GitHub API calls from Actions runners share a pool and can be rate
+      # limited, which would fail the step for reasons having nothing to do
+      # with the change under test.
+      - id: changed
+        env:
+          NIX_CONFIG: "access-tokens = github.com=${{ github.token }}"
+        run: |
+          hosts="$(./scripts/changed-hosts.sh verified geekom hplaptop)"
+          echo "hosts=$hosts" >> "$GITHUB_OUTPUT"
+          echo "build matrix: $hosts"
 
   build:
     needs: evaluate
+    # An empty matrix is not a valid strategy, so the job is skipped outright
+    # rather than being asked to iterate over nothing.
+    if: needs.evaluate.outputs.hosts != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
       matrix:
-        host: [geekom, hplaptop]
+        host: ${{ fromJSON(needs.evaluate.outputs.hosts) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Same determinate: false reasoning as the evaluate job.
@@ -123,16 +159,40 @@ jobs:
           ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
           --print-build-logs
 
-  # Fast-forward `verified` to this commit once the whole matrix is green.
-  # `needs: build` is the entire point: `verified` must never name a commit
-  # that has not been built for both x86_64 hosts.
+  # The one required status check. Always runs, so it always reports — which
+  # is the whole reason it exists. `skipped` is an ACCEPTED build result: it
+  # means changed-hosts.sh found no host whose derivation differs from one
+  # already built, which is a stronger statement than a fresh green build, not
+  # a weaker one. `cancelled` and `failure` are not accepted.
+  gate:
+    needs: [evaluate, build]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          EVALUATE: ${{ needs.evaluate.result }}
+          BUILD: ${{ needs.build.result }}
+        run: |
+          echo "evaluate=$EVALUATE build=$BUILD"
+          [ "$EVALUATE" = "success" ] || { echo "!! evaluate did not pass"; exit 1; }
+          case "$BUILD" in
+            success|skipped) ;;
+            *) echo "!! build result '$BUILD' is not acceptable"; exit 1 ;;
+          esac
+          echo "gate: pass"
+
+  # Fast-forward `verified` to this commit once the gate is green.
+  # `needs: gate` is the entire point: `verified` must never name a commit
+  # whose x86_64 hosts were not either built here or proven identical to a
+  # commit that was.
   #
   # Push-to-main only. On a pull_request the checked-out ref is a merge
   # commit that exists nowhere afterwards, and GITHUB_TOKEN is read-only for
   # forks — advancing `verified` from there would be both wrong and
   # impossible.
   advance-verified:
-    needs: build
+    needs: gate
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5

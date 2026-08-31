@@ -90,7 +90,7 @@ should move every host's hash; touching `hosts/geekom/` should move exactly one.
 ## CI
 
 [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs the same gate on
-GitHub for every push to `main` and every PR, in three stages:
+GitHub for every push to `main` and every PR, in four stages:
 
 1. **evaluate** — on an x86_64 runner: `nix fmt -- --ci` (format check, fails
    on an unformatted file), `statix check .`, `deadnix --fail`, and
@@ -107,18 +107,53 @@ GitHub for every push to `main` and every PR, in three stages:
    and still exits 0. Both come from the flake's devShell, so CI and
    `nix develop` run the same pinned versions, and `statix.toml`'s
    disabled-lint list applies identically in both.
-2. **build** — a matrix that fully builds the `geekom` and `hplaptop` toplevels
-   from `cache.nixos.org` substitution (the stable-26.05 pin makes this a
+2. **build** — a matrix that fully builds host toplevels from
+   `cache.nixos.org` substitution (the stable-26.05 pin makes this a
    ~minutes-long download, not a compile). It runs only after `evaluate`
    passes — an eval-breaking typo fails in seconds instead of wasting two
    build runners.
-3. **advance-verified** — on a green push to `main` only, fast-forwards the
+
+   **The matrix only contains hosts whose `drvPath` actually moved.**
+   `scripts/changed-hosts.sh` compares each candidate host against the same
+   host on `verified` — the last commit whose build passed — and emits the
+   movers as a JSON array. An identical `drvPath` is not a guess that the host
+   is fine: it is the *same derivation*, and that derivation already built
+   green, so rebuilding it proves nothing. A doc- or CI-only change moves no
+   host and skips the matrix entirely; a `flake.lock` bump moves every host and
+   skips nothing. Measured: geekom alone is ~6 minutes of closure download.
+
+   The baseline is `verified`, not `main`, deliberately. `main` can hold a
+   commit whose build is still running or has failed; comparing against it
+   could skip a build on the strength of one that never succeeded.
+
+   The candidate set (`geekom hplaptop`) is named in `ci.yml`, not in the
+   script, so the "what does CI build" policy stays next to the comment that
+   explains why the aarch64 VM is excluded.
+3. **gate** — the single required status check. It always runs and just
+   aggregates the jobs above, accepting a `build` result of either `success`
+   or `skipped`.
+
+   This job exists because of how branch protection treats skips. Requiring
+   `build (geekom)` and `build (hplaptop)` directly would deadlock the first
+   time a build is skipped: a required check that never reports leaves the PR
+   *waiting for status*, not passing. Protection therefore requires `evaluate`
+   and `gate` — never a matrix job, whose very name depends on the matrix
+   being non-empty.
+4. **advance-verified** — on a green push to `main` only, fast-forwards the
    `verified` branch to that commit. `needs: build` is the whole point:
    `verified` can only ever name a commit both x86_64 hosts actually built.
    The push is non-forced, so a diverged `verified` fails the job loudly
    instead of being rewritten. Note that hplaptop still pulls `main` today —
    repointing it at `verified` is a separate change; until then this job
    maintains a branch nothing consumes.
+
+Because the gate is enforced, a PR cannot be merged until it reports green,
+and waiting on it by hand is wasted time. Open PRs with auto-merge and walk
+away — GitHub merges the moment the required checks pass:
+
+```sh
+gh pr merge <n> --auto --squash
+```
 
 Third-party actions are pinned to full commit SHAs with the tag in a trailing
 comment. There is no dependabot here, so bumping is manual: resolve the new SHA
