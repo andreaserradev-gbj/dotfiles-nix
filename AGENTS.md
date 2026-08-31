@@ -63,6 +63,8 @@ Start from the [README](README.md) for the model and the
 3. Docs changed? Check every `](...)` link resolves and keep files under
    ~500 lines (split when a doc grows past that).
 4. Push issued? `.github/workflows/ci.yml` builds `geekom` and `hplaptop` from
-   GitHub, and `hplaptop` updates itself unattended from `main` (`nrb` with
-   `--refresh`). A commit that fails CI must not be merged or sit on `main` —
-   the next `nrb` on that machine would install it.
+   GitHub, and `hplaptop` updates itself unattended from `verified` (`nrb` with
+   `--refresh`) — a branch CI fast-forwards only after the build goes green, so
+   a commit that fails cannot reach that machine. Still fix or revert a failing
+   commit promptly: while `main` is red, `verified` stops advancing and the
+   laptop silently stops receiving updates.

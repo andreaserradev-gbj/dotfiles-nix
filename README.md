@@ -7,10 +7,11 @@
 > their own setup. It is **not** a community project: Issues, Discussions,
 > the Wiki, and Projects are disabled, and **PRs will not be accepted** — I
 > don't review them, because every commit here is verified against my own
-> machines first (a CI-green PR into `main` is what gets installed on the
-> laptop, unattended). If something here helped you, fork it — the
-> [license is MIT](#license) and stripping it to your machines is the
-> intended use. See [`user.nix`](user.nix) for the one file to edit in a fork.
+> machines first — the laptop installs, unattended, from a `verified` branch
+> that CI advances only after a green build. If something here helped you,
+> fork it — the [license is MIT](#license) and stripping it to your machines
+> is the intended use. See [`user.nix`](user.nix) for the one file to edit in
+> a fork.
 
 Personal NixOS configuration for **three machines built from one flake** — an
 Apple Silicon development VM, an x86_64 desktop, and an x86_64 laptop for a
