@@ -14,8 +14,6 @@
 # move. A host that moves for a reason you cannot name has not been understood.
 set -euo pipefail
 
-HOSTS="nixos geekom hplaptop"
-
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
@@ -23,12 +21,29 @@ cd "$repo_root"
 # file is simply invisible, and the error that causes ("path does not exist")
 # points at a symptom nowhere near the cause. Warn loudly rather than donate an
 # hour to it.
-untracked="$(git ls-files --others --exclude-standard)"
-if [ -n "$untracked" ]; then
+#
+# `git ls-files -z` + a NUL-delimited read loop, not word splitting on the
+# whole blob: an unquoted $untracked in printf would split a path containing a
+# space into two bogus filenames and glob-expand any path holding * or ?.
+if [ -n "$(git ls-files --others --exclude-standard)" ]; then
   echo "!! WARNING: untracked files — nix will NOT see these:" >&2
-  printf '!!   %s\n' $untracked >&2
+  while IFS= read -r -d '' f; do
+    printf '!!   %s\n' "$f" >&2
+  done < <(git ls-files --others --exclude-standard -z)
   echo "!! Run 'git add' before trusting a green result below." >&2
   echo >&2
+fi
+
+# The host list is DERIVED from the flake, not restated here. A hardcoded list
+# is a second source of truth that silently stops covering a host the moment
+# one is added to flake.nix — which is exactly the invisible-until-you-build-it
+# failure this script exists to prevent. Costs one extra eval of the flake's
+# top level; the per-host evals below dominate anyway.
+HOSTS="$(nix eval --raw .#nixosConfigurations \
+  --apply 'cs: builtins.concatStringsSep " " (builtins.attrNames cs)')"
+if [ -z "$HOSTS" ]; then
+  echo "!! No nixosConfigurations found in the flake." >&2
+  exit 1
 fi
 
 # stderr is deliberately NOT captured. Nix emits `warnings` — including the

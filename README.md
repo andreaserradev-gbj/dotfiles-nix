@@ -83,7 +83,7 @@ config/<tool>/…        verbatim assets referenced by the modules (nvim tree,
 doc/                   the documentation set — see the index below
 scripts/check-hosts.sh the multi-host regression gate
 scripts/pre-commit     git hook: nixfmt on staged .nix — self-installed by .envrc
-statix.toml            statix (Nix linter) config — devShell/editor only, not CI
+statix.toml            statix (Nix linter) config — applies in CI and devShell
 templates/devshell/    per-project dev shell template
 templates/python-devshell/  per-project Python dev shell template (uv)
 AGENTS.md              orientation for AI agents working in this repo
