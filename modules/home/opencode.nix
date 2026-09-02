@@ -4,34 +4,6 @@
   pkgs,
   ...
 }:
-let
-  # Effort variants are what Ctrl+T ("Cycle model variants") cycles and what
-  # `/review`-style subtask commands inherit. opencode auto-derives them
-  # from models.dev, but its derivation function (verified in the 1.15.10
-  # bundle) returns NO variants for any model whose id contains "glm" — so
-  # without this block Ctrl+T shows nothing for these models and effort is
-  # fixed at whatever `options` sets. Each variant's `options` is the
-  # full passthrough object, so it must repeat the effort key it exists to
-  # vary. ollama honors low/high/max per the model cards (glm-5.3 also
-  # accepts max as its default; glm-5.3-flash publishes low/high/max).
-  #
-  # Placement is load-bearing: the schema defines `variants` per MODEL entry
-  # (`provider.<name>.models.<id>.variants`), not on the provider, and the
-  # 1.15.10 TUI builds its Ctrl+T list from exactly that path
-  # (`providers.find(...).models[modelID].variants`). At provider level the
-  # key loads silently but is dead config — "no variants available" on Ctrl+T.
-  effortVariants = {
-    low = {
-      options.reasoningEffort = "low";
-    };
-    high = {
-      options.reasoningEffort = "high";
-    };
-    max = {
-      options.reasoningEffort = "max";
-    };
-  };
-in
 lib.mkIf osConfig.local.dev.enable {
   # opencode ships a self-updater that offers to replace a Nix-managed binary.
   # Accepting would leave the config declaring 1.15.10 while the machine ran
@@ -52,9 +24,10 @@ lib.mkIf osConfig.local.dev.enable {
 
     autoupdate = false;
 
-    # Both models are cloud stubs that the local daemon proxies to ollama.com,
-    # so this is NOT on-box inference: each host needs its own `ollama signin`
-    # and the 890M never sees the work. Pull a real model to change that.
+    # Cloud stub proxied to ollama.com, so this is NOT on-box inference: each
+    # host needs its own `ollama signin` and the 890M never sees the work. It
+    # is the only cloud model here now -- ollama's subscription change retired
+    # glm-5.3:cloud. Pull a real model to change that.
     #
     # baseURL is the literal address rather than `localhost` because ollama
     # binds 127.0.0.1 only, while localhost resolves to ::1 first on these
@@ -72,12 +45,6 @@ lib.mkIf osConfig.local.dev.enable {
       # `output` is not optional — opencode's schema requires it whenever
       # `limit` is present. ollama publishes no output cap, so 131072 comes from
       # models.dev, where every provider agrees on it for the cloud stubs.
-      #
-      # The camelCase `reasoningEffort` key is now VERIFIED to reach ollama as
-      # snake_case `reasoning_effort` (was unverified before 1.15.10): the
-      # config-side options merge into providerOptions under the provider name
-      # ("ollama"), and the @ai-sdk/openai-compatible adapter maps
-      # `D.reasoningEffort` to `reasoning_effort` in the request body.
       models = {
         "glm-5.3-flash:cloud" = {
           name = "GLM 5.3 Flash (cloud)";
@@ -87,11 +54,6 @@ lib.mkIf osConfig.local.dev.enable {
             "image"
           ];
           modalities.output = [ "text" ];
-          options.reasoningEffort = "high";
-          # effortVariants is bound once in the `let` above; the key must be
-          # spelled `variants` (see the comment in the `let` for why this has
-          # to sit at model level and repeat `options` per variant).
-          variants = effortVariants;
           limit = {
             context = 1048576;
             output = 131072;
@@ -107,33 +69,14 @@ lib.mkIf osConfig.local.dev.enable {
         # so without the explicit array opencode replaces any attached image with
         # an "ERROR: this model does not support image input" text stub and never
         # forwards the bytes.
-        # glm-5.3:cloud is a cloud stub proxied to ollama.com, same family as
-        # the entry above (753B; `/api/show` on 2026-08-29 reports vision is
-        # ABSENT — completion/thinking/tools only, unlike glm-5.3-flash). The
-        # card says "1M" with no trimmed figure and `/api/show` reports the
-        # full 1048576, so the limit is exact. Output cap is unverified —
-        # 131072 follows the other ollama cloud models.
-        # reasoning_effort here additionally accepts `max` (default per the
-        # card); `high` is kept to match the measured-behaviour pattern noted
-        # above. glm-5.3 reports no vision capability, so it deliberately
-        # omits both flags.
-        "glm-5.3:cloud" = {
-          name = "GLM 5.3 (cloud)";
-          options.reasoningEffort = "high";
-          variants = effortVariants;
-          limit = {
-            context = 1048576;
-            output = 131072;
-          };
-        };
-        # qwen3-coder:30b-a3b-q4_K_M is the one LOCAL model here (the entries
-        # above are cloud stubs), so no `ollama signin` is involved and the
+        # qwen3-coder:30b-a3b-q4_K_M is a LOCAL model (the glm-5.3-flash entry
+        # above is the only cloud stub), so no `ollama signin` is involved and the
         # daemon's cap is the whole story. `/api/show` on 2026-08-27 reports
         # 262144 — matching the card's 256K native window — and the daemon's
         # context is the GGUF-declared 262144, so the limit is exact, not
         # conservative. Capabilities are completion/tools only: no thinking and
-        # no vision (unlike the cloud stubs, this is a non-reasoning coder), so
-        # no `attachment`/`modalities`/`reasoningEffort` — `options` stays empty
+        # no vision (unlike the cloud stub, this is a non-reasoning coder), so
+        # no `attachment`/`modalities` — `options` stays empty
         # since the model ships its own generation params (temp 0.7, top_p 0.8).
         "qwen3-coder:30b-a3b-q4_K_M" = {
           name = "Qwen3 Coder 30B A3B (local)";
@@ -145,47 +88,38 @@ lib.mkIf osConfig.local.dev.enable {
             output = 65536;
           };
         };
+        # Second LOCAL model: qwen3.6:35b-a3b-coding-mtp-q4_K_M (35.5B MoE,
+        # ~22 GB on disk; MTP = multi-token prediction for faster decode).
+        # Unlike qwen3-coder this one thinks AND sees: `/api/show` on
+        # 2026-09-02 reports capabilities completion/vision/tools/thinking, so
+        # it declares `attachment` + `modalities.input` image — same two-key
+        # vision gate as glm-5.3-flash above (opencode reads the send-time
+        # gate from `modalities.input`, not `attachment`, and this model is
+        # absent from models.dev). It is a reasoning model, but ollama
+        # publishes no reasoning_effort knobs for it, so `options` stays empty.
+        "qwen3.6:35b-a3b-coding-mtp-q4_K_M" = {
+          name = "Qwen3.6 35B A3B Coding MTP (local)";
+          attachment = true;
+          modalities.input = [
+            "text"
+            "image"
+          ];
+          modalities.output = [ "text" ];
+          # `/api/show` on 2026-09-02 reports the GGUF-declared 262144,
+          # matching the card's 256K native window, so the limit is exact.
+          limit = {
+            context = 262144;
+            # No published output cap; 65536 mirrors qwen3-coder above, the
+            # only other local model with the same context figure.
+            output = 65536;
+          };
+        };
       };
     };
 
-    # Per-agent model split instead of a single top-level default: plan mode
-    # (analysis, planning, screenshot reading) leans on the flagship glm-5.3
-    # with max effort — planning is where deep thinking pays — while build mode
-    # gets the cheaper glm-5.3-flash, which per Z.ai's own benchmarks is within
-    # a few points of the flagship on coding (DeepSWE 63.4 vs 66.9, NL2Repo
-    # 56.3 vs 58.0) at roughly one-tenth the cost. plan keeps vision access in
-    # the config because glm-5.3 has none, but plan's flash-era screenshot
-    # reading is gone: glm-5.3 rejects image input, so pasted screenshots in
-    # plan mode become text-only. Both are primary agents, so Tab cycles
-    # between them mid-session and subagents inherit whichever is active.
-    # plan's effort IS pinned here via `variant = "max"` — the schema's
-    # per-agent default variant, resolved when the agent's model matches and
-    # the variant exists in that model's `variants` — so the footer's model
-    # label shows the max suffix from session start. Ctrl+T can still cycle
-    # down mid-session for a quick question; build keeps no pin and rests on
-    # the per-model `options` default (high). Any agent without a `model` key
-    # (e.g. qwen3-coder users via subagents) falls back to the top-level
-    # `model` below.
-    agent = {
-      plan = {
-        model = "ollama/glm-5.3:cloud";
-        variant = "max";
-        permission = {
-          # The ONLY difference from build mode: plan cannot edit files. There
-          # is deliberately no `bash` block here — earlier experiments with
-          # `bash = "ask"` + a read-only allowlist (kept in git history) showed
-          # why: the catch-all prompts for every unlisted command, compound
-          # calls are evaluated per segment so any glue command not listed
-          # prompts the whole batch, and the allowlist chases the agent's
-          # real usage forever. With no `bash` key, plan inherits the exact
-          # same (default) bash behaviour as build; plan is kept read-only by
-          # the edit block plus its own prompt instructions, not by shell
-          # gating.
-          edit = "deny";
-        };
-      };
-      build.model = "ollama/glm-5.3-flash:cloud";
-    };
+    # No custom agents. opencode's built-in plan agent already denies edits;
+    # both plan and build run on the top-level `model` below. Switch models
+    # mid-session with Ctrl+T (model list) or Tab (plan/build).
 
     model = "ollama/glm-5.3-flash:cloud";
 
