@@ -1,22 +1,23 @@
 -- AI completion via minuet-ai, surfaced in the blink.cmp menu (no ghost text).
 --
--- Cloud-only: deepseek-v4-flash through Ollama's cloud proxy. No local model,
--- so no presets to switch between. Ollama here only proxies -- it holds no
--- weights, and `ollama list` is cloud tags exclusively.
+-- Local-only: qwen2.5-coder:3b through Ollama on localhost:11434. No API key --
+-- minuet reads the env var *named* by api_key, so "TERM" is a dummy that is
+-- always set. There is no fallback and no preset to switch to; is_available()
+-- only validates config strings, never the network, so a stopped Ollama just
+-- means the menu quietly loses its AI entries.
 --
--- Needs no API key: Ollama proxies under whatever account `ollama signin` set
--- up on this machine. Minuet reads the env var *named* by api_key, so "TERM"
--- is a dummy that is always set.
+-- This used to default to deepseek-v4-flash:cloud through Ollama's cloud
+-- proxy (ollama's subscription change retired the cloud models — see
+-- modules/home/opencode.nix for the same story on the opencode side). The
+-- local model is the 3b, not the macOS sibling's 7b: this box (geekom) has
+-- slower memory than the M4 Pro, and a decode-rate-bound local model pays
+-- for every token in RAM bandwidth.
 --
--- deepseek runs chat-mode, not FIM. Ollama's /v1/completions returns ALWAYS
--- EMPTY for it: that endpoint gives a thinking model no way to switch reasoning
--- off, so it burns the whole budget reasoning. Hence /v1/chat/completions with
--- reasoning_effort = "none", which is load-bearing -- drop it and every
--- completion comes back as "".
---
--- Measured ~0.9s per completion on the macOS sibling of this config, flat, with
--- no cold-start penalty (no local model to evict). That latency is what decides
--- whether a suggestion lands in the menu before you have typed past it.
+-- The backend is openai_fim_compatible: Ollama's /v1/completions does real
+-- fill-in-the-middle for qwen (it honours `suffix`), which is why this is not
+-- the chat-completions wrapper the old cloud model required. That wrapper's
+-- reasoning_effort = "none" hack goes with the thinking cloud model that
+-- needed it -- qwen2.5-coder is a non-reasoning coder.
 --
 -- Suggestions arrive on auto-trigger only; there is no manual-invoke keymap.
 --
@@ -27,28 +28,38 @@ return {
     "milanglacier/minuet-ai.nvim",
     event = "InsertEnter",
     opts = {
-      provider = "openai_compatible",
+      provider = "openai_fim_compatible",
       n_completions = 1,
       -- CHARACTERS, not tokens (minuet's utils.lua uses strchars), split
-      -- context_ratio 0.75 into 12000 before the cursor and 4000 after. Biggest
-      -- accuracy lever there is. A cloud model does not pay latency for context
-      -- the way a local one does, so this runs high.
-      context_window = 16000,
-      request_timeout = 5,
-      throttle = 1500,
-      debounce = 600,
+      -- context_ratio 0.75 into 6000 before the cursor and 2000 after. Biggest
+      -- accuracy lever there is -- the macOS 7b went 15/32 -> 20/32 moving from
+      -- 2000 to 8000 -- but a local model pays latency for context, so this
+      -- stays at 8000 rather than the 16000 the old cloud model ran at.
+      context_window = 8000,
+      -- 10, not 5, because a COLD local model takes seconds to answer and that
+      -- failure is silent: the request is dropped and the menu just shows
+      -- nothing.
+      --
+      -- Ollama evicts idle models after 5 minutes otherwise, and the
+      -- keep_alive request field is ignored on /v1, so the cold penalty
+      -- recurs. On NixOS the keep-alive belongs in the service's
+      -- environmentVariables, not launchctl (that was the macOS recipe).
+      request_timeout = 10,
+      throttle = 1000,
+      debounce = 400,
 
       provider_options = {
-        openai_compatible = {
+        openai_fim_compatible = {
           api_key = "TERM",
-          name = "OllamaCloud",
-          end_point = "http://localhost:11434/v1/chat/completions",
-          model = "deepseek-v4-flash:cloud",
+          name = "Ollama",
+          end_point = "http://localhost:11434/v1/completions",
+          model = "qwen2.5-coder:3b",
           optional = {
-            -- Output budget only -- no effect on what the model sees.
-            max_tokens = 256,
+            -- Dominant latency dial locally -- the macOS 7b on an M4 Pro
+            -- measured 64 -> 1.45s, 128 -> 2.80s, 256 -> 5.54s; the 3b on
+            -- this box's slower memory is in the same order of magnitude.
+            max_tokens = 64,
             top_p = 0.9,
-            reasoning_effort = "none", -- see header; without it, "" every time
           },
         },
       },
@@ -68,9 +79,9 @@ return {
             name = "minuet",
             module = "minuet.blink",
             async = true,
-            -- Must clear minuet's own request_timeout (5s) so blink does not
-            -- give up on the source first.
-            timeout_ms = 6000,
+            -- Must clear minuet's own request_timeout (10s) so blink does not
+            -- give up on the source first: a cold local model takes seconds.
+            timeout_ms = 10000,
             -- Ranks minuet above the LSP items rather than below them.
             score_offset = 50,
           },
