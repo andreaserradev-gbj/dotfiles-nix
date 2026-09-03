@@ -36,11 +36,11 @@
 #
 # 4. advance-verified — fast-forwards the `verified` branch to a `main`
 #    commit whose whole build matrix went green. The branch is the
-#    intended pull target for the unattended host, so that an `nrb` can
-#    only ever pick up a commit CI has already built. NOTE: hplaptop
-#    still pulls `main` today (modules/home/maintenance.nix) — the
-#    repoint to `verified` is a separate change; until it lands this job
-#    maintains the branch without anything consuming it.
+#    intended pull target for the unattended host, and IS that host's
+#    pull target today: hplaptop's `nrb` builds
+#    `github:…?ref=verified` with `--refresh`
+#    (modules/home/maintenance.nix), so an `nrb` can only ever pick up a
+#    commit CI has already built.
 #
 # Builds substitute almost entirely from cache.nixos.org because both
 # hosts pin stable 26.05 — if the "fetched" lines disappear and jobs
