@@ -3,6 +3,7 @@
   config,
   lib,
   osConfig,
+  user,
   ...
 }:
 let
@@ -88,11 +89,20 @@ lib.mkIf osConfig.local.dev.enable {
       speedtest = "NIXPKGS_ALLOW_UNFREE=1 nix run --impure nixpkgs#ookla-speedtest -- --accept-license --accept-gdpr"; # one-shot Ookla speedtest (unfree → per-invocation allow, not added to predicate)
     };
 
+    # Loopback rebuild target, read by the nrs/nrt fragment appended to
+    # initContent below. Set only on hosts with the seam on (geekom); unset
+    # on the rest — the VM keeps plain aliases (it is normally rebuilt over
+    # SSH from outside anyway) and hplaptop has no sshd and never loads
+    # this file. Taken from the host's own identity attrset rather than
+    # hardcoded so a fork editing user.nix needs no shell.nix edit.
     sessionVariables = {
       EDITOR = "nvim";
       VISUAL = "nvim";
       DIRENV_LOG_FORMAT = "";
       TODO_DIR = "${config.home.homeDirectory}/.todo";
+    }
+    // lib.optionalAttrs (osConfig.local.loopbackRebuild.enable or false) {
+      NH_LOOPBACK_TARGET = "${user.username}@localhost";
     };
 
     # NOTE — everything inside this `initContent` string is literal .zshrc text,
@@ -190,6 +200,32 @@ lib.mkIf osConfig.local.dev.enable {
           --color 'input-border:#996666,input-label:#ffcccc'
           --color 'header-border:#6699cc,header-label:#99ccff'
       "
+    ''
+    # Loopback rebuilds — appended only on hosts with the seam on (geekom):
+    # phase 1 of a switch can restart the display stack, killing the session
+    # that launched it; running the activation through SSH to localhost puts
+    # it inside sshd's scope, which no display restart can reap. Concatenated
+    # as its own string (NOT interpolated into the one above) so nixfmt's
+    # reindentation of the base string cannot alter this file's output on
+    # hosts without the seam. The seam (modules/nixos/loopback-rebuild.nix)
+    # pins localhost's host key and authorizes this machine's own user key,
+    # so no manual ssh-keyscan dance. --hostname is REQUIRED: with
+    # --target-host set, nh otherwise derives the flake attribute from the
+    # target ("localhost"), which does not exist in nixosConfigurations. nh
+    # prompts for the remote sudo password locally and feeds it over stdin,
+    # so no TTY juggling. Escape hatch if sshd is ever broken: `nh os switch
+    # --ask` directly (the plain alias behavior), or nrb + reboot.
+    + lib.optionalString (osConfig.local.loopbackRebuild.enable or false) ''
+      # Loopback rebuilds — the safe shape of nrs/nrt on hosts with the
+      # loopbackRebuild seam on (geekom). See the comment above the string
+      # for the full reasoning. The unalias is LOAD-BEARING: zsh expands
+      # aliases while PARSING, so the function definition line below would
+      # itself be expanded into the alias's command and the functions would
+      # never take effect (nrs would stay the plain alias, without the
+      # loopback target).
+      unalias nrs nrt 2>/dev/null
+      nrs() { nh os switch --ask --target-host "$NH_LOOPBACK_TARGET" --hostname "$HOST" "$@"; }
+      nrt() { nh os test --target-host "$NH_LOOPBACK_TARGET" --hostname "$HOST" "$@"; }
     '';
   };
 
