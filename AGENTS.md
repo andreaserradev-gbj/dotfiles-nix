@@ -47,6 +47,33 @@ Start from the [README](README.md) for the model and the
   its docs) instead of relying on training data — the config lives in
   `modules/home/opencode.nix`.
 
+## Release cycle — branch → PR → CI → squash merge → cleanup → verify on main
+
+1. **Branch** from `main`, short descriptive name (`fix/lazygit-clipboard`
+   style). A trial can run entirely uncommitted: working tree + `git add` is
+   enough for flake eval (golden rule 1), and `git restore --staged
+   --worktree` plus one rebuild is the whole revert. Branch and commit only
+   once the change is accepted.
+2. **PR** → CI: `evaluate` (the same `check-hosts.sh` gate used locally)
+   plus a build matrix for exactly the hosts whose `drvPath` moved vs
+   `verified`; `gate` is the single required check. Branch protection itself
+   lives in the GitHub UI — see the two assumptions at the top of
+   `.github/workflows/ci.yml`, which nothing in the repo can assert.
+3. **Auto squash merge**: squash and auto-merge are enabled repo-wide
+   (squash commit message style `PR_TITLE`). Enable auto-merge on the PR;
+   GitHub squashes it the moment the gate goes green. One commit per PR
+   keeps `main` bisectable.
+4. **Branch cleanup is automatic**: `delete_branch_on_merge` is on, so the
+   remote PR branch dies with the merge. Delete the local one by hand
+   (`git branch -d <name>`). The `verified` ref is never touched — only PR
+   head branches are deleted on merge.
+5. **Verify on `main`**: the squash push re-runs CI, and `advance-verified`
+   fast-forwards `verified` — the ref hplaptop's unattended `nrb --refresh`
+   pulls ([doc/workflow.md](doc/workflow.md), `modules/home/maintenance.nix`),
+   so she installs only commits CI has already built green. geekom is rebuilt
+   by hand from `main`. While `main` is red, `verified` stops advancing and
+   the laptop silently stops receiving updates.
+
 ## Task routing
 
 | task                                        | read first                                      |
@@ -66,9 +93,10 @@ Start from the [README](README.md) for the model and the
    host change → exactly one moves).
 3. Docs changed? Check every `](...)` link resolves and keep files under
    ~500 lines (split when a doc grows past that).
-4. Push issued? `.github/workflows/ci.yml` builds `geekom` and `hplaptop` from
-   GitHub, and `hplaptop` updates itself unattended from `verified` (`nrb` with
-   `--refresh`) — a branch CI fast-forwards only after the build goes green, so
-   a commit that fails cannot reach that machine. Still fix or revert a failing
-   commit promptly: while `main` is red, `verified` stops advancing and the
-   laptop silently stops receiving updates.
+4. **Push issued?** `.github/workflows/ci.yml` builds `geekom` and `hplaptop`
+   from GitHub, and `hplaptop` updates itself unattended from `verified`
+   (`nrb` with `--refresh`) — a branch CI fast-forwards only after the build
+   goes green, so a commit that fails cannot reach that machine. Still fix or
+   revert a failing commit promptly: while `main` is red, `verified` stops
+   advancing and the laptop silently stops receiving updates. The full
+   branch-to-merge cycle is documented in "Release cycle" above.

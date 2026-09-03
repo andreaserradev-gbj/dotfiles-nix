@@ -37,6 +37,53 @@ lib.mkIf osConfig.local.desktop.enable {
       # foot's `pad = "8x8"` spelled the way ghostty spells it.
       window-padding-x = 8;
       window-padding-y = 8;
+
+      # No decorations at all: no GTK headerbar (the title/close "caption"),
+      # no borders. Two reasons, one aesthetic and one mechanical:
+      #
+      #   - PaperWM already marks the focused window (selection-border-size /
+      #     selection-border-radius are set in the user's dconf), so a titlebar
+      #     adds nothing but chrome under a tiling WM.
+      #
+      #   - `window-width` below is only EXACT with decorations off. Ghostty's
+      #     own docs: on GTK the calculated grid size does not account for
+      #     window decorations, so with a titlebar present the mapping from
+      #     grid cells to pixels drifts by the headerbar height. `none` makes
+      #     `window-width` map 1:1 to pixels.
+      #
+      # `gtk-titlebar` is NOT set: it only matters when decorations exist
+      # (nothing when `window-decoration` is `none`), so setting it would be
+      # dead config. `auto` (the default) is skipped deliberately too — on
+      # GNOME it resolves to client-side decorations, i.e. the headerbar we
+      # are removing.
+      window-decoration = "none";
+
+      # Initial window size, in terminal grid cells — ghostty requires BOTH
+      # keys set or it ignores the pair entirely (one alone does nothing).
+      #
+      # PaperWM, not ghostty, is why these values matter: when a window maps,
+      # PaperWM's Space.layout adopts the window's current frame width for
+      # its column (tiling.js: `tiledWidth ?? frame.width`) and never re-pins
+      # it afterwards — so the terminal opens tiled at exactly this width and
+      # Super+R (`cycle-width`) still cycles freely. The alternative was a
+      # PaperWM winprop with `preferredWidth`, which is REJECTED on purpose:
+      # a winprop re-applies its width on every relayout, so any window
+      # opening/closing would snap the terminal back and undo the user's
+      # Super+R choice.
+      #
+      # window-height is a placeholder satisfying the both-keys rule: PaperWM
+      # forces tiled windows to full workarea height anyway.
+      #
+      # 210 cells ≈ the third `cycle-width-steps` ratio (0.61804, the golden
+      # ratio) of geekom's 4K panel minus PaperWM margins/gap
+      # (0.61804 × (3840 − 2×16 − 16) ≈ 2354 px), at ~11.2 px/cell for
+      # JetBrainsMono Nerd Font at 14. If ghostty honors GNOME's
+      # `text-scaling-factor = 1.25` (desktop.nix, dconf) the correct value
+      # is ~168 instead — decided by eye after the first rebuild, not by
+      # speculation, and 210 is the value to revisit first if the opened
+      # width misses the third Super+R step.
+      window-width = 210;
+      window-height = 40;
     };
   };
 
