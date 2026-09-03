@@ -44,6 +44,17 @@ text**.
 > **Never run `nrs` from a machine's own graphical console.** True on every host,
 > and it matters more on `geekom`, where recovery costs a physical trip.
 
+> **The loopback exception.** On hosts with the `loopbackRebuild` seam enabled
+> (`modules/nixos/loopback-rebuild.nix` — geekom today), `nrs` and `nrt` are
+> functions that route the activation through SSH to `localhost` (the
+> `NH_LOOPBACK_TARGET` variable, wired in `modules/home/shell.nix`). sshd's
+> session scope is outside the display stack, so the graphical-console hazard
+> does not apply to them: they are safe from any terminal on the machine. The
+> seam also authorizes the machine's own key and pins its host key for
+> `localhost`, so it works on a fresh checkout with no manual steps. If sshd
+> is ever broken, fall back to the plain `nh os switch` (the alias behavior
+> on non-loopback hosts) or the `nrb` + reboot row above.
+
 > **Diagnosing a switch that appears to have done nothing:** check
 > `ls /nix/var/nix/profiles/ | grep system-` for a new generation. No new
 > generation means phase 2 never ran. **Do not use a reboot as the test** —

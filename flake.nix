@@ -65,6 +65,11 @@
         ./modules/nixos/gaming.nix
         ./modules/nixos/docker.nix
         ./modules/nixos/dev.nix
+        # The loopback-rebuild seam, same pattern as the rest of local.*:
+        # option tree defined in commonModules so every host can leave it
+        # off. Inert without local.loopbackRebuild.enable (only geekom sets
+        # it — see hosts/geekom/default.nix).
+        ./modules/nixos/loopback-rebuild.nix
         # sops-nix: declarative secrets. Inert on any host that declares no
         # sops.* options — the module's config block is
         # `mkIf (cfg.secrets != {})`, so hplaptop imports it but gets nothing

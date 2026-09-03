@@ -94,6 +94,23 @@
   # behind `local.dev.enable` in modules/nixos/dev.nix. This host flips it on.
   local.dev.enable = true;
 
+  # Loopback rebuilds: `nrs`/`nrt` (modules/home/shell.nix) run the activation
+  # over SSH to THIS machine, so phase 1 cannot be killed by the display stack
+  # restarting — doc/workflow.md's "never run nrs from the graphical console"
+  # hazard, discharged without a second machine (the old workaround was:
+  # rebuild from the Mac over SSH, or from the console only via nrb + reboot).
+  #
+  # sshd itself comes from dev.enable above; these two keys are this box's
+  # own identities — the user key that lives in ~/.ssh/id_ed25519 here (NOT
+  # the Mac's key from user.nix: its private half must never be copied), and
+  # the sshd host key pinned into known-hosts so the manual ssh-keyscan step
+  # is gone. The module file explains why they are literals.
+  local.loopbackRebuild = {
+    enable = true;
+    authorizedKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBYpUmfHJCHzd7NYBCi0N1DXpgkDfPqdwQfKoZOogXaP andrea@geekom";
+    hostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINr69uM9JxAJZ0bldSEP3wdIQsyfa9n7jBKTERXEHQF/ root@geekom";
+  };
+
   # Local LLM inference on the Radeon 890M. dev.nix enables the service with
   # the CPU-only default package; this swaps the build, and only on this host.
   #
