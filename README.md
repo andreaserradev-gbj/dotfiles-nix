@@ -112,6 +112,7 @@ bootstrap.sh           one-command install of any host, from a live ISO
 | [doc/workflow.md](doc/workflow.md)                 | Rebuild aliases, which command from where, release upgrades, `/etc/nixos` cleanup |
 | [doc/secrets.md](doc/secrets.md)                   | sops-nix: storage model, edit/rotate/rekey workflow, trust boundary, credential tiers |
 | [doc/dev-environments.md](doc/dev-environments.md) | Per-project dev shells: the `devshell` template, direnv, SSH port forwards |
+| [doc/adopting-tools.md](doc/adopting-tools.md)     | Trying a new tool and promoting it into the flake: triage, trial, promotion |
 | [doc/vm-console.md](doc/vm-console.md)             | The cage + foot local console and its known limitations |
 | [doc/troubleshooting.md](doc/troubleshooting.md)   | Gotchas that are not tied to one workflow |
 
@@ -120,6 +121,7 @@ bootstrap.sh           one-command install of any host, from a live ISO
 - **Rebuild / update / roll back** → [doc/workflow.md](doc/workflow.md)
 - **New machine** → [doc/install-vm.md](doc/install-vm.md) (VM) or
   [doc/bare-metal-geekom.md](doc/bare-metal-geekom.md) (hardware)
+- **New tool** → [doc/adopting-tools.md](doc/adopting-tools.md)
 - **Something broke** → [doc/troubleshooting.md](doc/troubleshooting.md),
   and if the VM console is the only thing reachable:
   [doc/vm-console.md](doc/vm-console.md)

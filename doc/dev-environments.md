@@ -67,4 +67,5 @@ ssh -L 5173:[::1]:5173 nixos    # then open http://localhost:5173
 ---
 
 - Rebuild aliases used here (`nfi`): [doc/workflow.md](workflow.md)
+- Per-project vs global rule when adopting a tool: [doc/adopting-tools.md](adopting-tools.md)
 - Common failure modes: [doc/troubleshooting.md](troubleshooting.md)

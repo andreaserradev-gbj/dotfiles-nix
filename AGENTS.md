@@ -82,6 +82,7 @@ Start from the [README](README.md) for the model and the
 | release upgrade (26.05 → 26.11 …)           | [doc/workflow.md](doc/workflow.md)              |
 | new machine install                         | [doc/install-vm.md](doc/install-vm.md) + the bare-metal docs |
 | per-project dev shells                      | [doc/dev-environments.md](doc/dev-environments.md) |
+| trialing / adopting a new tool              | [doc/adopting-tools.md](doc/adopting-tools.md)  |
 | VM console / boot fallbacks                | [doc/vm-console.md](doc/vm-console.md)          |
 | something behaves unexpectedly              | [doc/troubleshooting.md](doc/troubleshooting.md) |
 
