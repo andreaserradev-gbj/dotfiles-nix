@@ -185,6 +185,24 @@ in
       pkgs.pdfarranger
       pkgs.imagemagick
     ]
+    # Dash to Dock — auto-hide bottom dock on both desktop hosts. NOT Dash to
+    # Panel: the incompatible list below names Dash to *Panel* (a different
+    # extension that replaces the top bar), while Dash to Dock is not on it —
+    # verified live on geekom with PaperWM (trial in
+    # .dev/gnome-dock-gdm-wallpaper, phase 0). `dock-fixed=false` (set in the
+    # HM half's dconf chunk) reserves no screen space, so PaperWM's tiling
+    # area is untouched: tiled windows reach the bottom edge and the dock
+    # slides over them on bottom-edge hover.
+    #
+    # Gated on `cfg.enable` alone, NOT variant-gated — both variants want the
+    # dock; only the PaperWM package below is a full-variant extra.
+    #
+    # GNOME-version coupling, same shape as PaperWM's note below: nixpkgs
+    # gates the extension on its `metadata.json` `shell-version` list.
+    # Verified on this pin: Dash to Dock v105 lists shells 45-50, so it loads
+    # on GNOME 50.4; a GNOME 51 bump needs a matching Dash to Dock release
+    # first, and eval will say so.
+    ++ [ pkgs.gnomeExtensions.dash-to-dock ]
     # PaperWM — scrollable tiling GNOME Shell extension. Lives here and not
     # in the HM half because GNOME Shell extensions are system-wide packages
     # loaded from /run/current-system/share/gnome-shell/extensions; Home
@@ -206,8 +224,10 @@ in
     # (`workspaces-only-on-primary`, `edge-tiling`, `attach-modal-dialogs`)
     # and restores them when disabled, so there is nothing to set here for
     # those. The known-incompatible extensions (DING, Dash to Panel, Rounded
-    # Window Corners, Space Bar) are not installed by this repo, so there is
-    # no conflict to manage either.
+    # Window Corners, Space Bar) are not installed by this repo — Dash to
+    # Dock above is deliberately installed: the list names Dash to *Panel*,
+    # a different extension. The live PaperWM + Dash to Dock combo is
+    # verified on geekom (phase-0 trial, .dev/gnome-dock-gdm-wallpaper).
     ++ lib.optionals (cfg.variant == "full") [ pkgs.gnomeExtensions.paperwm ]
     # LibreOffice — gated on its own sub-option. Default `false` preserves
     # existing behavior (geekom does not pull in the ~1GB closure). Only
