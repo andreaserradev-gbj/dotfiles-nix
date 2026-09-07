@@ -102,10 +102,13 @@ lib.mkIf osConfig.local.desktop.enable {
   # and the HM dconf module's activation step needs it. No NixOS-side addition
   # was required for this.
   #
-  # `enabled-extensions` is the list GNOME Shell consults at startup. Adding
-  # the UUID here enables PaperWM declaratively on every login; the Extensions
-  # app's toggle becomes a read-only view of this state. `disabled-extensions`
-  # is set empty on purpose — see the note below.
+  # `enabled-extensions` is the list GNOME Shell consults at startup. The
+  # shared chunk below enables Dash to Dock on BOTH desktop hosts; the
+  # `variant == "full"` chunk adds PaperWM, and mkMerge concatenates the two
+  # lists (types.listOf merges by concatenation) so geekom ends up with both
+  # UUIDs and hplaptop with just the dock. Each login re-applies this state
+  # declaratively; the Extensions app's toggle becomes a read-only view of
+  # it. `disabled-extensions` is set empty on purpose — see the note below.
   #
   # GNOME Shell's `enabled-extensions` / `disabled-extensions` /
   # `disable-user-extensions` keys are the three it consults, and they are a
@@ -185,10 +188,39 @@ lib.mkIf osConfig.local.desktop.enable {
         binding = "<Super>b";
       };
     }
+    # Dash to Dock — enabled on BOTH variants: the package is on the NixOS
+    # side ungated (modules/nixos/desktop.nix), so the enable state lives in
+    # this shared chunk, ungated like custom-keybindings above (the outer
+    # `mkIf osConfig.local.desktop.enable` at the top of the file is the
+    # gate). mkMerge list-concat with the full-variant chunk below gives
+    # geekom both extensions and hplaptop just the dock.
+    {
+      "org/gnome/shell" = {
+        enabled-extensions = [ "dash-to-dock@micxgx.gmail.com" ];
+        disabled-extensions = [ ];
+      };
+
+      # Dash to Dock behavior — the eight keys proven live in the phase-0
+      # trial (.dev/gnome-dock-gdm-wallpaper). `dock-fixed=false` +
+      # `autohide=true` + `intellihide=false` + `require-pressure-to-show=
+      # false` = hidden by default, reveals ONLY on bottom-edge pressure:
+      # no reserved band, so PaperWM's tiling area is untouched. `extend-
+      # height=false` keeps the dock a floating panel rather than full-
+      # height. Icon size 64 picked live during the trial (40 felt small).
+      "org/gnome/shell/extensions/dash-to-dock" = {
+        autohide = true;
+        dock-fixed = false;
+        intellihide = false;
+        require-pressure-to-show = false;
+        dock-position = "BOTTOM";
+        extend-height = false;
+        dash-max-icon-size = 64;
+        show-trash = false;
+      };
+    }
     (lib.mkIf (osConfig.local.desktop.variant == "full") {
       "org/gnome/shell" = {
         enabled-extensions = [ "paperwm@paperwm.github.com" ];
-        disabled-extensions = [ ];
       };
 
       # PaperWM's `new-window` action defaults to ['<Super>Return', '<Super>n'],
