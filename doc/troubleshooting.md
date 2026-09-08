@@ -20,6 +20,17 @@
   risk filesystem corruption.
 - **`nix flake check` does not check `nixosConfigurations`.** Use
   `./scripts/check-hosts.sh` instead — see [doc/workflow.md](workflow.md).
+- **geekom's four front USB ports are wired through an internal Genesys Logic
+  hub** (`05e3:0610`, kernel path `3-1.x`), not straight to the SoC. On cold
+  boots the hub-vs-device power-up race intermittently loses enumeration
+  (`device descriptor read/64, error -32`, then `unable to enumerate`), and a
+  replug is the only fix — observed with a Razer Basilisk V3, 2026-09-08. A
+  hotplug always enumerates cleanly, which is why the failure never shows
+  after a warm restart. Mice/keyboards belong in a **rear** port (direct root
+  port, `3-2` or single-port buses 5/8 — same wiring the Corne uses on bus 7).
+  The check is `lsusb -t`: a HID device directly under a `root_hub` line with
+  no `Hub` line above it means direct. Nothing in the config can cause or fix
+  this — it is board wiring, and the fix is port choice.
 
 ---
 
