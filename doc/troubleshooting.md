@@ -20,17 +20,21 @@
   risk filesystem corruption.
 - **`nix flake check` does not check `nixosConfigurations`.** Use
   `./scripts/check-hosts.sh` instead — see [doc/workflow.md](workflow.md).
-- **geekom's four front USB ports are wired through an internal Genesys Logic
-  hub** (`05e3:0610`, kernel path `3-1.x`), not straight to the SoC. On cold
-  boots the hub-vs-device power-up race intermittently loses enumeration
-  (`device descriptor read/64, error -32`, then `unable to enumerate`), and a
-  replug is the only fix — observed with a Razer Basilisk V3, 2026-09-08. A
-  hotplug always enumerates cleanly, which is why the failure never shows
-  after a warm restart. Mice/keyboards belong in a **rear** port (direct root
-  port, `3-2` or single-port buses 5/8 — same wiring the Corne uses on bus 7).
-  The check is `lsusb -t`: a HID device directly under a `root_hub` line with
-  no `Hub` line above it means direct. Nothing in the config can cause or fix
-  this — it is board wiring, and the fix is port choice.
+- **geekom: the Razer Basilisk V3 intermittently fails USB enumeration at
+  cold boot, on ANY port.** First blamed on the front ports (wired through an
+  internal Genesys Logic hub, `05e3:0610`, kernel path `3-1.x`) and a rear
+  direct root port (`3-2`) was recommended as the fix — but 2026-09-09 the
+  failure repeated on that rear port too (`device descriptor read/64, error
+  -71`, then `unable to enumerate`). The constant is the mouse's own
+  controller missing the kernel's ~4 s retry window at power-on; it is a
+  per-power-on coin flip, not port-dependent. The kernel never retries, so
+  the mouse stays dead until a replug. Mitigation:
+  `modules/nixos/usb-mouse-recovery.nix` (geekom-only) emulates the replug at
+  boot — after an 8 s settle it bounces the mouse's xHCI PCI function
+  (`0000:c8:00.0`, buses 3+4 only; BT radio and Corne are on separate
+  functions) when `1532:0099` is absent, and is a no-op on clean boots.
+  Rear ports still preferred for latency/SS hygiene, but they are not a fix.
+  Check: `journalctl -u usb-mouse-recovery -b`.
 
 ---
 
