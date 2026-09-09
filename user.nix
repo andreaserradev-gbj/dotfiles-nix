@@ -22,7 +22,15 @@ let
     fullName = "Andrea Serra";
     email = "andreaserradev-gbj@users.noreply.github.com";
     timeZone = "Europe/Rome";
-    sshKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINROirqL4mIWQh/x4+ka3dBvO/9mp0MTaaT3PglqAfnU andrea.serra.dev@gmail.com";
+
+    # No `sshKey`: the work MacBook's key was revoked here during the 2026-09
+    # handover and deleted from GitHub at the same time. A DELIBERATE absence,
+    # not an oversight — `modules/nixos/dev.nix` treats the field as optional.
+    # Consequence: dev hosts run sshd with an empty authorized-keys list, so
+    # geekom is reachable only from its own console until a key is enrolled.
+    # To enrol a machine: add `sshKey = "<its public key>";` back here, rebuild,
+    # push. Generate the keypair ON that machine — the private half must never
+    # travel (same rule as doc/bare-metal-geekom.md).
     homeDirectory = "/home/${username}"; # rec lets this reference username
     inherit repo; # `inherit` inside `rec` reads the enclosing let, not the set
   };

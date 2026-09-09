@@ -31,8 +31,14 @@ in
 
     # Account informations — the SSH authorized key is dev-only because sshd
     # itself is gated behind this seam (see services.openssh below). A host with
-    # `local.dev.enable = false` (hplaptop) gets no sshd and no key.
-    users.users.${user.username}.openssh.authorizedKeys.keys = [ user.sshKey ];
+    # `local.dev.enable = false` (hplaptop) gets no sshd and no key. A host
+    # that IS dev-enabled but whose user.nix entry has no `sshKey` gets sshd
+    # with an empty key list — hence `lib.optionals` rather than a bare list.
+    # Do not "tidy" it back: a bare list fails evaluation outright with
+    # `error: attribute 'sshKey' missing`.
+    users.users.${user.username}.openssh.authorizedKeys.keys = lib.optionals (user ? sshKey) [
+      user.sshKey
+    ];
 
     # On `nodejs`, `uv` and `python3` being global, which LOOKS like it violates
     # this repo's per-project-devshell rule: they are AGENT RUNTIMES, not

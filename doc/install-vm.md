@@ -17,7 +17,8 @@ Bluetooth — under [doc/bare-metal-geekom.md](bare-metal-geekom.md) and
 [doc/bare-metal-hplaptop.md](bare-metal-hplaptop.md).
 
 > **Forking?** Everything personal lives in one file, [`user.nix`](../user.nix):
-> `username`, `fullName`, `email`, `timeZone`, and `sshKey`. Edit it in your fork
+> `username`, `fullName`, `email`, `timeZone`, and `sshKey` (optional — see the
+> callout in section 3). Edit it in your fork
 > and commit _before_ installing — `bootstrap.sh` pulls the config from git, so the
 > machine is built with whatever identity your pushed `user.nix` carries. Point the
 > bootstrap/install URLs below at your fork.
@@ -116,7 +117,16 @@ is the _only_ way in over the network — there is no password fallback.
 > dev host needs nothing added for SSH — verify rather than re-implement:
 > `nix eval .#nixosConfigurations.<host>.config.services.openssh.enable`.
 
-1. **Generate a key** on the Mac (skip if you already have one):
+> **`sshKey` is optional — and is currently ABSENT.** The work MacBook's key was
+> revoked in 2026-09 and nothing replaced it, so `user.nix` declares no `sshKey`
+> and dev hosts build with an empty authorized-keys list. Combined with the line
+> above — SSH is the only way in over the network — **geekom is reachable only
+> from its own console** until a key is enrolled. Steps 1-2 below are the
+> re-enrolment procedure, not just first-install setup.
+
+1. **Generate a key on the machine that will connect** — not on the host you are
+   installing, and not on a machine you are about to hand back (skip if that
+   machine already has one):
 
     ```sh
     ssh-keygen -t ed25519 -C "you@example.com"
@@ -125,6 +135,9 @@ is the _only_ way in over the network — there is no password fallback.
 2. **Put its public half in `user.nix`** as `sshKey = "ssh-ed25519 …";` and commit.
    `modules/nixos/dev.nix` installs it into every dev host's `authorizedKeys` at
    build time, so it must be in the repo _before_ the install in step 2.
+   The private half never leaves the machine that generated it and never enters
+   this repo — see the same rule in
+   [bare-metal-geekom.md](bare-metal-geekom.md).
 
 3. **Find the VM's IP** from the local console — it's a DHCP lease, so it can change
    across reboots:

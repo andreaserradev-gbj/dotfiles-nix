@@ -127,7 +127,8 @@ bootstrap.sh           one-command install of any host, from a live ISO
   [doc/vm-console.md](doc/vm-console.md)
 
 > **Forking?** Everything personal lives in one file, [`user.nix`](user.nix):
-> `username`, `fullName`, `email`, `timeZone`, and `sshKey`. Edit it in your
+> `username`, `fullName`, `email`, `timeZone`, and `sshKey` (optional — omit it
+> and dev hosts get sshd with no authorized key). Edit it in your
 > fork and commit _before_ installing — the install walkthroughs pick this up
 > where it matters.
 
