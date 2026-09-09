@@ -10,6 +10,12 @@
 {
   imports = [
     ./hardware-configuration.nix
+
+    # Cold-boot enumeration failures of the Razer Basilisk V3 (front AND rear
+    # ports — see doc/troubleshooting.md and the module's header for why
+    # port choice does not fix it). Auto-bounces the mouse's xHCI controller
+    # at boot when the mouse is absent; no-op on clean boots.
+    ../../modules/nixos/usb-mouse-recovery.nix
   ];
 
   # Network identity
