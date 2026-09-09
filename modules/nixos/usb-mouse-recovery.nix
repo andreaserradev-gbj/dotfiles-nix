@@ -25,8 +25,6 @@
 # usb-mouse-recovery`).
 
 {
-  config,
-  lib,
   pkgs,
   ...
 }:
