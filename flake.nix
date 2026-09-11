@@ -5,6 +5,13 @@
 
     nixpkgs.url = "github:NixOs/nixpkgs/nixos-26.05";
 
+    # The workflow.md "escape hatch" (doc/workflow.md, "Need a newer version
+    # before the next release?"): a second nixpkgs tracking unstable, consumed
+    # for a SMALL, explicit selection of tools. Today exactly one: ollama
+    # (geekom). It moves daily, so anything referencing it re-evaluates against
+    # a moving target — never import this where a shared module could see it.
+    nixpkgs-unstable.url = "github:NixOs/nixpkgs/nixos-unstable";
+
     home-manager = {
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -22,12 +29,36 @@
   outputs =
     {
       nixpkgs,
+      nixpkgs-unstable,
       home-manager,
       sops-nix,
       ...
     }:
     let
       users = import ./user.nix;
+
+      # Per-host module args. `unstablePkgs` is the workflow.md escape hatch
+      # (doc/workflow.md, "Need a newer version before the next release?"): a
+      # second nixpkgs at nixos-unstable, imported with this repo's unfree
+      # predicate so it behaves like the host's own pkgs, bound ONLY on the
+      # hosts that actually consume it. A host that never references it gains
+      # nothing and loses nothing: the second evaluation happens lazily, on
+      # first reference, so the other two hosts never pay for it.
+      hostArgs =
+        hostname: username:
+        {
+          user = users.${username};
+        }
+        // nixpkgs.lib.optionalAttrs (hostname == "geekom") {
+          # The ONE consumer. Keeping the binding host-gated (not threaded to
+          # every host via specialArgs) is what keeps the moving-target input
+          # out of the other hosts' closures — see the comment on the input.
+          # legacyPackages, not `import`: the `system` import argument is
+          # deprecated upstream. No allowUnfree wiring here — the one adopted
+          # package (ollama) is free software; revisit if an unfree tool ever
+          # adopts the hatch.
+          unstablePkgs = nixpkgs-unstable.legacyPackages.x86_64-linux;
+        };
 
       # The systems that get developer-facing outputs (`formatter`, `devShells`).
       # NOT the systems that get hosts: `nixosConfigurations` stay written out
@@ -93,9 +124,7 @@
     {
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
         system = "aarch64-linux";
-        specialArgs = {
-          user = users.nixos;
-        };
+        specialArgs = hostArgs "nixos" "nixos";
         modules = commonModules ++ [
           ./hosts/vm
         ];
@@ -103,9 +132,7 @@
 
       nixosConfigurations.geekom = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
-        specialArgs = {
-          user = users.geekom;
-        };
+        specialArgs = hostArgs "geekom" "geekom";
         modules = commonModules ++ [
           ./hosts/geekom
         ];
@@ -113,9 +140,7 @@
 
       nixosConfigurations.hplaptop = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
-        specialArgs = {
-          user = users.hplaptop;
-        };
+        specialArgs = hostArgs "hplaptop" "hplaptop";
         modules = commonModules ++ [
           ./hosts/hplaptop
         ];
