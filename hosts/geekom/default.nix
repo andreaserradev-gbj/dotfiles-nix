@@ -4,6 +4,9 @@
 # Shared settings live in modules/nixos/common.nix.
 {
   pkgs,
+  # The nixos-unstable nixpkgs instance, bound only on this host (flake.nix
+  # `hostArgs`). Exists for exactly one package today: ollama-vulkan, below.
+  unstablePkgs,
   ...
 }:
 
@@ -146,7 +149,21 @@
   # would not move if gaming were switched off either.
   hardware.graphics.enable = true;
 
-  services.ollama.package = pkgs.ollama-vulkan;
+  # UNSTABLE, NOT STABLE — a documented policy change (2026-09-11), reversing
+  # doc/workflow.md's earlier "not ollama" caution, which was written without
+  # measurements. The measured story (doc/local-llm.md):
+  #   * 0.32.15 caches resolved model metadata between requests, cutting
+  #     time-to-first-token roughly in half (995 -> 524 ms in upstream's bench)
+  #   * 0.33.0 fixes agent prefill-restore: a cancelled/retried opencode request
+  #     on a recurrent-layer model like this one could reprocess from zero
+  #   * 0.33.3 honors GGUF-defined default parameters
+  # That is functional gain, not cosmetic, and the "mid-cycle llama.cpp bump"
+  # risk the old note warned about is discharged by the same verification gate
+  # as any change: this box's MTP/Vulkan placement checks after every rebuild
+  # (see the OLLAMA_IGPU_ENABLE comment below). The version is re-pinned by
+  # `nix flake lock --update-input nixpkgs-unstable` on OUR schedule, so the
+  # moving-target objection does not apply either.
+  services.ollama.package = unstablePkgs.ollama-vulkan;
 
   # OLLAMA_IGPU_ENABLE IS NOT OPTIONAL HERE. Since 0.32 ollama discovers
   # integrated GPUs and then deliberately discards them, logging

@@ -249,10 +249,12 @@ To move to a new release (e.g. 26.05 → 26.11):
 > ROCm-regression comment there). A missing attribute fails at eval time, so
 > `nrp` catches it before anything is activated.
 
-Between releases, version bumps for fast-moving CLI tools (opencode, zellij,
-ollama) land on `nixos-unstable` only — they are not backported to the stable
+Between releases, version bumps for fast-moving CLI tools (opencode, zellij)
+land on `nixos-unstable` only — they are not backported to the stable
 branch, so seeing no version movement on `nfu` is the normal condition, not a
-broken update.
+broken update. `ollama` is the one exception since 2026-09-11: it is pinned
+from `nixpkgs-unstable` via the escape hatch below, so `nfu` (or a targeted
+`nix flake lock --update-input nixpkgs-unstable`) DOES move it.
 
 ### Need a newer version before the next release?
 
@@ -263,14 +265,29 @@ consumed for a **small, explicit selection of tools**:
 inputs.nixpkgs-unstable.url = "github:NixOs/nixpkgs/nixos-unstable";
 ```
 
-Then reference `pkgs.unstable.<tool>` for just those packages (via an overlay or
-`nixpkgs.overlays`), leaving the rest of the system on the stable branch.
-Deliberately **not** implemented today — the trade-off (a second nixpkgs
-evaluation, an input that moves daily) is only worth it when a specific tool's
-newer version is actually needed. Candidates if it ever matters: `zellij` and
-`opencode` (userland, low blast radius). **Not** `ollama`: the geekom box uses
-the `ollama-vulkan` variant, whose vendored llama.cpp moves with every release
-— bumping it mid-cycle risks the GPU inference path for no functional gain.
+The input exists in [flake.nix](../flake.nix) today. The binding is
+**host-gated**: `hostArgs` in flake.nix passes `unstablePkgs` as a module arg
+only to hosts that declare it (currently exactly one — geekom), so a host that
+never references it never evaluates the second tree (lazy, on first reference),
+and the moving daily input stays out of every other host's closure.
+
+Adopted for exactly one package so far — `ollama-vulkan` on geekom
+([hosts/geekom/default.nix](../hosts/geekom/default.nix), 2026-09-11): 0.32.15+
+halves TTFT, 0.33.0 fixes agent prefill-restore on recurrent-layer models,
+0.33.3 honors GGUF default parameters — measured gains, not cosmetics, with the
+GPU-path risk discharged by the on-box verification after every rebuild
+(MTP flag, 100% GPU, decode rate; see
+[doc/local-llm.md](local-llm.md)). The older caution against pulling ollama
+from unstable mid-cycle was written without measurements and is superseded by
+that doc.
+
+For any NEW tool: the trade-off is a second nixpkgs evaluation (lazy, but a
+daily-moving lock entry) versus a version the stable branch will not carry
+until the next release. Candidates that would fit: `zellij` and `opencode`
+(userland, low blast radius). Anything whose runtime behavior moves with its
+vendored C/C++ backend (like ollama did) must go through the geekom
+verification gate after each re-pin — that gate is the discharge, not a reason
+to avoid the bump.
 
 ## Cleaning up `/etc/nixos`
 
