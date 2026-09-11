@@ -218,14 +218,22 @@ lib.mkIf osConfig.local.dev.enable {
     + lib.optionalString (osConfig.local.loopbackRebuild.enable or false) ''
       # Loopback rebuilds — the safe shape of nrs/nrt on hosts with the
       # loopbackRebuild seam on (geekom). See the comment above the string
-      # for the full reasoning. The unalias is LOAD-BEARING: zsh expands
-      # aliases while PARSING, so the function definition line below would
-      # itself be expanded into the alias's command and the functions would
-      # never take effect (nrs would stay the plain alias, without the
-      # loopback target).
+      # for the full reasoning. The unalias is LOAD-BEARING TWICE over:
+      #   1. zsh expands aliases while PARSING, so the function definition
+      #      line below would itself be expanded into the alias's command.
+      #   2. home-manager 26.05 emits `shellAliases` AFTER `initContent` in
+      #      the generated .zshrc, so the plain `nrs`/`nrt` aliases from the
+      #      shellAliases block land after these function definitions and
+      #      SHADOW them — verified on geekom 2026-09-11: `whence -v nrs`
+      #      reported the alias despite this function existing at line 136
+      #      of the same file (the alias sat at line 174). Moving the unalias
+      #      to the END of this string re-removes the alias after HM emits
+      #      it, leaving the functions authoritative. The 2>/dev/null keeps
+      #      the first pass (before HM's aliases exist) from erroring.
       unalias nrs nrt 2>/dev/null
       nrs() { nh os switch --ask --target-host "$NH_LOOPBACK_TARGET" --hostname "$HOST" "$@"; }
       nrt() { nh os test --target-host "$NH_LOOPBACK_TARGET" --hostname "$HOST" "$@"; }
+      unalias nrs nrt 2>/dev/null
     '';
   };
 

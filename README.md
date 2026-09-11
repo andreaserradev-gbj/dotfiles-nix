@@ -114,6 +114,7 @@ bootstrap.sh           one-command install of any host, from a live ISO
 | [doc/dev-environments.md](doc/dev-environments.md) | Per-project dev shells: the `devshell` template, direnv, SSH port forwards |
 | [doc/adopting-tools.md](doc/adopting-tools.md)     | Trying a new tool and promoting it into the flake: triage, trial, promotion |
 | [doc/vm-console.md](doc/vm-console.md)             | The cage + foot local console and its known limitations |
+| [doc/local-llm.md](doc/local-llm.md)               | Local LLM inference on geekom: hardware budget, tuning decisions, measured baselines, future-model protocol |
 | [doc/troubleshooting.md](doc/troubleshooting.md)   | Gotchas that are not tied to one workflow |
 
 ## Quickstart pointers
