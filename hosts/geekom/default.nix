@@ -1,5 +1,6 @@
 # GEEKOM A9 Max — host-specific configuration.
-# Ryzen AI 9 HX 370 (Zen 5), Radeon 890M (RDNA 3.5), 32GB DDR5, 2TB NVMe,
+# Ryzen AI 9 HX 370 (Zen 5), Radeon 890M (RDNA 3.5), 64 GB DDR5-5600 (2x32 GB,
+# 54.5 GiB usable), 2 TB NVMe,
 # MediaTek MT7925 Wi-Fi 7 + Bluetooth combo radio.
 # Shared settings live in modules/nixos/common.nix.
 {
@@ -165,6 +166,36 @@
   # moving-target objection does not apply either.
   services.ollama.package = unstablePkgs.ollama-vulkan;
 
+  # Daemon default context: the FULL 262144 the GGUF declares. Without this,
+  # 0.32+'s "vram-based default context" tiering picks 32768 — the >=23GiB
+  # bracket — because the runner pool is 35.3 GiB (8 GiB VRAM carve-out plus
+  # amdgpu's default GTT of half of RAM, 27.3 GiB, reached through Vulkan).
+  #
+  # This model is a Qwen3-Next-style HYBRID (qwen35moe): only 11 of its 41
+  # layers do full attention (full_attention_interval 4; the rest are
+  # linear/recurrent), with GQA at 2 KV heads x 256 head_dim. The KV cache is
+  # therefore ~22 KB/token, NOT the ~256 KB/token a dense model of this size
+  # would need — 5.5 GiB at 262144, measured on the 0.33.3 runner logs
+  # (llama_kv_cache lines). Measured decode is FLAT from 22k to 262k context
+  # depth (29-31 tok/s), and the full-window load fits GTT with ~9 GiB
+  # headroom. Modules/home/opencode.nix already declares limit.context =
+  # 262144 for this model: until now the daemon's 32768 default silently
+  # overrode it per request (opencode sends no num_ctx); now the two agree.
+  #
+  # Per-request num_ctx still overrides this downward; smaller models with a
+  # dense-attention cache would NOT get this treatment — measure first
+  # (doc/local-llm.md).
+  services.ollama.environmentVariables.OLLAMA_CONTEXT_LENGTH = "262144";
+
+  # 1h, not the 5m default. A reload of this model costs 11-14 s (20.4 GiB of
+  # weights read from NVMe; the runner itself starts in ~4 s, the rest is
+  # tensor paging) and opencode sessions idle longer than 5 minutes between
+  # prompts. After 1h the model unloads itself and RAM returns to games —
+  # "infinite" (-1) was rejected: 22 GiB would never free on a machine that
+  # also games. This does NOT preload at boot; the first request pays the
+  # load, everything within the hour pays nothing.
+  services.ollama.environmentVariables.OLLAMA_KEEP_ALIVE = "1h";
+
   # OLLAMA_IGPU_ENABLE IS NOT OPTIONAL HERE. Since 0.32 ollama discovers
   # integrated GPUs and then deliberately discards them, logging
   # "dropping integrated GPU; to enable, set OLLAMA_IGPU_ENABLE=1" at INFO and
@@ -172,9 +203,13 @@
   # the daemon starts, answers every request, and looks entirely healthy while
   # never touching the GPU. `ollama ps` showing "100% GPU" is the check.
   #
-  # This is also what lifts the memory ceiling. The amdgpu carve-out is 8GB
-  # (mem_info_vram_total), but Vulkan reaches system RAM through GTT, so the
-  # runner reports ~19.5GiB usable and a 7B at Q4 loads all 37 layers.
+  # This is also what lifts the memory ceiling. The amdgpu carve-out is 8 GiB
+  # (mem_info_vram_total), but Vulkan reaches system RAM through GTT — 27.3
+  # GiB by default (half of the 54.5 GiB usable RAM), so the runner reports a
+  # ~35.3 GiB usable pool. The earlier "~19.5GiB" figure in this comment was
+  # measured when the box had 32 GB; with the DIMM upgrade the pool grew with
+  # the RAM. Measured memory split at 262144 ctx: 20.4 GiB weights (Vulkan0) +
+  # 5.5 GiB KV + ~0.3 GiB compute, ~9 GiB GTT headroom.
   #
   # Worth knowing what this does and does not buy, measured on qwen2.5-coder
   # with an identical FIM prompt: 3B goes 20 -> 22 tok/s, 1.5B goes 37 -> 41.
