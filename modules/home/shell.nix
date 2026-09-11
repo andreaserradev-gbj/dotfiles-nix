@@ -69,8 +69,15 @@ lib.mkIf osConfig.local.dev.enable {
       # --- NixOS / flake (repo = ~/dotfiles-nix; host = the local hostname) ---
       # Rebuilds/GC go through nh (see programs.nh below): automatic nvd diff, sudo
       # self-elevation, host+flake auto-detected via NH_FLAKE. Raw nixos-rebuild still works.
-      nrs = "nh os switch --ask"; # build + show diff + ASK before activating + set boot default
-      nrt = "nh os test"; # build + activate now, DON'T touch bootloader → reboot reverts
+      # nrs/nrt are DELIBERATELY NOT shellAliases. HM 26.05 emits
+      # shellAliases AFTER initContent in the generated .zshrc, and zsh
+      # resolves a name by its LAST definition — an alias here would shadow
+      # both the base functions and geekom's loopback override defined in
+      # initContent (verified 2026-09-11: `whence -v nrs` resolved the alias
+      # while the loopback function sat earlier in the same file). The
+      # functions live in initContent, where ordering is controllable; the
+      # loopback fragment re-defines them on geekom, later in that same
+      # stream, so the override wins under any emission order.
       nrb = "nh os boot"; # build + stage for next boot, don't activate now
       nrp = "nh os build"; # preview: build + diff vs current, no activation (run after nfu)
       nfu = "nix flake update --flake ${repo}"; # bump inputs (nixpkgs, home-manager) → rewrites flake.lock
@@ -139,6 +146,18 @@ lib.mkIf osConfig.local.dev.enable {
           NR>1 { printf "%-5s %s %s   kernel %s%s\n", $1, $2, $3, $5, ($8=="True" ? "   <- current" : "") }'
       }
       ngl() { _gens; }   # list generations, formatted like ngd/ngc
+
+      # nrs/nrt as FUNCTIONS, not shellAliases. Reason lives on the
+      # loopbackRebuild fragment below: HM 26.05 emits shellAliases AFTER
+      # initContent, so any alias defined in the shellAliases block lands
+      # after a loopback override function and shadows it (verified on
+      # geekom). Functions here put both hosts' behavior in one ordered
+      # stream: this base pair stands on every host, and the loopback
+      # fragment (geekom only) re-defines them targeting localhost — later
+      # definitions win, so the override is the whole mechanism. Behavior is
+      # identical to the aliases they replace (same nh invocation, --ask).
+      nrs() { nh os switch --ask "$@"; }
+      nrt() { nh os test "$@"; }
 
       # _pick_gens ROWS PROMPT HEADER — fzf-multi-pick from ROWS; prints the
       # chosen generation numbers (one per line, sorted). Shared by ngd and ngc.
@@ -209,31 +228,39 @@ lib.mkIf osConfig.local.dev.enable {
     # reindentation of the base string cannot alter this file's output on
     # hosts without the seam. The seam (modules/nixos/loopback-rebuild.nix)
     # pins localhost's host key and authorizes this machine's own user key,
-    # so no manual ssh-keyscan dance. --hostname is REQUIRED: with
-    # --target-host set, nh otherwise derives the flake attribute from the
-    # target ("localhost"), which does not exist in nixosConfigurations. nh
-    # prompts for the remote sudo password locally and feeds it over stdin,
-    # so no TTY juggling. Escape hatch if sshd is ever broken: `nh os switch
-    # --ask` directly (the plain alias behavior), or nrb + reboot.
+    # so no manual ssh-keyscan dance.
+    #
+    # ORDER IS THE WHOLE GAME here, and it is inverted from what HM's option
+    # name suggests:
+    #   * HM 26.05 emits `shellAliases` AFTER `initContent` in the generated
+    #     .zshrc (verified on geekom 2026-09-11: initContent landed at line
+    #     ~119-145, shellAliases at ~164-185). A plain `alias nrs=...` from
+    #     the shellAliases block therefore lands AFTER any function defined
+    #     here, and zsh resolves the LATER definition: `whence -v nrs`
+    #     reported the plain alias even though the loopback function existed.
+    #     A trailing `unalias` inside initContent is equally defeated — it
+    #     runs BEFORE HM's alias emission.
+    #
+    # The fix that actually holds: since the loopback functions must win, the
+    # base initContent (the string above this fragment) declares plain nrs/nrt
+    # as FUNCTIONS for every host, and this loopback fragment OVERRIDES those
+    # functions (later in the same initContent stream). No HM alias for nrs/nrt
+    # exists anymore (the shellAliases entries were removed and replaced by
+    # the function declarations), so nothing later in the file can shadow the
+    # loopback functions. `--ask` behavior is preserved: nh prompts before
+    # activating either way.
     + lib.optionalString (osConfig.local.loopbackRebuild.enable or false) ''
-      # Loopback rebuilds — the safe shape of nrs/nrt on hosts with the
-      # loopbackRebuild seam on (geekom). See the comment above the string
-      # for the full reasoning. The unalias is LOAD-BEARING TWICE over:
-      #   1. zsh expands aliases while PARSING, so the function definition
-      #      line below would itself be expanded into the alias's command.
-      #   2. home-manager 26.05 emits `shellAliases` AFTER `initContent` in
-      #      the generated .zshrc, so the plain `nrs`/`nrt` aliases from the
-      #      shellAliases block land after these function definitions and
-      #      SHADOW them — verified on geekom 2026-09-11: `whence -v nrs`
-      #      reported the alias despite this function existing at line 136
-      #      of the same file (the alias sat at line 174). Moving the unalias
-      #      to the END of this string re-removes the alias after HM emits
-      #      it, leaving the functions authoritative. The 2>/dev/null keeps
-      #      the first pass (before HM's aliases exist) from erroring.
-      unalias nrs nrt 2>/dev/null
+      # Loopback nrs/nrt — overrides the base functions above; runs activation
+      # over SSH to localhost so phase 1 cannot be reaped by a display-stack
+      # restart (the full reasoning sits above this string). --hostname is
+      # REQUIRED: with --target-host set, nh otherwise derives the flake
+      # attribute from the target ("localhost"), which does not exist in
+      # nixosConfigurations. nh prompts for the remote sudo password locally
+      # and feeds it over stdin, so no TTY juggling. Escape hatch if sshd is
+      # ever broken: `nh os switch --ask` directly (the plain function
+      # behavior), or nrb + reboot.
       nrs() { nh os switch --ask --target-host "$NH_LOOPBACK_TARGET" --hostname "$HOST" "$@"; }
       nrt() { nh os test --target-host "$NH_LOOPBACK_TARGET" --hostname "$HOST" "$@"; }
-      unalias nrs nrt 2>/dev/null
     '';
   };
 
