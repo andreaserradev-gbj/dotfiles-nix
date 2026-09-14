@@ -54,6 +54,7 @@ lib.mkIf osConfig.local.dev.enable {
     shellAliases = {
       nv = "nvim"; # nvim lands in 4b — errors only if called meanwhile
       zj = "zellij"; # 4b
+      hd = "herdr"; # like zj; coexists with zellij during trial
       lz = "lazygit"; # 4a
       cls = "clear && fastfetch"; # 4a
       zshconfig = "nvim ${repo}/modules/home/shell.nix"; # the file this shell IS; `nixcfg` covers the whole repo

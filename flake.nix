@@ -7,9 +7,11 @@
 
     # The workflow.md "escape hatch" (doc/workflow.md, "Need a newer version
     # before the next release?"): a second nixpkgs tracking unstable, consumed
-    # for a SMALL, explicit selection of tools. Today exactly one: ollama
-    # (geekom). It moves daily, so anything referencing it re-evaluates against
-    # a moving target — never import this where a shared module could see it.
+    # for a SMALL, explicit selection of tools. Two consumers today: ollama
+    # (geekom, via unstablePkgs) and herdr, whose own input follows this tree
+    # instead of dragging in a third nixpkgs. It moves daily, so anything
+    # referencing it re-evaluates against a moving target — never import this
+    # where a shared module could see it.
     nixpkgs-unstable.url = "github:NixOs/nixpkgs/nixos-unstable";
 
     home-manager = {
@@ -24,6 +26,21 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # herdr (terminal workspace manager for coding agents), from its upstream
+    # flake — Phase 0 trial passed, promotion per doc/adopting-tools.md. Tag-
+    # pinned: an unpinned github: input moves on every `nfu`, and a tool-flake
+    # input carries its own nixpkgs into the lock — so its nixpkgs input
+    # follows our nixpkgs-unstable (the tree herdr's lock expects; zig_0_15
+    # verified present in both pins). Bumping = edit ref + re-lock, same
+    # controlled cadence as the nixpkgs branch pins. The package is threaded
+    # via home-manager.extraSpecialArgs below; consumers gate on
+    # osConfig.local.dev.enable (modules/home/herdr.nix), so hosts with dev
+    # off never see it.
+    herdr = {
+      url = "github:herdrdev/herdr?ref=v0.9.0";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
   };
 
   outputs =
@@ -32,6 +49,7 @@
       nixpkgs-unstable,
       home-manager,
       sops-nix,
+      herdr,
       ...
     }:
     let
@@ -110,12 +128,19 @@
         sops-nix.nixosModules.sops
         home-manager.nixosModules.home-manager
         (
-          { user, ... }:
+          {
+            user,
+            pkgs,
+            ...
+          }:
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             home-manager.backupFileExtension = "backup";
-            home-manager.extraSpecialArgs = { inherit user; };
+            home-manager.extraSpecialArgs = {
+              inherit user;
+              herdr = herdr.packages.${pkgs.system}.default;
+            };
             home-manager.users.${user.username} = import ./home.nix;
           }
         )
