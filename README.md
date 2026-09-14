@@ -115,6 +115,7 @@ bootstrap.sh           one-command install of any host, from a live ISO
 | [doc/adopting-tools.md](doc/adopting-tools.md)     | Trying a new tool and promoting it into the flake: triage, trial, promotion |
 | [doc/vm-console.md](doc/vm-console.md)             | The cage + foot local console and its known limitations |
 | [doc/local-llm.md](doc/local-llm.md)               | Local LLM inference on geekom: hardware budget, tuning decisions, measured baselines, future-model protocol |
+| [doc/herdr.md](doc/herdr.md)                       | herdr (agent workspace manager): zellij coexistence, Nix-vs-npx ownership, tag-bump checklist |
 | [doc/troubleshooting.md](doc/troubleshooting.md)   | Gotchas that are not tied to one workflow |
 
 ## Quickstart pointers
