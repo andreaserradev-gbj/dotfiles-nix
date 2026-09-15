@@ -24,6 +24,20 @@ lib.mkIf osConfig.local.dev.enable {
 
     autoupdate = false;
 
+    # Relative instruction globs resolve upward from the project directory the
+    # session starts in (verified against the 1.15.10 source: relative entries
+    # go through globUp(instruction, ctx.directory, ctx.worktree), NOT relative
+    # to this config file — that is the {file:...} substitution's rule). So one
+    # global entry applies to any repo that has the file and is a no-op in
+    # repos that do not: .claude/rules/*.md picks up per-topic scoped rules,
+    # CLAUDE.local.md the per-repo personal notes. Neither is read by opencode's
+    # built-in discovery — CLAUDE.md compatibility covers only the single
+    # project CLAUDE.md, not Claude's rules directory or .local files.
+    instructions = [
+      ".claude/rules/*.md"
+      "CLAUDE.local.md"
+    ];
+
     # Cloud stub proxied to ollama.com, so this is NOT on-box inference: each
     # host needs its own `ollama signin` and the 890M never sees the work. It
     # is the only cloud model here now -- ollama's subscription change retired
