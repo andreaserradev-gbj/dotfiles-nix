@@ -139,7 +139,10 @@
             home-manager.backupFileExtension = "backup";
             home-manager.extraSpecialArgs = {
               inherit user;
-              herdr = herdr.packages.${pkgs.system}.default;
+              # `pkgs.system` is a nixpkgs alias that emits an evaluation
+              # warning since 2025-10-28 (pkgs/top-level/aliases.nix);
+              # stdenv.hostPlatform.system is the replacement.
+              herdr = herdr.packages.${pkgs.stdenv.hostPlatform.system}.default;
             };
             home-manager.users.${user.username} = import ./home.nix;
           }

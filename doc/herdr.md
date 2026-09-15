@@ -46,7 +46,7 @@ dev-gated home-layer tool.
 
 | artifact | owned by | how it gets there |
 |---|---|---|
-| herdr binary | Nix | `herdr.packages.${pkgs.system}.default` → `home.packages`, dev-gated |
+| herdr binary | Nix | `herdr.packages.${pkgs.stdenv.hostPlatform.system}.default` → `home.packages`, dev-gated |
 | `~/.config/herdr/config.toml` | Nix | `xdg.configFile` from the verbatim asset [config/herdr/config.toml](../config/herdr/config.toml) |
 | `~/.config/opencode/plugins/herdr-agent-state.js` | Nix | `xdg.configFile` from the vendored byte-for-byte copy [config/opencode/plugins/herdr-agent-state.js](../config/opencode/plugins/herdr-agent-state.js) |
 | agent skill (`~/.agents/skills/herdr/SKILL.md`) | **npx, manual** | `npx skills add herdrdev/herdr --skill herdr -g` |
