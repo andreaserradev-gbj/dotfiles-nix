@@ -118,8 +118,8 @@ mirroring zellij's `Alt left/down/up/right` focus binds
 | split horizontal | `d` in pane mode | `alt+d` |
 | zoom (fullscreen) | `Alt f` | `alt+f` |
 | new tab | — (mode-based) | `alt+t` |
-| next tab | `Alt o` | `alt+o` |
-| previous tab | `Alt i` | `alt+i` |
+| next tab | `Alt o` | `alt+shift+right` |
+| previous tab | `Alt i` | `alt+shift+left` |
 
 **Why the bare singles are arrows, not alt+hjkl:** neovim claims `alt+h`
 (toggle-hidden in grep/fzf pickers), and any bare alt-letter here swallows it
@@ -131,10 +131,15 @@ terminal transmits fine on Linux).
 
 Provenance notes, kept from the zellij config's own documented asymmetry:
 
-- `Alt i` / `Alt o` as tab-move keys were kept from zellij's
+- Tab-move keys: originally `Alt i` / `Alt o` (kept from zellij's
   `MoveTab "left/right"` bindings; `Alt i` has a documented capability gap in
-  zellij locked mode that never mattered in practice. herdr has no such mode
-  distinction, so both work uniformly.
+  zellij locked mode that never mattered in practice). Moved to
+  `alt+shift+left/right` (2026-09-16) because neovim claims `alt+i`, and
+  zellij already passes `alt+i` through to apps in locked mode — a bare
+  alt-letter here repeats that conflict class. Shift+arrows keep the
+  arrows-for-navigation family (arrows = panes, shift+arrows = tabs) and
+  match the browser/VS Code convention. herdr 0.9.0 docs use the
+  `alt+shift+arrow` shape for resize binds, so the key string parses.
 - `Alt n` as split-vertical was kept from zellij's `Alt n → NewPane`.
 - `Alt d` as split-horizontal mirrors zellij's pane-mode `d` (`NewPane
   "down"` — a stacked split). herdr's upstream default is `prefix+minus`;
@@ -148,11 +153,12 @@ Provenance notes, kept from the zellij config's own documented asymmetry:
   arrow (see the table above).
 
 **During the trial only the bindings listed in the asset were hand-verified**
-(focus chords, `alt+n`, `alt+d`, `alt+f`, `alt+t`, `alt+o`,
-`alt+i` — `alt+d` added post-trial at user request, validated with
+(focus chords, `alt+n`, `alt+d`, `alt+f`, `alt+t` — `alt+d` added post-trial
+at user request, validated with
 `herdr config check` before its first live use). The **alt+arrow focus
-singles postdate the trial** (2026-09-16, swapping the bare alt+hjkl singles
-out to free them for neovim) and still need a live `herdr config check` +
+singles and alt+shift+arrow tab nav postdate the trial** (2026-09-16,
+swapping the bare alt+hjkl and alt+i/o singles out to free them for neovim)
+and still need a live `herdr config check` +
 keystroke test after the next rebuild. Wider
 zellij-mirror bindings (`prefix+g/b/r/[` chords,
 `switch_tab = "prefix+1..9"`) were deliberately left OUT of the asset until
@@ -168,7 +174,8 @@ keymap claims.
   `XDG_CONFIG_HOME` relocates all of it; `HERDR_HOME`/`HERDR_CONFIG_DIR` do
   **not** work; `HERDR_CONFIG_PATH` (single file) does. Relevant only if you
   ever need to move state off the default path.
-- Reorder tabs with `alt+o`/`alt+i`; there is no "move tab to workspace"
+- Reorder tabs with `alt+shift+left`/`alt+shift+right`; there is no "move
+  tab to workspace"
   keybinding — paths are the sidebar (mouse drag) or the socket API
   (`tab.move`).
 - Reclaiming a broken setup: `rm -r ~/.config/herdr` removes sockets, logs

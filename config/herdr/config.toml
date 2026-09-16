@@ -13,6 +13,10 @@
 #   are valid key strings.
 # alt+d for split_horizontal mirrors zellij's pane-mode "d" (NewPane "down")
 # — a stacked split, exactly what alt+d does in zellij's pane mode.
+# Tab nav moved off alt+i/alt+o (2026-09-16): neovim claims alt+i, and zellij
+# already passes alt+i through to apps in locked mode (config/zellij/config.kdl
+# unbinds it there). Shift+arrows keep the arrows-for-navigation family and
+# match the browser/VS Code convention.
 # No quit key exists in herdr — prefix+q detaches; closing the server is a
 # CLI action, not a keybinding (documented gap, doc/herdr.md).
 onboarding = false
@@ -36,5 +40,5 @@ split_vertical   = ["alt+n"]
 split_horizontal = ["alt+d"]
 zoom             = ["alt+f"]
 new_tab          = ["alt+t"]
-next_tab         = ["alt+o"]
-previous_tab     = ["alt+i"]
+next_tab         = ["alt+shift+right"]
+previous_tab     = ["alt+shift+left"]
