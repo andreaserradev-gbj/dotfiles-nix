@@ -4,9 +4,13 @@
 # proven during the Phase 0 ephemeral trial (2026-09): keymap verified live,
 # `herdr config check` passed, strace showed zero network connects.
 #
-# Keymap mirrors zellij's alt-direct nav (modules/home/zellij.nix config.kdl):
-# every action carries BOTH the herdr prefix chord and the bare alt single,
-# so muscle memory carries over without nesting one manager in the other.
+# Keymap mirrors zellij's pane navigation, split across two families:
+# - prefix chords keep zellij's alt-direct letters (prefix+alt+h…),
+# - the bare singles are alt+ARROWS, mirroring zellij's Alt left/down/up/right
+#   focus binds. The bare alt+h/j/k/l singles were dropped because neovim
+#   claims alt+h (unhide in grep/fzf pickers); alt+arrows leave hjkl to the
+#   app inside the pane. Verified against herdr 0.9.0 docs: arrow key names
+#   are valid key strings.
 # alt+d for split_horizontal mirrors zellij's pane-mode "d" (NewPane "down")
 # — a stacked split, exactly what alt+d does in zellij's pane mode.
 # No quit key exists in herdr — prefix+q detaches; closing the server is a
@@ -24,10 +28,10 @@ version_check = false
 name = "catppuccin"
 
 [keys]
-focus_pane_left  = ["prefix+alt+h", "alt+h"]
-focus_pane_down  = ["prefix+alt+j", "alt+j"]
-focus_pane_up    = ["prefix+alt+k", "alt+k"]
-focus_pane_right = ["prefix+alt+l", "alt+l"]
+focus_pane_left  = ["prefix+alt+h", "alt+left"]
+focus_pane_down  = ["prefix+alt+j", "alt+down"]
+focus_pane_up    = ["prefix+alt+k", "alt+up"]
+focus_pane_right = ["prefix+alt+l", "alt+right"]
 split_vertical   = ["alt+n"]
 split_horizontal = ["alt+d"]
 zoom             = ["alt+f"]

@@ -104,19 +104,30 @@ convention — edit the asset, not a generator; there is none).
 
 ## Keymap: zellij mirroring
 
-Every binding is array-form with BOTH the herdr prefix chord and the bare alt
-single, mirroring zellij's alt-direct navigation
-([config/zellij/config.kdl](../config/zellij/config.kdl)):
+Every binding is array-form with BOTH the herdr prefix chord and a bare
+single, mirroring zellij's navigation
+([config/zellij/config.kdl](../config/zellij/config.kdl)). The prefix chords
+keep zellij's alt-direct letters; the bare singles use **alt+arrows**,
+mirroring zellij's `Alt left/down/up/right` focus binds
+(config/zellij/config.kdl:117-120).
 
 | action | zellij | herdr |
 |---|---|---|
-| focus pane h/j/k/l | `Alt h/j/k/l` | `prefix+alt+h…` and `alt+h…` |
+| focus pane left/down/up/right | `Alt left/down/up/right` | `prefix+alt+h/j/k/l` and `alt+left/down/up/right` |
 | split vertical | `Alt n` | `alt+n` |
 | split horizontal | `d` in pane mode | `alt+d` |
 | zoom (fullscreen) | `Alt f` | `alt+f` |
 | new tab | — (mode-based) | `alt+t` |
 | next tab | `Alt o` | `alt+o` |
 | previous tab | `Alt i` | `alt+i` |
+
+**Why the bare singles are arrows, not alt+hjkl:** neovim claims `alt+h`
+(toggle-hidden in grep/fzf pickers), and any bare alt-letter here swallows it
+before it reaches the pane. Arrows leave hjkl to the app inside the pane;
+zellij already trains the Alt-arrow habit. Verified against herdr 0.9.0 docs:
+arrow key names are valid key strings, and the ctrl+alt family is the
+upstream-recommended conflict-free alternative (we keep alt, which the
+terminal transmits fine on Linux).
 
 Provenance notes, kept from the zellij config's own documented asymmetry:
 
@@ -131,14 +142,18 @@ Provenance notes, kept from the zellij config's own documented asymmetry:
 - There is **no quit key** in herdr: `prefix+q` *detaches* (server keeps
   running, re-attach with `hd`); killing the server is a CLI action. This is
   a documented upstream gap, not a config choice.
-- `Alt h` reaches pane-focus-left via the chord `prefix+alt+h` in herdr's
-  default, plus the bare `alt+h` single we bound — the same capability as
-  zellij's `Alt h`/`Alt left`.
+- Pane-focus-left is reached via the chord `prefix+alt+h` (kept from herdr's
+  default shape) or the bare `alt+left` single — the same capability as
+  zellij's `Alt left`. The bare `alt+h` single was dropped in favour of the
+  arrow (see the table above).
 
 **During the trial only the bindings listed in the asset were hand-verified**
-(focus chords + singles, `alt+n`, `alt+d`, `alt+f`, `alt+t`, `alt+o`,
+(focus chords, `alt+n`, `alt+d`, `alt+f`, `alt+t`, `alt+o`,
 `alt+i` — `alt+d` added post-trial at user request, validated with
-`herdr config check` before its first live use). Wider
+`herdr config check` before its first live use). The **alt+arrow focus
+singles postdate the trial** (2026-09-16, swapping the bare alt+hjkl singles
+out to free them for neovim) and still need a live `herdr config check` +
+keystroke test after the next rebuild. Wider
 zellij-mirror bindings (`prefix+g/b/r/[` chords,
 `switch_tab = "prefix+1..9"`) were deliberately left OUT of the asset until
 each is verified live — extend the asset after testing, don't ship unverified
