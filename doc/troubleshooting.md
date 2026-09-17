@@ -35,6 +35,28 @@
   functions) when `1532:0099` is absent, and is a no-op on clean boots.
   Rear ports still preferred for latency/SS hygiene, but they are not a fix.
   Check: `journalctl -u usb-mouse-recovery -b`.
+- **Thunderbolt peripheral: the display works but its USB features never
+  appear = the device was never authorized.** A TBT monitor or dock tunnels
+  DisplayPort WITHOUT authentication, so video always comes up; the
+  PCIe/USB3 tunnels that carry its internal hub (speakers, camera, dock
+  ports) stay down until the device is authorized. Security level is `user`
+  on both geekom domains (`boltctl domains`, measured 2026-09-17), and
+  `iommu_dma_protection = 0` on both, so boltd's free IOMMU auto-enroll path
+  is dead there — every new device needs one explicit enrollment. Symptoms:
+  `boltctl list` shows the device `connected` with no authorization line
+  (`stored: no`, sysfs `authorized: 0`), nothing from it in `lsusb`, and
+  GNOME logs `thunderbolt: [name] auto enrollment: no (allowed: no)`.
+  Fix, ONCE per device per host: `boltctl enroll --policy auto <uuid>`
+  (uuid from `boltctl list`) — stored in `/var/lib/boltd`, survives
+  rebuilds and reboots, auto-authorized on every future connect; GNOME
+  Settings → Thunderbolt is the GUI path to the same. Recorded instances:
+  LG UltraFine 5K on geekom — camera + speakers dead from install until
+  2026-09-17 (afterward: speakers as `USB Audio` sink, camera via
+  `uvcvideo` on `/dev/video0`); BenQ 30" TBT monitor — Elgato webcam on the
+  monitor's hub invisible on geekom while working on the Mac, which
+  auto-authorizes. NOT affected: plain DP/HDMI and DP-alt-mode USB-C
+  monitors — no TBT tunneling, so their audio/USB failures are a different
+  path (see the Razer entry above for one such kernel-side failure).
 
 ---
 
