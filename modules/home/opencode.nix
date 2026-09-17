@@ -128,6 +128,51 @@ lib.mkIf osConfig.local.dev.enable {
             output = 65536;
           };
         };
+        # Third LOCAL model: qwen3.8:27b-mtp-q4_K_M-ctx128k (27.3B, same qwen35
+        # hybrid arch as the 35b above — 16 of 66 layers full attention, 4 KV
+        # heads — but ~27B params ACTIVE per token, not ~3B like the MoE, so
+        # decode is compute/bandwidth-bound, not placement-bound). The tag is
+        # LOCAL AND DERIVED, not an upstream registry tag (registry 404s it):
+        # created 2026-09-17 12:19 by an opencode session via `ollama create`
+        # with a one-PARAMETER Modelfile (num_ctx 131072). That baked parameter
+        # is why this entry needs no daemon config: it wins over
+        # OLLAMA_CONTEXT_LENGTH=262144 at load time, while the 35b (no baked
+        # num_ctx) keeps the env's 262144. At the GGUF-native 262144 the plain
+        # tag does NOT fit: KV is 64 KB/token here (vs 22 on the 35b — 16
+        # full-attn layers x 4 KV heads vs 11 x 2), 16 GiB at 262144, and the
+        # 2026-09-17 14:21 load ran 45/66 layers with 5 GiB of KV on CPU;
+        # the 14:20 load of THIS tag ran 66/66 at n_ctx 131072. `limit.context`
+        # must agree with the tag (131072) — a higher client limit would have
+        # opencode assemble prompts the daemon trims, the 32768-vs-262144
+        # disagreement bug of 2026-09-11 in miniature. Measured same-prompt A/B
+        # (seed 42, 100% GPU both): decode 33 vs 8 t/s shallow, 32 vs 10 at
+        # ~12k depth; prefill 364/348 vs 97/91 — the 35b is ~4x faster at
+        # everything; this tag trades speed for a bigger dense model.
+        #
+        # The tag is imperative daemon state (/var/lib/ollama): a reinstall
+        # must recreate it by hand —
+        #   printf 'FROM qwen3.8:27b-mtp-q4_K_M\nPARAMETER num_ctx 131072\n' > /tmp/m
+        #   ollama create qwen3.8:27b-mtp-q4_K_M-ctx128k -f /tmp/m
+        # (after the plain-tag pull); full provenance and the 27b rows live in
+        # doc/local-llm.md.
+        "qwen3.8:27b-mtp-q4_K_M-ctx128k" = {
+          name = "Qwen3.8 27B MTP (local, 128k ctx)";
+          attachment = true;
+          modalities.input = [
+            "text"
+            "image"
+          ];
+          modalities.output = [ "text" ];
+          # `/api/show` on 2026-09-17 reports capabilities
+          # completion/vision/tools/thinking and the tag's baked num_ctx 131072;
+          # the daemon enforces 131072 for this tag (14:20 load, n_ctx logged),
+          # so the limit is exact, not conservative. Output cap mirrors the
+          # two local models above.
+          limit = {
+            context = 131072;
+            output = 65536;
+          };
+        };
       };
     };
 
