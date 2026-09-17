@@ -1,11 +1,28 @@
 -- AI completion via minuet-ai, surfaced in the blink.cmp menu (no ghost text).
 --
--- DISABLED 2026-09-17 (`enabled = false` on both specs, user request): the
--- plugin no longer loads and blink.cmp carries no minuet source, so the menu
--- is plain LSP/snippets/buffer again. Both specs must stay disabled TOGETHER:
--- with minuet off but the blink override active, blink would keep a "minuet"
--- source whose module cannot load. To re-enable, remove both `enabled = false`
--- lines — all tuning below is preserved as documented.
+-- DISABLED 2026-09-17 (`enabled = false` on the minuet spec, user request).
+-- The first attempt also set `enabled = false` on the blink.cmp override
+-- spec — and that killed ALL completion, not just the AI entries: in
+-- lazy.nvim a user spec is a fragment merged onto the plugin, so
+-- `enabled = false` on a fragment disables the WHOLE plugin. blink.cmp fell
+-- into spec.disabled and the LSP/snippets/buffer menu vanished with it.
+-- A fragment cannot be disabled; it can only be present or absent. The
+-- override is therefore REMOVED (fixed same day) — it lives in git history
+-- (commit 220eeb4 carries the tuned version), not in this file.
+--
+-- To re-enable minuet:
+--   1. remove `enabled = false` from the minuet spec below;
+--   2. restore the saghen/blink.cmp override spec from git history — and
+--      when disabling again, DELETE it; never set enabled = false on it.
+--      Tuning it carried: sources.default = { "minuet" } (LazyVim declares
+--      sources.default in opts_extend, so this appends rather than replaces
+--      lsp/path/snippets/buffer), provider minuet { name = "minuet",
+--      module = "minuet.blink", async = true, timeout_ms = 10000 — clears
+--      minuet's own 10s request_timeout so blink does not give up on the
+--      source first on a cold model —, score_offset = 50, ranking minuet
+--      above the LSP items }, plus completion.trigger.prefetch_on_insert =
+--      false to avoid a model request on every insert-mode keypress.
+--   3. `git add config/nvim` before the rebuild — every edit of this tree.
 --
 -- Local-only: qwen2.5-coder:3b through Ollama on localhost:11434. No API key --
 -- minuet reads the env var *named* by api_key, so "TERM" is a dummy that is
@@ -71,36 +88,6 @@ return {
           },
         },
       },
-    },
-  },
-
-  {
-    "saghen/blink.cmp",
-    optional = true,
-    -- Disabled WITH minuet: this spec only exists to wire minuet into blink's
-    -- sources (see the header comment). With minuet off, a live override would
-    -- keep a source whose module cannot load.
-    enabled = false,
-    opts = {
-      sources = {
-        -- LazyVim declares sources.default in opts_extend, so this appends
-        -- rather than replacing lsp/path/snippets/buffer.
-        default = { "minuet" },
-        providers = {
-          minuet = {
-            name = "minuet",
-            module = "minuet.blink",
-            async = true,
-            -- Must clear minuet's own request_timeout (10s) so blink does not
-            -- give up on the source first: a cold local model takes seconds.
-            timeout_ms = 10000,
-            -- Ranks minuet above the LSP items rather than below them.
-            score_offset = 50,
-          },
-        },
-      },
-      -- Avoid firing a model request on every insert-mode keypress.
-      completion = { trigger = { prefetch_on_insert = false } },
     },
   },
 }
