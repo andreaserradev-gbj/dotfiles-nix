@@ -76,6 +76,11 @@ context on dense-model intuition.
 | full 262144 load | fits | 20.4 weights + 5.5 KV + ≤0.3 compute; ~9 GiB GTT headroom; 29 tok/s after |
 | TTFT (warm, short prompt) | ~120 ms prefill | 0.33.3; metadata caching (0.32.15) roughly halved TTFT upstream |
 | GPU placement | 100% GPU, `size_vram` = full model size | `ollama ps` is the check |
+| 27b shallow decode | 8 t/s (35b: 33) | `qwen3.8:…-ctx128k` 100% GPU, seed 42, temp 0, 300 tok — 2026-09-17 A/B |
+| 27b decode at depth | 10 t/s after 11926-tok prefill (35b: 32) | same protocol; both models flat with depth — hybrid attention holds |
+| 27b prefill | 97 t/s @ 3421 tok / 91 @ 11926 (35b: 364/348) | fresh prompts each time — a repeated prompt hits the KV cache and lies |
+| 27b full-window load | 45/66 layers, 5 GiB KV on CPU | 14:21 load at 262144: 16 GiB KV (64 KB/token) does not fit; decode 4.65 t/s, prefill 14.5 t/s |
+| 27b 128k load | 66/66 layers, 8.5 GiB KV all GPU | the `-ctx128k` tag at 131072: same weights, halves the KV — the only sane runtime for this model |
 
 Benchmark one-liners (paste-ready, machine is left clean afterwards — model
 unloaded, keep_alive restored):
@@ -125,6 +130,50 @@ Vulkan's GTT spill is exactly what makes 256k context possible here.
 BIOS carve-out (8→16 GiB) and `amdgpu.gttsize=` were considered and rejected:
 decode is flat with KV resident in GTT, and carving VRAM only steals from the
 shared pool the runner reaches anyway.
+
+(2026-09-17: the 27b at full 262144 is the first load that does not fit —
+16 GiB KV against a 35.1 GiB available pool. If a future model ever makes
+that worth revisiting, the lever order is: smaller per-request `num_ctx`,
+then `OLLAMA_KV_CACHE_TYPE=q8_0` (halves KV; global to all models), and only
+then the BIOS carve 8→16, whose net pool gain is only +4 GiB because GTT is
+half of what the carve-out leaves. Still measure first.)
+
+## Derived local tags — imperative, documented, not automated
+
+Tags live in `/var/lib/ollama/models/manifests/…` as local manifests naming
+content-addressed blobs; the registry is consulted only at `ollama pull`
+time, never at load. A tag the registry does not have must therefore be
+created locally with `ollama create` and cannot be reproduced by the flake.
+This is the same imperative store as `ollama signin` (doc/secrets.md) —
+deliberately outside Nix's reach. The client-side half (the opencode model
+entry) IS declarative, in modules/home/opencode.nix; the daemon-side half
+(the tag) is not. The failure mode is loud, not silent: a missing tag errors
+on first use, and the recovery is the recipe below.
+
+One derived tag exists today:
+
+- `qwen3.8:27b-mtp-q4_K_M-ctx128k` — created 2026-09-17 12:19 by an opencode
+  session (permission log: `printf 'FROM …\nPARAMETER num_ctx 131072\n' >
+  /tmp/opencode/Modelfile.qwen38-128k; ollama create … -f …`), reusing the
+  plain tag's weight/projector blobs and adding one params blob. The baked
+  `num_ctx 131072` wins over the daemon's `OLLAMA_CONTEXT_LENGTH=262144` at
+  load time, while the 35b (no baked parameter) keeps 262144 — per-model
+  context without any daemon config. Why not the plain tag: at the GGUF's
+  native 262144 its KV is 16 GiB (64 KB/token — 16 full-attn layers × 4 KV
+  heads vs the 35b's 11 × 2 = 22 KB/token) and the runner could only place
+  45/66 layers, dropping decode to 4.65 t/s; at 131072 it runs 66/66.
+
+Recreate after a reinstall (plain-tag pull first):
+
+```sh
+printf 'FROM qwen3.8:27b-mtp-q4_K_M\nPARAMETER num_ctx 131072\n' > /tmp/m
+ollama create qwen3.8:27b-mtp-q4_K_M-ctx128k -f /tmp/m
+```
+
+Revisit trigger: a second derived tag, or a reinstall actually biting,
+promotes this to an idempotent systemd oneshot. Until then the recipe above
+is the whole automation — partial automation of an already-manual pull is
+not worth a unit file.
 
 ## opencode ↔ daemon context agreement
 
