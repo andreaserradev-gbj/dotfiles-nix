@@ -1,6 +1,6 @@
 # herdr — terminal workspace manager for coding agents
 
-herdr ([github:herdrdev/herdr](https://github.com/herdrdev/herdr), v0.9.0) is a
+herdr ([github:herdrdev/herdr](https://github.com/herdrdev/herdr), v0.9.1) is a
 terminal workspace manager built around AI coding agents: panes and tabs like
 zellij, plus an agent registry that tracks which agent (opencode, claude,
 codex, …) runs in which pane. It was trialed on 2026-09-13/14 (Phase 0 of the
@@ -16,7 +16,7 @@ dev-gated home-layer tool.
 - **Upstream flake, tag-pinned.** herdr is not in nixpkgs, so the package comes
   from its upstream flake — the "upstream flake" row of
   [doc/adopting-tools.md](adopting-tools.md) triage. The input is pinned to
-  `?ref=v0.9.0`: an unpinned `github:` input would move on every `nfu`, the
+  `?ref=v0.9.1`: an unpinned `github:` input would move on every `nfu`, the
   same wrong pace as tracking a moving branch for a system component.
   Bumping = edit `?ref=` in [flake.nix](../flake.nix), `nix flake lock`,
   commit both.
@@ -25,7 +25,8 @@ dev-gated home-layer tool.
   [adopting-tools.md](adopting-tools.md)). Following our unstable tree — the
   same tree the [workflow escape hatch](workflow.md) already tracks — drops
   that cost; herdr's dependency matrix (zig, rust) resolves fine against it
-  (`zig_0_15` verified present in both pins). The escape-hatch comment in
+  (`zig_0_15` at adoption, `zig_0_16` since v0.9.1 — both verified present).
+  The escape-hatch comment in
   flake.nix names the two consumers: ollama (geekom, via `unstablePkgs`) and
   herdr (via its input's follows).
 - **Dev-gated home layer.** [modules/home/herdr.nix](../modules/home/herdr.nix)
@@ -72,7 +73,7 @@ rebuild, and is re-run manually per tag bump (below).
 3. **Re-check the vendored plugin against the new tag:**
    compare `HERDR_INTEGRATION_VERSION` in
    `src/integration/assets/opencode/herdr-agent-state.js` at the new tag with
-   the vendored copy's marker (v0.9.0 = 11). If changed, re-vendor
+   the vendored copy's marker (v0.9.1 = 12). If changed, re-vendor
    byte-for-byte (`cp` from the tag-resolved `nix flake metadata …` source
    path) — the plugin and binary must stay version-matched.
 4. Re-run the skill install: `npx skills add herdrdev/herdr --skill herdr -g`
@@ -82,8 +83,10 @@ rebuild, and is re-run manually per tag bump (below).
 6. PR → CI → squash merge per [workflow.md](workflow.md).
 
 Note on `zig_0_15`: herdr's build uses zig; it was present in both our
-nixpkgs-26.05 pin and nixpkgs-unstable at adoption time. If a release bump or
-tag bump ever fails with a missing zig, check that first.
+nixpkgs-26.05 pin and nixpkgs-unstable at adoption time. Upstream moved its
+flake to `zig_0_16` at v0.9.1 (verified present in our pinned unstable rev
+`efe6f071ede9`, and 0.15.2/0.16.0 both remain available in that tree). If a
+release bump or tag bump ever fails with a missing zig, check that first.
 
 ## The config: what each knob means
 
@@ -124,7 +127,8 @@ mirroring zellij's `Alt left/down/up/right` focus binds
 **Why the bare singles are arrows, not alt+hjkl:** neovim claims `alt+h`
 (toggle-hidden in grep/fzf pickers), and any bare alt-letter here swallows it
 before it reaches the pane. Arrows leave hjkl to the app inside the pane;
-zellij already trains the Alt-arrow habit. Verified against herdr 0.9.0 docs:
+zellij already trains the Alt-arrow habit. Verified against herdr 0.9.0 docs
+(same key schema at 0.9.1):
 arrow key names are valid key strings, and the ctrl+alt family is the
 upstream-recommended conflict-free alternative (we keep alt, which the
 terminal transmits fine on Linux).
@@ -138,8 +142,9 @@ Provenance notes, kept from the zellij config's own documented asymmetry:
   zellij already passes `alt+i` through to apps in locked mode — a bare
   alt-letter here repeats that conflict class. Shift+arrows keep the
   arrows-for-navigation family (arrows = panes, shift+arrows = tabs) and
-  match the browser/VS Code convention. herdr 0.9.0 docs use the
-  `alt+shift+arrow` shape for resize binds, so the key string parses.
+   match the browser/VS Code convention. herdr 0.9.0 docs (same key schema at
+   0.9.1) use the
+   `alt+shift+arrow` shape for resize binds, so the key string parses.
 - `Alt n` as split-vertical was kept from zellij's `Alt n → NewPane`.
 - `Alt d` as split-horizontal mirrors zellij's pane-mode `d` (`NewPane
   "down"` — a stacked split). herdr's upstream default is `prefix+minus`;
@@ -194,7 +199,8 @@ trial period, per [adopting-tools.md](adopting-tools.md) "Check for overlap".
 
 ## Trial record (Phase 0, 2026-09-13/14)
 
-- `nix flake show github:herdrdev/herdr` at v0.9.0: packages for
+- `nix flake show github:herdrdev/herdr` at v0.9.0 (trial; v0.9.1 re-verified
+  at the tag bump): packages for
   x86_64-linux and aarch64-linux; **no homeManagerModules** (hence the
   hand-written module); deps: zig 0.15/0.16 + rust, via oxalica rust-overlay.
 - geekom x86_64 run verified (HEAD and pinned tag; rev b99002a).

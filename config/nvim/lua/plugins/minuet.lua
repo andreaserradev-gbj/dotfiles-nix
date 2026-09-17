@@ -1,5 +1,12 @@
 -- AI completion via minuet-ai, surfaced in the blink.cmp menu (no ghost text).
 --
+-- DISABLED 2026-09-17 (`enabled = false` on both specs, user request): the
+-- plugin no longer loads and blink.cmp carries no minuet source, so the menu
+-- is plain LSP/snippets/buffer again. Both specs must stay disabled TOGETHER:
+-- with minuet off but the blink override active, blink would keep a "minuet"
+-- source whose module cannot load. To re-enable, remove both `enabled = false`
+-- lines — all tuning below is preserved as documented.
+--
 -- Local-only: qwen2.5-coder:3b through Ollama on localhost:11434. No API key --
 -- minuet reads the env var *named* by api_key, so "TERM" is a dummy that is
 -- always set. There is no fallback and no preset to switch to; is_available()
@@ -26,6 +33,7 @@
 return {
   {
     "milanglacier/minuet-ai.nvim",
+    enabled = false,
     event = "InsertEnter",
     opts = {
       provider = "openai_fim_compatible",
@@ -69,6 +77,10 @@ return {
   {
     "saghen/blink.cmp",
     optional = true,
+    -- Disabled WITH minuet: this spec only exists to wire minuet into blink's
+    -- sources (see the header comment). With minuet off, a live override would
+    -- keep a source whose module cannot load.
+    enabled = false,
     opts = {
       sources = {
         -- LazyVim declares sources.default in opts_extend, so this appends
