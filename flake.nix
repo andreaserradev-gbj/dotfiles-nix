@@ -38,7 +38,7 @@
     # osConfig.local.dev.enable (modules/home/herdr.nix), so hosts with dev
     # off never see it.
     herdr = {
-      url = "github:herdrdev/herdr?ref=v0.9.0";
+      url = "github:herdrdev/herdr?ref=v0.9.1";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
   };
