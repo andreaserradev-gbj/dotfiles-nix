@@ -130,5 +130,11 @@ in
       # without root; mode 0400 (sops default) keeps it single-reader.
       owner = user.username;
     };
+    # Second consumer of the shell-export pattern: ~/code/typesafe-lab's
+    # `real` provider reads TYPESAFE_API_KEY from the environment. Same
+    # owner/mode reasoning as CONTEXT7_API_KEY above.
+    sops.secrets.TYPESAFE_API_KEY = {
+      owner = user.username;
+    };
   };
 }

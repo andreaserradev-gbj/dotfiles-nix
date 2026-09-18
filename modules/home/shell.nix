@@ -136,6 +136,15 @@ lib.mkIf osConfig.local.dev.enable {
       # anonymous mode / lower rate limits.
       export CONTEXT7_API_KEY="$(cat /run/secrets/CONTEXT7_API_KEY 2>/dev/null)"
 
+      # TYPESAFE_API_KEY — runtime secret for ~/code/typesafe-lab's `real`
+      # provider (src/typesafe/real.ts reads it from the env). Same sops-nix
+      # provisioning and same guard rationale as CONTEXT7_API_KEY above.
+      # Acceptable to export because the key is low-value, like the context7
+      # one; note the consumer's loadEnvInto (src/cli.ts) only fills vars NOT
+      # already in the environment, so this export wins over the project's
+      # .env and that file can hold the placeholder.
+      export TYPESAFE_API_KEY="$(cat /run/secrets/TYPESAFE_API_KEY 2>/dev/null)"
+
       # fzf navigation helpers
       fcd() { cd "$(find . -type d -not -path '*/.*' | fzf)" && l; }
       fv()  { nvim "$(find . -type f -not -path '*/.*' | fzf)"; }
