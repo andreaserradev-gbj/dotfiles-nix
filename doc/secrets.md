@@ -1,12 +1,12 @@
 # Secret management (sops-nix)
 
 Secrets that **configuration itself consumes** (the context7 MCP API key was
-the first) live in this repo as age-encrypted ciphertext, committed and
-pushed like any other file. Decryption happens on each machine, at
-activation, with that machine's own SSH host key — by
-[sops-nix](https://github.com/Mic92/sops-nix). Nothing is base64-obfuscated
-or stored in a script; the ciphertext in the store is inert, and CI builds
-systems from it without holding any key.
+the first, the typesafe-lab `real` provider key the second) live in this repo
+as age-encrypted ciphertext, committed and pushed like any other file.
+Decryption happens on each machine, at activation, with that machine's own
+SSH host key — by [sops-nix](https://github.com/Mic92/sops-nix). Nothing is
+base64-obfuscated or stored in a script; the ciphertext in the store is
+inert, and CI builds systems from it without holding any key.
 
 What this file covers: the storage model, the edit workflow, the trust
 boundary, which credentials live where (the tier table), and what this
@@ -113,19 +113,28 @@ sops secrets/andrea/secrets.yaml   # opens $EDITOR on the DECRYPTED file
 
 Rules that have bitten once already:
 
-- **Verify after every save.** `head -1 secrets/andrea/secrets.yaml` must
-  start with `CONTEXT7_API_KEY: ENC[`. A save that fails (or an editor
-  writing a scratch placeholder) leaves plaintext on disk — delete and
-  retry. sops writes ciphertext only after the editor exits; the
-  `/tmp/sopsNNN` file it shows is scratch, never the target.
+- **Verify after every save.** The first line of
+  `secrets/andrea/secrets.yaml` must be a top-level key ending in `ENC[`
+  (currently `CONTEXT7_API_KEY:`, then `TYPESAFE_API_KEY:`). A save that
+  fails (or an editor writing a scratch placeholder) leaves plaintext on
+  disk — delete and retry. sops writes ciphertext only after the editor
+  exits; the `/tmp/sopsNNN` file it shows is scratch, never the target.
 - **`git add` the ciphertext before any `--flake` command.** sops-nix
   validates at *evaluation* time that every declared key exists in the
   ciphertext — an untracked file fails the build with a misleading
   "path does not exist" (see [doc/workflow.md](workflow.md)).
 - **Adding a new secret key** is the same `sops` edit, plus one
   `sops.secrets.<NAME>` entry in `modules/nixos/dev.nix` (and an export or
-  consumer wherever it is read). The eval-time check catches a spelling
-  mismatch between the two.
+  consumer wherever it is read).
+  **Caveat, verified 2026-09-18:** the eval-time check catches a *missing
+  file* but NOT a spelling mismatch between `sops.secrets.<NAME>` and the
+  ciphertext keys — geekom evaluated green with `TYPESAFE_API_KEY` declared
+  under no such ciphertext key (sops-nix 0.4.x only asserts key existence
+  when `key =` is set explicitly, and warns rather than fails otherwise).
+  After adding a key, grep the decrypted file against the declarations:
+  `sops -d secrets/andrea/secrets.yaml | grep -o '^[A-Z_]*'` vs the
+  `sops.secrets.*` block in dev.nix. A mismatch surfaces only at activation
+  — days later on a rebuild-only machine.
 - **Rotating a credential**: edit the value via `sops`, commit — a new data
   key is generated on every save, so rewrapping to all recipients happens
   automatically. Recipient *changes* (a new or rotated host key) additionally
@@ -142,7 +151,7 @@ configuration-consumed secrets only":
 
 | tier | what | where it lives | why not sops |
 | ---- | ---- | -------------- | ------------ |
-| 1 — config-consumed | `CONTEXT7_API_KEY` (MCP header) | `secrets/andrea/secrets.yaml` | read by config at runtime; needs a machine-provisioned value |
+| 1 — config-consumed | `CONTEXT7_API_KEY` (MCP header), `TYPESAFE_API_KEY` (typesafe-lab real provider) | `secrets/andrea/secrets.yaml` | read by config or a project's env-reading CLI at runtime; needs a machine-provisioned value |
 | 2 — keyring logins | `gh`, `ollama`, opencode's `auth.json` | OS keyring / OAuth flows, imperative | interactive, per-user, needs browser round-trips; `gh auth login` etc. survive in a keyring that flake commits cannot and should not touch |
 | 3 — browser-internal | site logins, cookies, saved passwords | inside each browser's own store | never exported, on any tier; treating browser state as config would be a security regression |
 
