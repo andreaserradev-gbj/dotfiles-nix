@@ -100,6 +100,18 @@ in
         #   autoupdate = false posture.
         setupVersion = 2;
         "startup.setupWizard" = false;
+
+        # User-picked UI preferences. The writable-copy mechanism means
+        # ANYTHING set at runtime (/settings, the theme scene) is wiped by the
+        # next home-manager switch unless it is declared here — observed live
+        # 2026-09-21 (the first nrs lost the trial-time theme pick and the
+        # hide-thinking toggle, which omp had rewritten into config.yml).
+        # These two are the user's confirmed choices (theme name verified via
+        # `omp config set` — omp's catalog calls it dark-catppuccin, not
+        # catppuccin-mocha); extend this block, never re-pick at runtime, when
+        # another preference matters.
+        "theme.dark" = "dark-catppuccin";
+        hideThinkingBlock = true;
       };
     };
 
