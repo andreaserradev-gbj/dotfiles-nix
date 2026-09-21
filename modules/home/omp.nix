@@ -5,16 +5,31 @@
   omp,
   ...
 }:
+let
+  # Prebuilt-by-default: upstream's release binary (see omp-prebuilt.nix for
+  # why — the from-source build costs ~31 min on a fast CI runner, >1h
+  # locally, and recompiles on every nfu that moves nixpkgs-unstable). The
+  # from-source fallback is one flag away: swap this for
+  # `omp.packages.${pkgs.stdenv.hostPlatform.system}.default` (or build the
+  # flake input's package) — settings below are identical either way, since
+  # both binaries are v18.2.7 and read the same config.yml. The prebuilt
+  # needs nix-ld (dev-gated, modules/nixos/dev.nix) for its /lib64 loader.
+  ompPkg = pkgs.callPackage ./omp-prebuilt.nix {
+    system = pkgs.stdenv.hostPlatform.system;
+  };
+in
 # omp (oh-my-pi) — the second coding agent, adopted per doc/adopting-tools.md
 # and documented in doc/omp.md. Gate matches the other dev-only HM modules
 # (herdr.nix, opencode.nix): hplaptop (local.dev.enable = false) evaluates
 # this to the empty config and never sees the package, the settings, or the
 # two home.file assets below.
 #
-# The package and the declarative settings both come from omp's own HM module
+# The declarative settings come from omp's own HM module
 # (homeManagerModules.default, threaded as the `omp` flake input via
-# extraSpecialArgs): programs.omp.package defaults to the flake's
-# packages.<system>.default, so nothing here pins a store path by hand.
+# extraSpecialArgs); the PACKAGE is overridden to the prebuilt derivation
+# above — programs.omp.package defaults to the flake's
+# packages.<system>.default (the from-source build), which remains the
+# fallback and the pin of record for the version.
 #
 # FILE SHAPE NOTE: this file has TWO top-level attributes — `imports` (the
 # upstream HM module) and the `lib.mkIf` config body — because a module that
@@ -30,6 +45,7 @@
   config = lib.mkIf osConfig.local.dev.enable {
     programs.omp = {
       enable = true;
+      package = ompPkg;
 
       # omp rewrites its own ~/.omp/agent/config.yml at runtime (/settings,
       # onboarding, /model role persistence — flock + atomic rewrite). The
@@ -84,6 +100,18 @@
         #   autoupdate = false posture.
         setupVersion = 2;
         "startup.setupWizard" = false;
+
+        # User-picked UI preferences. The writable-copy mechanism means
+        # ANYTHING set at runtime (/settings, the theme scene) is wiped by the
+        # next home-manager switch unless it is declared here — observed live
+        # 2026-09-21 (the first nrs lost the trial-time theme pick and the
+        # hide-thinking toggle, which omp had rewritten into config.yml).
+        # These two are the user's confirmed choices (theme name verified via
+        # `omp config set` — omp's catalog calls it dark-catppuccin, not
+        # catppuccin-mocha); extend this block, never re-pick at runtime, when
+        # another preference matters.
+        "theme.dark" = "dark-catppuccin";
+        hideThinkingBlock = true;
       };
     };
 
