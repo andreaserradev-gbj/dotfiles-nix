@@ -25,10 +25,22 @@ lib.mkIf osConfig.local.dev.enable {
   # one place, and the plugin version always matches the herdr binary:
   # both ride the same flake input. Re-vendor on tag bump if
   # HERDR_INTEGRATION_VERSION changed (checklist in doc/herdr.md).
-  #
-  # The agent *skill* is deliberately NOT vendored: it is npx-managed like the
-  # other skills in ~/.agents/skills (manual `npx skills add herdrdev/herdr
-  # --skill herdr -g`; re-run per tag bump — see doc/herdr.md).
   xdg.configFile."opencode/plugins/herdr-agent-state.js".source =
     ../../config/opencode/plugins/herdr-agent-state.js;
+
+  # omp integration extension, same vendoring story as the opencode plugin
+  # above (src/integration/assets/omp/ at the pinned tag → config/omp/).
+  # Deploys to ~/.omp/agent/extensions/herdr-omp-agent-state.ts — omp's
+  # extension dir (PI_CODING_AGENT_DIR semantics: ~/.omp/agent, NOT
+  # ~/.config/omp), which is why this is home.file while the opencode
+  # plugin above is xdg.configFile. herdr offers `herdr integration install
+  # omp` doing the same copy; the store symlink replaces that flow and
+  # makes a stray hand-install fail loudly instead of drifting.
+  #
+  # The two assets carry INDEPENDENT version counters (v0.9.1: opencode
+  # plugin = 12, omp extension = 10) — never diff one against the other,
+  # only against the same-file asset at the new tag. Checklist in
+  # doc/herdr.md covers both.
+  home.file.".omp/agent/extensions/herdr-omp-agent-state.ts".source =
+    ../../config/omp/herdr-omp-agent-state.ts;
 }

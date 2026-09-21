@@ -50,17 +50,28 @@ dev-gated home-layer tool.
 | herdr binary | Nix | `herdr.packages.${pkgs.stdenv.hostPlatform.system}.default` → `home.packages`, dev-gated |
 | `~/.config/herdr/config.toml` | Nix | `xdg.configFile` from the verbatim asset [config/herdr/config.toml](../config/herdr/config.toml) |
 | `~/.config/opencode/plugins/herdr-agent-state.js` | Nix | `xdg.configFile` from the vendored byte-for-byte copy [config/opencode/plugins/herdr-agent-state.js](../config/opencode/plugins/herdr-agent-state.js) |
+| `~/.omp/agent/extensions/herdr-omp-agent-state.ts` | Nix | `home.file` from the vendored byte-for-byte copy [config/omp/herdr-omp-agent-state.ts](../config/omp/herdr-omp-agent-state.ts) (added 2026-09-21 with the [omp adoption](omp.md)) |
 | agent skill (`~/.agents/skills/herdr/SKILL.md`) | **npx, manual** | `npx skills add herdrdev/herdr --skill herdr -g` |
 
-The plugin lives in `config/opencode/plugins/` but is deployed by
-`modules/home/herdr.nix`, **not** `opencode.nix` — keeping the
-herdr↔opencode coupling in one greppable place, and the plugin version rides
-the same flake input as the binary, so they can never drift apart.
+The plugin lives in `config/opencode/plugins/` and the omp extension in
+`config/omp/`, but both are deployed by [modules/home/herdr.nix](../modules/home/herdr.nix),
+**not** by opencode.nix / omp.nix — keeping the herdr↔agent couplings in one
+greppable place, and each asset's version rides the same flake input as the
+binary, so they can never drift apart.
 
-Why the plugin is vendored at all: opencode loads plugins from
-`~/.config/opencode/plugins/`; a store symlink pins it to a reviewed,
-version-matched copy and makes a stray install (e.g. herdr offering to
-upgrade it) fail loudly instead of silently drifting.
+Why the assets are vendored at all: opencode loads plugins from
+`~/.config/opencode/plugins/` and omp loads extensions from
+`~/.omp/agent/extensions/`; store symlinks pin them to reviewed,
+version-matched copies and make a stray install (e.g. `herdr integration
+install omp` offering to write its own copy) fail loudly instead of silently
+drifting. The omp deployment path uses `home.file` rather than
+`xdg.configFile` because omp's base directory is `~/.omp/agent/` (not
+`~/.config/omp/`).
+
+The two vendored agent assets carry **independent** version counters — at
+herdr v0.9.1 the opencode plugin is 12 and the omp extension is 10. Never
+compare one against the other; each is diffed only against the same-file
+asset at the new tag (step 3 below).
 
 The agent skill is deliberately **not** vendored: it is npx-managed like the
 other skills in `~/.agents/skills`, so it stays editable/fresh without a
@@ -70,17 +81,22 @@ rebuild, and is re-run manually per tag bump (below).
 
 1. Edit `?ref=vX.Y.Z` on the herdr input in [flake.nix](../flake.nix).
 2. `nix flake lock` and `git add flake.lock`.
-3. **Re-check the vendored plugin against the new tag:**
+3. **Re-check BOTH vendored agent assets against the new tag:**
    compare `HERDR_INTEGRATION_VERSION` in
-   `src/integration/assets/opencode/herdr-agent-state.js` at the new tag with
-   the vendored copy's marker (v0.9.1 = 12). If changed, re-vendor
-   byte-for-byte (`cp` from the tag-resolved `nix flake metadata …` source
-   path) — the plugin and binary must stay version-matched.
+   `src/integration/assets/opencode/herdr-agent-state.js` (v0.9.1 = 12) and
+   in `src/integration/assets/omp/herdr-agent-state.ts` (v0.9.1 = 10) with
+   each vendored copy's marker. The counters are independent — one can move
+   without the other. If either changed, re-vendor that file byte-for-byte
+   (`cp` from the tag-resolved `nix flake metadata …` source path) — the
+   assets and the binary must stay version-matched.
 4. Re-run the skill install: `npx skills add herdrdev/herdr --skill herdr -g`
    (also needed on first install of a new machine).
 5. `git add` everything, `./scripts/check-hosts.sh`: expect `vm` + `geekom`
    drvPaths to move, `hplaptop` byte-identical.
 6. PR → CI → squash merge per [workflow.md](workflow.md).
+
+Post-rebuild verification for the omp extension:
+`herdr integration status` should report `omp: current`.
 
 Note on `zig_0_15`: herdr's build uses zig; it was present in both our
 nixpkgs-26.05 pin and nixpkgs-unstable at adoption time. Upstream moved its
@@ -223,5 +239,5 @@ trial period, per [adopting-tools.md](adopting-tools.md) "Check for overlap".
 - [config/zellij/config.kdl](../config/zellij/config.kdl) — the zellij keymap
   herdr's alt-singles mirror
 - [modules/home/herdr.nix](../modules/home/herdr.nix) — the module (owning
-  comments for plugin + skill)
+  comments for both vendored agent assets + the skill)
 - upstream docs: herdr.dev/docs
