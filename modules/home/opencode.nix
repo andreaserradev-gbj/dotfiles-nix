@@ -38,10 +38,10 @@ lib.mkIf osConfig.local.dev.enable {
       "CLAUDE.local.md"
     ];
 
-    # Cloud stub proxied to ollama.com, so this is NOT on-box inference: each
-    # host needs its own `ollama signin` and the 890M never sees the work. It
-    # is the only cloud model here now -- ollama's subscription change retired
-    # glm-5.3:cloud. Pull a real model to change that.
+    # Cloud stubs proxied to ollama.com, so this is NOT on-box inference: each
+    # host needs its own `ollama signin` and the 890M never sees the work.
+    # glm-5.3:cloud was retired by ollama's subscription change; the two stubs
+    # below are the current cloud lineup. Pull a real model to change that.
     #
     # baseURL is the literal address rather than `localhost` because ollama
     # binds 127.0.0.1 only, while localhost resolves to ::1 first on these
@@ -62,6 +62,24 @@ lib.mkIf osConfig.local.dev.enable {
       models = {
         "glm-5.3-flash:cloud" = {
           name = "GLM 5.3 Flash (cloud)";
+          attachment = true;
+          modalities.input = [
+            "text"
+            "image"
+          ];
+          modalities.output = [ "text" ];
+          limit = {
+            context = 1048576;
+            output = 131072;
+          };
+        };
+        # Second cloud stub. `/api/show` on 2026-09-21 reports a 763B FP8
+        # model with the same 1048576 context as glm-5.3-flash and capabilities
+        # completion/thinking/tools/vision — so the same two-key vision gate
+        # above applies. ollama publishes no output cap for it either; 131072
+        # mirrors the glm-5.3-flash figure.
+        "deepseek-v4.1-flash:cloud" = {
+          name = "DeepSeek V4.1 Flash (cloud)";
           attachment = true;
           modalities.input = [
             "text"
