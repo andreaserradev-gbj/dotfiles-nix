@@ -1,15 +1,34 @@
 {
   lib,
   osConfig,
-  herdr,
+  pkgs,
   ...
 }:
 # herdr — terminal workspace manager for coding agents (Phase 0 trial passed;
 # promotion per doc/adopting-tools.md). Gate matches the other dev-only HM
 # modules: hplaptop (local.dev.enable = false) evaluates this to the empty
 # config and never sees the package or the two config assets below.
+#
+# NOTE on the `herdr` flake input: it is STILL THREADED via
+# home-manager.extraSpecialArgs in flake.nix (the from-source build), but
+# this module no longer binds it — the default package is the upstream
+# prebuilt (below). From-source fallback: re-add `herdr` to the function
+# args and set `home.packages = [ herdr ];`. The input stays in flake.lock
+# as the version pin of record and for re-vendoring the integration assets
+# (doc/herdr.md checklist).
+let
+  # Prebuilt-by-default: upstream's STATIC-PIE release binary (see
+  # herdr-prebuilt.nix for why — the from-source build measures ~5 min on a
+  # fast CI runner and recompiled on every run because runner stores don't
+  # persist, even when the drv was byte-identical between PRs). The
+  # vendored plugin/extension assets below are text in this repo — they
+  # never depended on the source build.
+  herdrPkg = pkgs.callPackage ./herdr-prebuilt.nix {
+    system = pkgs.stdenv.hostPlatform.system;
+  };
+in
 lib.mkIf osConfig.local.dev.enable {
-  home.packages = [ herdr ];
+  home.packages = [ herdrPkg ];
 
   # Config lives in config/herdr/config.toml (verbatim copy of the
   # trial-verified file — edit the asset, not a generator; there is none).

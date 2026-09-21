@@ -42,12 +42,37 @@ dev-gated home-layer tool.
   binding is lazy: all three hosts' drvPaths were byte-identical before and
   after threading. The host-gating fallback (`optionalAttrs`, the
   `unstablePkgs` pattern in flake.nix) was prepared but never needed.
+- **The binary is upstream's prebuilt release, not a source build**
+  ([herdr-prebuilt.nix](../modules/home/herdr-prebuilt.nix), wired via
+  `home.packages` in [herdr.nix](../modules/home/herdr.nix)). The from-source
+  build measured **4m57s of buildPhase on a fast CI runner** (~6 min with the
+  rust-toolchain unpack and zig cache), and it recompiled on EVERY CI run
+  because runner stores do not persist — the drv was byte-identical between
+  the PR #25 and #26 builds, yet CI rebuilt it both times. The prebuilt
+  derivation is a fixed-output fetch of the release binary, SHA256-pinned,
+  Apache-2.0, verified **byte-identical** in the store, live
+  (`herdr --version`, `herdr config check`).
+  - The binary is **static-PIE** (zero NEEDED libraries): no nix-ld
+    dependency, nothing to ELF-patch — the derivation sets
+    `dontStrip`/`dontPatchELF` and installs the bytes as-is. Simpler than
+    the [omp-prebuilt](omp.md) case (no loader override, no Bun-trailer
+    trap), but the same rule holds: never ELF-patch it.
+  - Tradeoff, accepted and named: the trust boundary widens from "herdr's
+    build recipe" to "upstream's release CI" (hash-pinned, nobody
+    re-derives). Fallback to the from-source build is one line:
+    `home.packages = [ herdr ];` (the flake input's own build).
+  - Consequence: herdr and its rust/zig toolchain (rustc, rust-docs, cargo,
+    zig, the zig-cache, cargo-vendor — ~1,150 drv paths on geekom) leave the
+    closure entirely; a herdr tag bump re-hashes instead of recompiling;
+    `nfu` moves of `nixpkgs-unstable` no longer rebuild herdr's binary. The
+    flake input stays in the lock: it is the version pin of record and feeds
+    the module's package fallback.
 
 ## Ownership: Nix-managed vs npx-managed
 
 | artifact | owned by | how it gets there |
 |---|---|---|
-| herdr binary | Nix | `herdr.packages.${pkgs.stdenv.hostPlatform.system}.default` → `home.packages`, dev-gated |
+| herdr binary | Nix | upstream prebuilt FOD ([herdr-prebuilt.nix](../modules/home/herdr-prebuilt.nix)) → `home.packages`, dev-gated; from-source fallback = the `herdr` flake input's package |
 | `~/.config/herdr/config.toml` | Nix | `xdg.configFile` from the verbatim asset [config/herdr/config.toml](../config/herdr/config.toml) |
 | `~/.config/opencode/plugins/herdr-agent-state.js` | Nix | `xdg.configFile` from the vendored byte-for-byte copy [config/opencode/plugins/herdr-agent-state.js](../config/opencode/plugins/herdr-agent-state.js) |
 | `~/.omp/agent/extensions/herdr-omp-agent-state.ts` | Nix | `home.file` from the vendored byte-for-byte copy [config/omp/herdr-omp-agent-state.ts](../config/omp/herdr-omp-agent-state.ts) (added 2026-09-21 with the [omp adoption](omp.md)) |
@@ -79,9 +104,15 @@ rebuild, and is re-run manually per tag bump (below).
 
 ## Update checklist (per herdr tag bump)
 
-1. Edit `?ref=vX.Y.Z` on the herdr input in [flake.nix](../flake.nix).
-2. `nix flake lock` and `git add flake.lock`.
-3. **Re-check BOTH vendored agent assets against the new tag:**
+1. Edit the version + both hashes in
+   [herdr-prebuilt.nix](../modules/home/herdr-prebuilt.nix) (the
+   `herdr-linux-x86_64` / `herdr-linux-aarch64` assets; re-hash with
+   `nix hash convert --hash-algo sha256 --to sri`).
+2. Edit `?ref=vX.Y.Z` on the herdr input in [flake.nix](../flake.nix) — must
+   agree with step 1 (the vendored agent assets are re-vendored from the
+   same tag).
+3. `nix flake lock` and `git add flake.lock`.
+4. **Re-check BOTH vendored agent assets against the new tag:**
    compare `HERDR_INTEGRATION_VERSION` in
    `src/integration/assets/opencode/herdr-agent-state.js` (v0.9.1 = 12) and
    in `src/integration/assets/omp/herdr-agent-state.ts` (v0.9.1 = 10) with
@@ -89,11 +120,15 @@ rebuild, and is re-run manually per tag bump (below).
    without the other. If either changed, re-vendor that file byte-for-byte
    (`cp` from the tag-resolved `nix flake metadata …` source path) — the
    assets and the binary must stay version-matched.
-4. Re-run the skill install: `npx skills add herdrdev/herdr --skill herdr -g`
+5. Re-run the skill install: `npx skills add herdrdev/herdr --skill herdr -g`
    (also needed on first install of a new machine).
-5. `git add` everything, `./scripts/check-hosts.sh`: expect `vm` + `geekom`
+6. **No compile happens** — CI substitutes the ~25 MB static binary (a FOD
+   failure here means the hash or URL is wrong, not a build issue). The
+   rust/zig toolchain is gone from the closure, so the ~5-min herdr
+   buildPhase class is gone too.
+7. `git add` everything, `./scripts/check-hosts.sh`: expect `vm` + `geekom`
    drvPaths to move, `hplaptop` byte-identical.
-6. PR → CI → squash merge per [workflow.md](workflow.md).
+8. PR → CI → squash merge per [workflow.md](workflow.md).
 
 Post-rebuild verification for the omp extension:
 `herdr integration status` should report `omp: current`.
