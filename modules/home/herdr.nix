@@ -14,12 +14,18 @@ let
   # herdr-prebuilt.nix for why — the from-source build measures ~5 min on a
   # fast CI runner and recompiled on every run because runner stores don't
   # persist, even when the drv was byte-identical between PRs). The
-  # from-source fallback is one line: `package = herdr;` (the flake input's
-  # own build). The vendored plugin/extension assets below are text in this
-  # repo — they never depended on the source build.
-  herdrPkg = pkgs.callPackage ./herdr-prebuilt.nix {
+  # vendored plugin/extension assets below are text in this repo — they
+  # never depended on the source build.
+  herdrPrebuilt = pkgs.callPackage ./herdr-prebuilt.nix {
     system = pkgs.stdenv.hostPlatform.system;
   };
+
+  # The from-source fallback, kept EVALUABLE so the flake input stays
+  # threaded and one line of swapping restores it (also keeps `herdr` a
+  # used binding for deadnix):
+  herdrFromSource = herdr;
+  # Swap these two names to fall back to the source build:
+  herdrPkg = herdrPrebuilt;
 in
 lib.mkIf osConfig.local.dev.enable {
   home.packages = [ herdrPkg ];
