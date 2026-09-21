@@ -32,11 +32,37 @@ and its results, not this doc, will drive any primary-harness switch.
   cache covers the *toolchain* deps but **no cache carries omp itself**
   (verified 2026-09-21: the v18.2.7 store paths 404 on
   nix-community.cachix.org; omp's own `nix.yml` CI evaluates but never
-  builds/publishes). Consequence: an omp tag bump or an `nfu` that moves
-  `nixpkgs-unstable` recompiles omp **twice in CI** (geekom + hplaptop build
-  on separate runners, no shared cache) — watch the 60-minute build-job
-  timeout on those commits. The aarch64 VM builds omp locally once at its
-  next `nrb`.
+  builds/publishes).
+- **The binary is upstream's prebuilt release, not a source build**
+  ([omp-prebuilt.nix](../modules/home/omp-prebuilt.nix), wired via
+  `programs.omp.package` in [omp.nix](../modules/home/omp.nix)). The
+  from-source build cost was measured on the first PR: **31 min on a fast
+  CI runner**; the full build cycle exceeds an hour locally, and it would
+  re-trigger on EVERY `nfu` that moves `nixpkgs-unstable` (the omp flake
+  input follows that tree) — an unbounded recurring cost. The prebuilt
+  derivation is a fixed-output fetch of the release binary (the same one
+  upstream's install script and Homebrew ship), SHA256-pinned, MIT, and
+  verified **byte-identical** in the store, live against the local daemon.
+  - It depends on nix-ld (dev-gated) for its `/lib64` loader — stock NixOS
+    without the dev seam would not run it (irrelevant here: the module is
+    dev-gated anyway).
+  - **It must never be ELF-patched** (`autoPatchelfHook`, `strip`,
+    `patchelf`): omp is a Bun standalone executable that locates its
+    embedded payload via absolute trailer offsets — patching shifts the
+    section table (+144 bytes at v18.2.7) and silently degrades the binary
+    into a plain `bun` runtime (`omp --version` → `Bun v1.4.2`). Verified
+    experimentally; the derivation sets `dontStrip`/`dontPatchELF` and
+    documents this.
+  - Tradeoff, accepted and named: the trust boundary widens from "omp's
+    build recipe" to "upstream's release CI" (hash-pinned, nobody
+    re-derives). Fallback to the from-source build is one line:
+    `package = omp.packages.${pkgs.stdenv.hostPlatform.system}.default;`
+  - Consequence for CI: **an omp tag bump no longer compiles anything** —
+    a bump edits the pin in omp-prebuilt.nix + `?ref=` in flake.nix
+    (they must agree), re-hashes, and CI substitutes a ~244 MB binary.
+    `nfu` moves of `nixpkgs-unstable` no longer touch omp's binary either
+    (the flake input is still locked for the HM module + version pin of
+    record). The 31-minute CI compile class is gone entirely.
 - **Binary-cache trust is system-level** ([common.nix](../modules/nixos/common.nix)):
   omp's flake advertises nix-community's cache via `nixConfig`, but that is
   only a prompt — an untrusted user's "y" still yields "warning: ignoring
@@ -173,23 +199,35 @@ checklist in [herdr.md](herdr.md) covers both. Verify with
 
 ## Update checklist (per omp tag bump)
 
-1. Edit `?ref=vX.Y.Z` on the omp input in [flake.nix](../flake.nix).
-2. `nix flake lock` and `git add flake.lock`.
-3. Re-vendor the herdr omp extension if its version marker changed at the
+1. Edit the version + both hashes in
+   [omp-prebuilt.nix](../modules/home/omp-prebuilt.nix) (the glibc asset for
+   each arch; re-hash with `nix hash convert --hash-algo sha256 --to sri` or
+   let the FOD error print the expected hash).
+2. Edit `?ref=vX.Y.Z` on the omp input in [flake.nix](../flake.nix) — must
+   agree with step 1 (the HM module + settings are written for that
+   version's compiled-in `CURRENT_SETUP_VERSION`).
+3. `nix flake lock` and `git add flake.lock`.
+4. Re-vendor the herdr omp extension if its version marker changed at the
    new tag (same checklist as [herdr.md](herdr.md) step 3 — the extension
    rides the *herdr* input, so this only coincides with omp bumps).
-4. Expect **CI to compile omp twice** (geekom + hplaptop matrix jobs, no
-   binary cache) — if a bump lands near the 60-minute build timeout,
-   consider splitting the bump into its own PR so a timeout is diagnosable.
-5. `git add` everything, `./scripts/check-hosts.sh`: expect `vm` + `geekom`
+5. **No compile happens** — CI substitutes the ~244 MB prebuilt (a FOD
+   failure here means the hash or URL is wrong, not a build issue).
+6. `git add` everything, `./scripts/check-hosts.sh`: expect `vm` + `geekom`
    drvPaths to move, `hplaptop` byte-identical (dev-gated).
-6. PR → CI → squash merge per [workflow.md](workflow.md).
+7. PR → CI → squash merge per [workflow.md](workflow.md).
 
 ## Trial record (Phase 0, 2026-09-21)
 
 - `nix run github:can1357/oh-my-pi` (unpinned main ≈ v18.2.7) on geekom:
   built from source (no cache carries it — substituter warning observed and
   root-caused, fixed in common.nix).
+- From-source cost measured at adoption: **31 min on the CI runner** —
+  motivating the prebuilt switch (above) the same day.
+- Prebuilt verification (2026-09-21): store binary byte-identical to the
+  release asset; `omp --version`, live model call via the local daemon, and
+  `omp completions zsh` all pass. The autoPatchelfHook variant was built
+  first, found silently degraded to `bun`, root-caused (Bun-standalone
+  trailer offsets), and fixed by removing all ELF patching.
 - First-run wizard observed, including the ollama-cloud sign-in step:
   expected — omp's native search provider needs its own credential (see
   above); key entered, web search verified working by the user.
