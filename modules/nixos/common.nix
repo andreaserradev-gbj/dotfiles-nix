@@ -94,4 +94,20 @@
     "nix-command"
     "flakes"
   ];
+
+  # The nix-community binary cache, trusted at the SYSTEM level. Tool flakes
+  # consumed by this repo advertise it via their flake's nixConfig (herdr
+  # historically; oh-my-pi's Rust/bun2nix/nix-bun closure today), but
+  # flake-level nixConfig is only a PROMPT: on a host whose user is not a
+  # trusted nix user, answering y at the prompt still yields "warning:
+  # ignoring untrusted substituter" and every build runs locally. Declaring
+  # the cache here makes the substitution unconditional — no prompt, no
+  # ignored mirror. Nothing else adds substituters, so this is the complete
+  # substituter story; cache.nixos.org remains the default fallback
+  # automatically. Machine-level on purpose, so this moves ALL THREE hosts'
+  # drvPaths including hplaptop (no package diffs — a config-only move).
+  nix.settings.substituters = [ "https://nix-community.cachix.org" ];
+  nix.settings.trusted-public-keys = [
+    "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+  ];
 }

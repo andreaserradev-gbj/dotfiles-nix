@@ -7,11 +7,11 @@
 
     # The workflow.md "escape hatch" (doc/workflow.md, "Need a newer version
     # before the next release?"): a second nixpkgs tracking unstable, consumed
-    # for a SMALL, explicit selection of tools. Two consumers today: ollama
-    # (geekom, via unstablePkgs) and herdr, whose own input follows this tree
-    # instead of dragging in a third nixpkgs. It moves daily, so anything
-    # referencing it re-evaluates against a moving target — never import this
-    # where a shared module could see it.
+    # for a SMALL, explicit selection of tools. Three consumers today: ollama
+    # (geekom, via unstablePkgs), herdr, and omp — each via its own input's
+    # `follows` below. It moves daily, so anything referencing it re-evaluates
+    # against a moving target — never import this where a shared module could
+    # see it.
     nixpkgs-unstable.url = "github:NixOs/nixpkgs/nixos-unstable";
 
     home-manager = {
@@ -41,6 +41,28 @@
       url = "github:herdrdev/herdr?ref=v0.9.1";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
+
+    # omp (oh-my-pi, coding agent), from its upstream flake — the same triage
+    # row and shape as herdr above: not in nixpkgs (searched 2026-09-21), so
+    # the package comes from the upstream flake, tag-pinned (`?ref=`; an
+    # unpinned github: input moves on every `nfu`). `nixpkgs` follows our
+    # unstable — the tree omp's own lock is cut against — so no third nixpkgs
+    # lands in the lock. `nixpkgs-darwin-x64` (omp keeps Intel-mac support on
+    # the last stable darwin tree) follows our stable nixpkgs instead: that
+    # input only matters for x86_64-darwin, which no host here is, and
+    # following it raw would add a THIRD nixpkgs tree to the lock for zero
+    # benefit. Lockfile cost accepted and documented in doc/omp.md: omp's
+    # inputs add bun2nix, nix-bun and oxalica rust-overlay (its Rust core +
+    # bun runtime are built from source — no binary cache carries omp itself,
+    # only its toolchain deps come from nix-community's cache, trusted in
+    # common.nix). The HM module is threaded via extraSpecialArgs below and
+    # consumed by modules/home/omp.nix, gated on osConfig.local.dev.enable;
+    # hplaptop (dev off) never evaluates it.
+    omp = {
+      url = "github:can1357/oh-my-pi?ref=v18.2.7";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+      inputs.nixpkgs-darwin-x64.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -50,6 +72,7 @@
       home-manager,
       sops-nix,
       herdr,
+      omp,
       ...
     }:
     let
@@ -143,6 +166,12 @@
               # warning since 2025-10-28 (pkgs/top-level/aliases.nix);
               # stdenv.hostPlatform.system is the replacement.
               herdr = herdr.packages.${pkgs.stdenv.hostPlatform.system}.default;
+              # The flake INPUT (not the package): modules/home/omp.nix
+              # imports omp's homeManagerModules.default, whose
+              # programs.omp.package already defaults to
+              # self.packages.<system>.default — threading the package here
+              # too would be a second path to the same drv.
+              inherit omp;
             };
             home-manager.users.${user.username} = import ./home.nix;
           }

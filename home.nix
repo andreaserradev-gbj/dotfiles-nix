@@ -3,12 +3,12 @@
 }:
 
 {
-  # Imported by every host, unconditionally. The 13 dev-only HM modules gate
+  # Imported by every host, unconditionally. The 14 dev-only HM modules gate
   # THEMSELVES, each wrapping its own body in
   # `lib.mkIf osConfig.local.dev.enable` — the same idiom gtk.nix and
   # desktop.nix already used for the desktop seam, and the same option
   # `modules/nixos/dev.nix` keys off. vm + geekom set it true; hplaptop leaves
-  # it false and evaluates those 13 to the empty config.
+  # it false and evaluates those 14 to the empty config.
   #
   # A `mkIf false` module contributes nothing to the result, so importing it on
   # hplaptop is equivalent to not importing it. That equivalence is not assumed
@@ -36,6 +36,7 @@
     ./modules/home/desktop.nix
     ./modules/home/maintenance.nix
     ./modules/home/opencode.nix
+    ./modules/home/omp.nix
     ./modules/home/npm.nix
   ];
 
