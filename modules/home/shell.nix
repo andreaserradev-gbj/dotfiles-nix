@@ -157,6 +157,49 @@ lib.mkIf osConfig.local.dev.enable {
       }
       ngl() { _gens; }   # list generations, formatted like ngd/ngc
 
+      # nfud — the dry-run twin of nfu: resolve every input, write the would-be
+      # flake.lock to a temp file, print what moved, discard it. Nix has no
+      # --dry-run for `flake update` ("unrecognised flag" on 2.34.8), and
+      # --no-write-lock-file is not accepted there either (it only appears in
+      # --output-lock-file's description); --output-lock-file is the supported
+      # equivalent, verified to leave flake.lock and the git working tree
+      # untouched. The exit status IS the answer: 0 = nothing would move,
+      # 1 = something would, 2 = the resolution itself failed.
+      #
+      # The per-node summary leads because a raw flake.lock diff shows rev and
+      # narHash edits without naming the input they belong to — reconstructing
+      # that by hand is the whole reason this helper exists. It reads both locks
+      # with `-rn --slurpfile` rather than jq's `input`: that is one program run
+      # over two NAMED inputs, with no dependence on how an implementation
+      # iterates multiple input files (verified identical output on jq 1.8.2,
+      # which these hosts install via dev.nix under the same dev gate as this
+      # file, and on jaq 2.3.0, which does not share that iteration).
+      nfud() {
+        local tmp rc
+        tmp=$(mktemp -t nfud.XXXXXX) || return 2
+        if ! nix flake update --flake "${repoAbs}" --output-lock-file "$tmp"; then
+          rm -f "$tmp"
+          print -ru2 -- 'nfud: input resolution failed'
+          return 2
+        fi
+        jq -rn --slurpfile o "${repoAbs}/flake.lock" --slurpfile n "$tmp" '
+          def short: if . == null then "-" else .[0:7] end;
+          ($o[0].nodes) as $O | ($n[0].nodes) as $N
+          | [($O | keys[]), ($N | keys[])] | unique[]
+          | . as $k
+          | select(($O[$k].locked.rev // "") != ($N[$k].locked.rev // ""))
+          | "\($k): \($O[$k].locked.rev | short) -> \($N[$k].locked.rev | short)"
+        '
+        diff -u "${repoAbs}/flake.lock" "$tmp"
+        rc=$?
+        rm -f "$tmp"
+        case $rc in
+          0) print -r -- 'nfud: no input would move'; return 0 ;;
+          1) return 1 ;;
+          *) print -ru2 -- "nfud: diff failed (rc=$rc)"; return 2 ;;
+        esac
+      }
+
       # nrs/nrt as FUNCTIONS, not shellAliases. Reason lives on the
       # loopbackRebuild fragment below: HM 26.05 emits shellAliases AFTER
       # initContent, so any alias defined in the shellAliases block lands
