@@ -1,6 +1,6 @@
 # omp (oh-my-pi) — the second coding agent
 
-omp ([github:can1357/oh-my-pi](https://github.com/can1357/oh-my-pi), v18.2.7)
+omp ([github:can1357/oh-my-pi](https://github.com/can1357/oh-my-pi), v18.2.8)
 is a coding agent — a fork of Mario Zechner's Pi with an expanded tool surface
 (LSP wired in, DAP debugging, subagents, web search). It was adopted on
 2026-09-21 as a **coexisting** second harness alongside
@@ -12,7 +12,7 @@ and its results, not this doc, will drive any primary-harness switch.
 
 ## Why this shape
 
-- **Upstream flake, tag-pinned** (`?ref=v18.2.7` in [flake.nix](../flake.nix)).
+- **Upstream flake, tag-pinned** (`?ref=v18.2.8` in [flake.nix](../flake.nix)).
   omp is not in nixpkgs (searched 2026-09-21), so the package comes from its
   upstream flake — the "upstream flake" row of the
   [triage ladder](adopting-tools.md). An unpinned `github:` input would move
@@ -30,9 +30,10 @@ and its results, not this doc, will drive any primary-harness switch.
   `nix-bun` and `oxalica/rust-overlay` — omp's Rust core (~80k lines of
   natives) and bun runtime are built from source. The nix-community binary
   cache covers the *toolchain* deps but **no cache carries omp itself**
-  (verified 2026-09-21: the v18.2.7 store paths 404 on
-  nix-community.cachix.org; omp's own `nix.yml` CI evaluates but never
-  builds/publishes).
+  (verified 2026-09-22 at v18.2.8: `nix path-info --store
+  https://nix-community.cachix.org` reports the prebuilt store path "not
+  valid" — `nix-community.cachix.org/nar/*.narinfo` 404s for it; omp's own
+  `nix.yml` CI evaluates but never builds/publishes).
 - **The binary is upstream's prebuilt release, not a source build**
   ([omp-prebuilt.nix](../modules/home/omp-prebuilt.nix), wired via
   `programs.omp.package` in [omp.nix](../modules/home/omp.nix)). The
@@ -113,10 +114,15 @@ switch. Runtime edits survive until the next switch, then lose to the
 declaration. That is why the routing knobs omp would otherwise write at
 runtime are **declared** in `programs.omp.settings` instead:
 
-- `modelRoles.default = "ollama/glm-5.3-flash:cloud"` — mirrors opencode's
-  `model`. No `models.yml` at all: omp discovers ollama implicitly (native
-  `/api/tags` + `/api/show`), so per-tag context windows and capabilities
-  come from the daemon — the stale-`limit`-comments maintenance class in
+- `modelRoles.default = "ollama/deepseek-v4.1-flash:cloud:high"` — the same
+  model opencode's `model` names (one edit per file to switch), plus omp's
+  `provider/model:level` thinking-level suffix: `:high` is what the runtime
+  pick carried and is declared so the next switch re-imposes it rather than
+  dropping to the model's default tier. opencode's schema has no equivalent
+  suffix. No `models.yml` at all: omp discovers ollama implicitly (native
+  `/api/tags` + `/api/show`), so per-tag
+  context windows and capabilities come from the daemon — the
+  stale-`limit`-comments maintenance class in
   [opencode.nix](../modules/home/opencode.nix) cannot recur here.
 - `modelRoles.web = "web/ollama"` — omp's `web_search` walks dedicated
   search providers, never an LLM; without this it falls to the keyless
@@ -181,9 +187,20 @@ checklist in [herdr.md](herdr.md) covers both. Verify with
   under `~/.omp/logs`. `omp config path` prints the active agent dir;
   `PI_CODING_AGENT_DIR` relocates it (herdr's omp integration honors the
   same variable).
-- **No self-updater exists** (verified against docs + source at v18.2.7) —
-  unlike opencode's `autoupdate = false` and herdr's inert-by-Nix updater,
-  there is nothing to disable; the tag pin in flake.nix is the version story.
+- **The updater refuses a Nix-managed binary** (source-verified at v18.2.8,
+  `packages/coding-agent/src/cli/update-cli.ts`): `resolveUpdateMethod`
+  classifies any path under `/nix/store` as `"nix"`, and `omp update` then
+  exits with "This installation is managed by Nix and cannot update itself."
+  So Nix ownership is safe by upstream guard, **not** by an absent updater —
+  the "no self-updater exists" claim that stood here until 2026-09-22 was
+  wrong and is corrected at this bump. The phone-home half *is* declarable and
+  is switched off: `"startup.checkUpdate" = false` in
+  [omp.nix](../modules/home/omp.nix). Its default (`true`) GETs the GitHub
+  releases API on every launch — `main.ts` `checkForNewVersion` →
+  `getLatestRelease`, 5 s timeout — to announce a version this install cannot
+  take. Same decision as herdr's `update.version_check = false` and
+  opencode's `autoupdate = false`; the tag pin in flake.nix is the version
+  story.
 - `nix run github:can1357/oh-my-pi` (the trial invocation) is **ephemeral** —
   no GC root, swept by `ngca`; the installed binary from the module is the
   permanent path.

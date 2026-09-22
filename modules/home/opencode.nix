@@ -6,7 +6,7 @@
 }:
 lib.mkIf osConfig.local.dev.enable {
   # opencode ships a self-updater that offers to replace a Nix-managed binary.
-  # Accepting would leave the config declaring 1.15.10 while the machine ran
+  # Accepting would leave the config declaring 1.18.31 while the machine ran
   # something else — drift the drvPath gate cannot see, because it happens
   # outside the store. Same hazard btop.nix guards against with
   # `save_config_on_exit = false`: a tool that rewrites what Nix declares turns
@@ -14,8 +14,11 @@ lib.mkIf osConfig.local.dev.enable {
   #
   # claude-code is no longer installed; this module previously contrasted its
   # DISABLE_AUTOUPDATER=1 wrapper with opencode's lack of one. opencode has no
-  # such wrapper, so the off switch has to come from config. Version freshness
-  # comes from `nix flake update`.
+  # such wrapper, so the off switch has to come from config — re-verified
+  # against the 1.18.31 source (cli/upgrade.ts bails on `autoupdate === false`
+  # before any fetch). Version freshness comes from the nixpkgs-unstable pin
+  # (local.dev.opencodePackage in flake.nix's hostArgs, set by the two dev
+  # hosts) plus `nfu`.
   #
   # The package itself lives in environment.systemPackages (the harness is
   # machine-level); this module owns only the per-user config.
@@ -25,11 +28,13 @@ lib.mkIf osConfig.local.dev.enable {
     autoupdate = false;
 
     # Relative instruction globs resolve upward from the project directory the
-    # session starts in (verified against the 1.15.10 source: relative entries
-    # go through globUp(instruction, ctx.directory, ctx.worktree), NOT relative
-    # to this config file — that is the {file:...} substitution's rule). So one
-    # global entry applies to any repo that has the file and is a no-op in
-    # repos that do not: .claude/rules/*.md picks up per-topic scoped rules,
+    # session starts in (re-verified against the 1.18.31 source,
+    # session/instruction.ts: relative entries go through
+    # globUp(instruction, ctx.directory, ctx.worktree), NOT relative to this
+    # config file — that is the {file:...} substitution's rule, which resolves
+    # against dir(config) in config/variable.ts). So one global entry applies
+    # to any repo that has the file and is a no-op in repos that do not:
+    # .claude/rules/*.md picks up per-topic scoped rules,
     # CLAUDE.local.md the per-repo personal notes. Neither is read by opencode's
     # built-in discovery — CLAUDE.md compatibility covers only the single
     # project CLAUDE.md, not Claude's rules directory or .local files.
@@ -101,8 +106,8 @@ lib.mkIf osConfig.local.dev.enable {
         # so without the explicit array opencode replaces any attached image with
         # an "ERROR: this model does not support image input" text stub and never
         # forwards the bytes.
-        # qwen3-coder:30b-a3b-q4_K_M is a LOCAL model (the glm-5.3-flash entry
-        # above is the only cloud stub), so no `ollama signin` is involved and the
+        # qwen3-coder:30b-a3b-q4_K_M is a LOCAL model (the two `:cloud` entries
+        # above are the cloud stubs), so no `ollama signin` is involved and the
         # daemon's cap is the whole story. `/api/show` on 2026-08-27 reports
         # 262144 — matching the card's 256K native window — and the daemon's
         # context is the GGUF-declared 262144, so the limit is exact, not
@@ -197,8 +202,12 @@ lib.mkIf osConfig.local.dev.enable {
     # No custom agents. opencode's built-in plan agent already denies edits;
     # both plan and build run on the top-level `model` below. Switch models
     # mid-session with Ctrl+T (model list) or Tab (plan/build).
-
-    model = "ollama/glm-5.3-flash:cloud";
+    #
+    # Default is the deepseek-v4.1 cloud stub (user pick, 2026-09-22) — kept
+    # identical to omp's `modelRoles.default` (modules/home/omp.nix), which is
+    # the point: one model, chosen on both harnesses, so the agent-bench
+    # comparison in doc/omp.md runs the same model on each side.
+    model = "ollama/deepseek-v4.1-flash:cloud";
 
     # An absolute store path, not the README's `uvx` or `nix run`: both fetch at
     # run time, which would put a network dependency inside a config whose whole

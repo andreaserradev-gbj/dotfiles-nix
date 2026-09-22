@@ -2,6 +2,9 @@
 # Shared settings live in modules/nixos/common.nix.
 {
   pkgs,
+  # The nixos-unstable nixpkgs instance, bound only on this host (flake.nix
+  # `hostArgs`). Consumed for one package: opencode, below.
+  unstablePkgs,
   user,
   ...
 }:
@@ -33,6 +36,15 @@
   # Dev tooling — nix-ld, ollama, opencode, nodejs, uv, jq, sshd — is gated
   # behind `local.dev.enable` in modules/nixos/dev.nix. This host flips it on.
   local.dev.enable = true;
+
+  # opencode from nixos-unstable, exactly as on geekom: opencode's releases
+  # land on unstable only, so 26.05's 1.15.10 lags the 1.18.x this VM gets.
+  # The VM has no GPU and no ollama model worth running, so opencode here is
+  # almost always talking to a remote/local provider — which is where the
+  # 1.16-1.18 agent fixes actually land. Same userland/low-blast-radius
+  # argument as geekom (doc/workflow.md, "Need a newer version before the next
+  # release?"); the binding exists on this host in flake.nix `unstableHosts`.
+  local.dev.opencodePackage = unstablePkgs.opencode;
 
   # cage: single-app kiosk Wayland compositor. It IS the login — its systemd
   # unit (cage-tty1) conflicts with getty@tty1 and autologins via a PAM

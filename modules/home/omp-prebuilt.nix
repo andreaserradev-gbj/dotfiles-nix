@@ -10,7 +10,7 @@
 # doc/omp.md), the full cycle exceeds an hour locally, and it re-triggers on
 # EVERY nfu that moves nixpkgs-unstable (the omp flake input follows that
 # tree). The release binaries are what upstream's own install script and
-# Homebrew ship; verified live on NixOS at v18.2.7: `omp --version`, a live
+# Homebrew ship; verified live on NixOS at v18.2.8: `omp --version`, a live
 # model call through the local ollama daemon, and `omp completions zsh` all
 # work with the stock /lib64 loader — the binary needs NOTHING beyond
 # glibc's own libraries (NEEDED: libc/pthread/dl/m).
@@ -42,15 +42,15 @@
 # ?ref= in flake.nix (they must agree — omp.nix's settings are written for
 # a specific compiled-in CURRENT_SETUP_VERSION), re-hash, done. No compile.
 let
-  version = "18.2.7";
+  version = "18.2.8";
   srcs = {
     x86_64-linux = {
       url = "https://github.com/can1357/oh-my-pi/releases/download/v${version}/omp-linux-x64";
-      hash = "sha256-HCjtZlZuyrq4FFFM/mJrSv9ZgbfKmJJHe0ZVD+a22Ds=";
+      hash = "sha256-sMAdpzOdh/1dJtf6p7YcExpQZIOZlieDiZ/ZOm2LHWU=";
     };
     aarch64-linux = {
       url = "https://github.com/can1357/oh-my-pi/releases/download/v${version}/omp-linux-arm64";
-      hash = "sha256-3uARWcY1d+r+HpOWsWh0YjUgY+wbYiAxd5RvxdWs/xo=";
+      hash = "sha256-qapj5DyVzKoGg+n+0DRjxAGCniIK0rvEFLNB0tSeWAY=";
     };
   };
   src = srcs.${system} or (throw "omp-prebuilt: unsupported system ${system}");

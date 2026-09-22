@@ -27,8 +27,8 @@ dev-gated home-layer tool.
   that cost; herdr's dependency matrix (zig, rust) resolves fine against it
   (`zig_0_15` at adoption, `zig_0_16` since v0.9.1 — both verified present).
   The escape-hatch comment in
-  flake.nix names the two consumers: ollama (geekom, via `unstablePkgs`) and
-  herdr (via its input's follows).
+  flake.nix names the consumers: ollama and opencode (via the per-host
+  `unstablePkgs` bindings), herdr and omp (each via its own input's follows).
 - **Dev-gated home layer.** [modules/home/herdr.nix](../modules/home/herdr.nix)
   wraps its whole body in `lib.mkIf osConfig.local.dev.enable`, exactly like
   [modules/home/zellij.nix](../modules/home/zellij.nix). `hplaptop` (dev off)
