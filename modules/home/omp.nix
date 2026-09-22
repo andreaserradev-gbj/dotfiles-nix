@@ -12,7 +12,7 @@ let
   # from-source fallback is one flag away: swap this for
   # `omp.packages.${pkgs.stdenv.hostPlatform.system}.default` (or build the
   # flake input's package) — settings below are identical either way, since
-  # both binaries are v18.2.7 and read the same config.yml. The prebuilt
+  # both binaries are v18.2.8 and read the same config.yml. The prebuilt
   # needs nix-ld (dev-gated, modules/nixos/dev.nix) for its /lib64 loader.
   ompPkg = pkgs.callPackage ./omp-prebuilt.nix {
     system = pkgs.stdenv.hostPlatform.system;
@@ -53,15 +53,35 @@ in
       # writable regular file (mode 600) in a home.activation step and
       # RE-IMPOSES these declared settings on every home-manager switch.
       # Runtime edits survive until the next switch — the inverse of
-      # opencode's autoupdate = false problem. There is no self-updater to
-      # disable: verified against the v18.2.7 docs and source (no update
-      # channel in the binary; version freshness comes from the tag bump in
-      # flake.nix, same cadence as herdr).
+      # opencode's autoupdate = false problem. omp DOES ship an updater
+      # (`omp update` + the startup version check, cli/update-cli.ts), but it
+      # refuses to touch a Nix-managed binary: resolveUpdateMethod returns
+      # "nix" for any path under /nix/store and the command exits with
+      # "This installation is managed by Nix and cannot update itself." So
+      # Nix ownership is safe by upstream guard, not by the updater's absence
+      # (doc/omp.md used to claim the latter — corrected 2026-09-22 while
+      # bumping to v18.2.8). The phone-home half IS ours to switch off:
+      # startup.checkUpdate defaults to true and fetches the GitHub releases
+      # API on every launch, and it can only ever report a version we cannot
+      # install. Disabled below, exactly like herdr's update.version_check =
+      # false (config/herdr/config.toml) and opencode's autoupdate = false —
+      # all three tool-version stories are the flake pin.
       settings = {
-        # Default model — mirrors opencode.json's `model` (the cloud stub
-        # reached through the LOCAL daemon at 127.0.0.1:11434, the only cloud
-        # entry; ollama's subscription change retired glm-5.3:cloud, so the
-        # 890M never sees the work — same story as opencode.nix lines 41-48).
+        # Default model — mirrors opencode.json's `model`: the deepseek-v4.1
+        # cloud stub (user pick, 2026-09-22), reached through the LOCAL daemon
+        # at 127.0.0.1:11434, so the 890M never sees the work. ollama's
+        # subscription change retired glm-5.3:cloud, which is what a
+        # pre-dates-that config would name — same story as opencode.nix
+        # lines 41-48.
+        #
+        # The `:high` suffix is omp's model-string syntax for the thinking
+        # level (`provider/model:level`, model-selector.ts splitThinkingSuffix)
+        # and is what the runtime pick in config.yml carried — declared here so
+        # the next switch re-imposes it instead of silently dropping to the
+        # model's default tier. opencode's `model` has no such suffix (different
+        # config schema), so the two strings agree on the model and differ only
+        # on the tier by construction: switching the model is one edit in each
+        # file, and agent-bench compares them on the same model by design.
         #
         # No models.yml: omp discovers ollama implicitly (native /api/tags +
         # /api/show against OLLAMA_BASE_URL), so per-tag context windows and
@@ -69,7 +89,7 @@ in
         # the derived ctx128k tag — instead of being hand-copied into config
         # where they would go stale (the exact maintenance burden opencode.nix
         # documents around its hand-maintained `limit` blocks).
-        modelRoles.default = "ollama/glm-5.3-flash:cloud";
+        modelRoles.default = "ollama/deepseek-v4.1-flash:cloud:high";
 
         # Web-search routing: omp's web_search tool walks modelRoles.web, NOT
         # any LLM provider — without this it falls through to the keyless
@@ -100,6 +120,17 @@ in
         #   autoupdate = false posture.
         setupVersion = 2;
         "startup.setupWizard" = false;
+
+        # Third startup knob, unrelated to onboarding: the version check.
+        # Default is true, and it GETs the GitHub releases API on every launch
+        # (main.ts checkForNewVersion → getLatestRelease, 5 s timeout) to print
+        # "a newer version exists" — a notice that can never lead to an install
+        # here, because `omp update` refuses on a /nix/store binary (the
+        # updater note above). Off, matching the same decision on the other two
+        # tools — herdr's update.version_check = false and opencode's
+        # autoupdate = false: the flake pin is the only version story, and no
+        # launch pays a network round trip to restate it.
+        "startup.checkUpdate" = false;
 
         # User-picked UI preferences. The writable-copy mechanism means
         # ANYTHING set at runtime (/settings, the theme scene) is wiped by the

@@ -7,11 +7,11 @@
 
     # The workflow.md "escape hatch" (doc/workflow.md, "Need a newer version
     # before the next release?"): a second nixpkgs tracking unstable, consumed
-    # for a SMALL, explicit selection of tools. Three consumers today: ollama
-    # (geekom, via unstablePkgs), herdr, and omp — each via its own input's
-    # `follows` below. It moves daily, so anything referencing it re-evaluates
-    # against a moving target — never import this where a shared module could
-    # see it.
+    # for a SMALL, explicit selection of tools. Four consumers today: ollama
+    # and opencode (via the geekom and VM `unstablePkgs` bindings), herdr and
+    # omp — each via its own input's `follows` below. It moves daily, so
+    # anything referencing it re-evaluates against a moving target — never
+    # import this where a shared module could see it.
     nixpkgs-unstable.url = "github:NixOs/nixpkgs/nixos-unstable";
 
     home-manager = {
@@ -59,7 +59,7 @@
     # consumed by modules/home/omp.nix, gated on osConfig.local.dev.enable;
     # hplaptop (dev off) never evaluates it.
     omp = {
-      url = "github:can1357/oh-my-pi?ref=v18.2.7";
+      url = "github:can1357/oh-my-pi?ref=v18.2.8";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
       inputs.nixpkgs-darwin-x64.follows = "nixpkgs";
     };
@@ -84,21 +84,34 @@
       # predicate so it behaves like the host's own pkgs, bound ONLY on the
       # hosts that actually consume it. A host that never references it gains
       # nothing and loses nothing: the second evaluation happens lazily, on
-      # first reference, so the other two hosts never pay for it.
+      # first reference, so the other host never pays for it.
+      #
+      # hostname → system, one entry per host that opted into the hatch. Two
+      # today, driven by two packages: geekom takes ollama-vulkan (measured
+      # TTFT/prefill-restore wins — hosts/geekom/default.nix) and opencode;
+      # the VM takes opencode for the same reason geekom does. opencode is the
+      # 2026-09-22 adoption: 26.05 carries 1.15.10 and nixos-unstable carries
+      # 1.18.x, because fast-moving userland CLI bumps never land on the
+      # stable branch between releases (doc/workflow.md). A host absent from
+      # this map must not see the second tree at all — that is what keeps the
+      # daily-moving input out of its closure and out of hplaptop's
+      # evaluation entirely.
+      unstableHosts = {
+        geekom = "x86_64-linux";
+        nixos = "aarch64-linux"; # the UTM VM (networking.hostName = "nixos")
+      };
+
       hostArgs =
         hostname: username:
         {
           user = users.${username};
         }
-        // nixpkgs.lib.optionalAttrs (hostname == "geekom") {
-          # The ONE consumer. Keeping the binding host-gated (not threaded to
-          # every host via specialArgs) is what keeps the moving-target input
-          # out of the other hosts' closures — see the comment on the input.
+        // nixpkgs.lib.optionalAttrs (nixpkgs.lib.hasAttr hostname unstableHosts) {
           # legacyPackages, not `import`: the `system` import argument is
-          # deprecated upstream. No allowUnfree wiring here — the one adopted
-          # package (ollama) is free software; revisit if an unfree tool ever
-          # adopts the hatch.
-          unstablePkgs = nixpkgs-unstable.legacyPackages.x86_64-linux;
+          # deprecated upstream. No allowUnfree wiring here — both adopted
+          # packages (ollama, opencode) are free software; revisit if an
+          # unfree tool ever adopts the hatch.
+          unstablePkgs = nixpkgs-unstable.legacyPackages.${unstableHosts.${hostname}};
         };
 
       # The systems that get developer-facing outputs (`formatter`, `devShells`).

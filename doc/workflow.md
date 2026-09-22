@@ -252,9 +252,10 @@ To move to a new release (e.g. 26.05 → 26.11):
 Between releases, version bumps for fast-moving CLI tools (opencode, zellij)
 land on `nixos-unstable` only — they are not backported to the stable
 branch, so seeing no version movement on `nfu` is the normal condition, not a
-broken update. `ollama` is the one exception since 2026-09-11: it is pinned
-from `nixpkgs-unstable` via the escape hatch below, so `nfu` (or a targeted
-`nix flake lock --update-input nixpkgs-unstable`) DOES move it.
+broken update. Two tools are the exception, both pinned from
+`nixpkgs-unstable` via the escape hatch below: `ollama` since 2026-09-11 and
+`opencode` since 2026-09-22. For both, `nfu` (or a targeted
+`nix flake lock --update-input nixpkgs-unstable`) DOES move them.
 
 ### Need a newer version before the next release?
 
@@ -267,24 +268,40 @@ inputs.nixpkgs-unstable.url = "github:NixOs/nixpkgs/nixos-unstable";
 
 The input exists in [flake.nix](../flake.nix) today. The binding is
 **host-gated**: `hostArgs` in flake.nix passes `unstablePkgs` as a module arg
-only to hosts that declare it (currently exactly one — geekom), so a host that
-never references it never evaluates the second tree (lazy, on first reference),
-and the moving daily input stays out of every other host's closure.
+only to hosts named in its `unstableHosts` map (two today — `geekom` and the
+`nixos` VM), so a host that never references it never evaluates the second tree
+(lazy, on first reference), and the moving daily input stays out of every other
+host's closure — hplaptop's above all.
 
-Adopted for exactly one package so far — `ollama-vulkan` on geekom
-([hosts/geekom/default.nix](../hosts/geekom/default.nix), 2026-09-11): 0.32.15+
-halves TTFT, 0.33.0 fixes agent prefill-restore on recurrent-layer models,
-0.33.3 honors GGUF default parameters — measured gains, not cosmetics, with the
-GPU-path risk discharged by the on-box verification after every rebuild
-(MTP flag, 100% GPU, decode rate; see
-[doc/local-llm.md](local-llm.md)). The older caution against pulling ollama
-from unstable mid-cycle was written without measurements and is superseded by
-that doc.
+Adopted for two packages so far:
+
+- `ollama-vulkan` on geekom
+  ([hosts/geekom/default.nix](../hosts/geekom/default.nix), 2026-09-11): 0.32.15+
+  halves TTFT, 0.33.0 fixes agent prefill-restore on recurrent-layer models,
+  0.33.3 honors GGUF default parameters — measured gains, not cosmetics, with the
+  GPU-path risk discharged by the on-box verification after every rebuild
+  (MTP flag, 100% GPU, decode rate; see
+  [doc/local-llm.md](local-llm.md)). The older caution against pulling ollama
+  from unstable mid-cycle was written without measurements and is superseded by
+  that doc.
+- `opencode` on geekom and the VM (2026-09-22), through the
+  `local.dev.opencodePackage` seam ([modules/nixos/dev.nix](../modules/nixos/dev.nix)
+  — the same "ENABLE shared, PACKAGE per host" shape ollama uses): 26.05 carries
+  1.15.10 while unstable carries 1.18.x, three minor series of agent fixes the
+  stable branch will not have before the next release. Adopted with no on-box
+  gate because the tool is a userland CLI with no daemon, no GPU path and no
+  vendored C/C++ backend — the reason this row was named a fit long before it
+  was taken. Cost paid: geekom's closure grows by ~104 MiB (`nvd`-verified) and
+  the unstable tree's `bash`/`ripgrep`/`pcre2` come along for opencode's
+  wrapper, so a stable-tree `nfu` no longer implies "nothing in the closure
+  compiles" for these two hosts. Both opencode outputs substitute from
+  cache.nixos.org on x86_64 and aarch64, so neither CI nor the VM compiles it.
 
 For any NEW tool: the trade-off is a second nixpkgs evaluation (lazy, but a
 daily-moving lock entry) versus a version the stable branch will not carry
-until the next release. Candidates that would fit: `zellij` and `opencode`
-(userland, low blast radius). Anything whose runtime behavior moves with its
+until the next release. A remaining candidate that would fit: `zellij`
+(userland, low blast radius — 0.45.1 is identical on both trees today, which is
+why it has not been adopted). Anything whose runtime behavior moves with its
 vendored C/C++ backend (like ollama did) must go through the geekom
 verification gate after each re-pin — that gate is the discharge, not a reason
 to avoid the bump.

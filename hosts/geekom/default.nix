@@ -104,6 +104,16 @@
   # behind `local.dev.enable` in modules/nixos/dev.nix. This host flips it on.
   local.dev.enable = true;
 
+  # opencode from nixos-unstable (the workflow.md escape hatch — the same seam
+  # services.ollama.package uses further down): opencode's releases land on
+  # unstable only, so 26.05 stays at 1.15.10 while unstable carries 1.18.x —
+  # three minor series of agent fixes the stable branch will not have before
+  # the next release. Low blast radius (userland CLI, no daemon, no GPU path),
+  # which is exactly the "userland" row doc/workflow.md names as a fit. The VM
+  # sets the same line; the option's default keeps any other dev host on its
+  # own tree.
+  local.dev.opencodePackage = unstablePkgs.opencode;
+
   # Loopback rebuilds: `nrs`/`nrt` (modules/home/shell.nix) run the activation
   # over SSH to THIS machine, so phase 1 cannot be killed by the display stack
   # restarting — doc/workflow.md's "never run nrs from the graphical console"
