@@ -108,6 +108,7 @@ result is duplicated MCP config instead — see the drift warning below.
 | omp binary | Nix | `omp` flake input → `programs.omp.enable` (upstream HM module), dev-gated |
 | `~/.omp/agent/config.yml` | **Nix-declared, writable copy** | upstream HM module: `programs.omp.settings`; re-imposed on every `home-manager switch` |
 | `~/.omp/agent/mcp.json` | Nix | `home.file` in [omp.nix](../modules/home/omp.nix), store symlink |
+| `~/.omp/agent/AGENTS.md` (global agent rules) | Nix | `home.file` in [omp.nix](../modules/home/omp.nix), store symlink — the same asset opencode loads as its global rules (`~/.config/opencode/AGENTS.md`, [opencode.nix](../modules/home/opencode.nix)) |
 | herdr extension (`~/.omp/agent/extensions/herdr-omp-agent-state.ts`) | Nix | vendored asset, deployed by [herdr.nix](../modules/home/herdr.nix) — see [herdr.md](herdr.md) |
 | zsh completions | Nix | cached generator in omp.nix `initExtra` (regenerates when the omp binary is newer than the cache) |
 | **ollama.com API key** | **manual, per host** | first-run wizard or `/login ollama-cloud` → stored in `~/.omp/agent/agent.db` |

@@ -239,4 +239,15 @@ lib.mkIf osConfig.local.dev.enable {
       headers.Authorization = "Bearer {env:CONTEXT7_API_KEY}";
     };
   };
+
+  # Global agent rules, user scope. ~/.config/opencode/AGENTS.md is opencode's
+  # one global instruction file (verified against the 1.18.31 source,
+  # session/instruction.ts: `globalFiles` takes config/AGENTS.md first and only
+  # falls back to ~/.claude/CLAUDE.md when it is absent — a global
+  # ~/.claude/CLAUDE.md appearing later can never shadow it). NOT the same
+  # mechanism as the `instructions` array above, which is project-relative
+  # globs. The SAME asset is deployed to omp's native path in
+  # modules/home/omp.nix — one file, two harnesses; the store symlink means an
+  # edit MUST go through config/agents/AGENTS.md.
+  xdg.configFile."opencode/AGENTS.md".source = ../../config/agents/AGENTS.md;
 }
