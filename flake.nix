@@ -32,9 +32,16 @@
     # pinned: an unpinned github: input moves on every `nfu`, and a tool-flake
     # input carries its own nixpkgs into the lock — so its nixpkgs input
     # follows our nixpkgs-unstable (the tree herdr's lock expects; zig_0_15
-    # verified present in both pins). Bumping = edit ref + re-lock, same
-    # controlled cadence as the nixpkgs branch pins. The package is threaded
-    # via home-manager.extraSpecialArgs below; consumers gate on
+    # verified present in both pins). Bumping = edit the `?ref=` below + re-lock,
+    # the same controlled cadence as the nixpkgs branch pins — except that `nfb`
+    # (scripts/nfb.sh) is what does it: it bumps the version and the binary
+    # hashes in modules/home/tool-pins.json and rewrites this `?ref=` in the
+    # same run, so the pin and the derivations cannot drift apart. This line
+    # stays a LITERAL because Nix's flake parser rejects a computed input URL
+    # (verified 2026-09-23: a `let`-bound/builtins-derived url fails with "must
+    # be an attribute set") — the pin file cannot be the input's source, only
+    # nfb writing both keeps them in step. The package is threaded via
+    # home-manager.extraSpecialArgs below; consumers gate on
     # osConfig.local.dev.enable (modules/home/herdr.nix), so hosts with dev
     # off never see it.
     herdr = {
@@ -55,11 +62,13 @@
     # inputs add bun2nix, nix-bun and oxalica rust-overlay (its Rust core +
     # bun runtime are built from source — no binary cache carries omp itself,
     # only its toolchain deps come from nix-community's cache, trusted in
-    # common.nix). The HM module is threaded via extraSpecialArgs below and
+    # common.nix). `nfb` (scripts/nfb.sh) rewrites this `?ref=` together with the
+    # version + hashes in modules/home/tool-pins.json (same literal-URL rule as
+    # herdr above). The HM module is threaded via extraSpecialArgs below and
     # consumed by modules/home/omp.nix, gated on osConfig.local.dev.enable;
     # hplaptop (dev off) never evaluates it.
     omp = {
-      url = "github:can1357/oh-my-pi?ref=v18.2.8";
+      url = "github:can1357/oh-my-pi?ref=v18.2.10";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
       inputs.nixpkgs-darwin-x64.follows = "nixpkgs";
     };

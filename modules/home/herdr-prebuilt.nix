@@ -35,19 +35,24 @@
 # - Not a Nix build: no grafts against our nixpkgs; the ONLY store output
 #   is the unpacked binary.
 #
-# Update procedure (per herdr tag bump): bump the version here AND the
-# herdr input's ?ref= in flake.nix (they must agree — the vendored plugin
-# assets are re-vendored from the same tag), re-hash, done. No compile.
+# Update procedure (per herdr tag bump): run `nfb` (scripts/nfb.sh) — it bumps
+# the version and both hashes in modules/home/tool-pins.json, re-locks the
+# herdr flake input, and re-fetches the two vendored agent assets from the new
+# tag in one step, so pin, binary and assets can never disagree. No compile.
 let
-  version = "0.9.1";
+  # Version + both hashes come from modules/home/tool-pins.json — the same table
+  # flake.nix builds this tool's `?ref=` from, so the pin and the binary cannot
+  # drift apart. Written only by `nfb` (scripts/nfb.sh).
+  pins = (builtins.fromJSON (builtins.readFile ./tool-pins.json)).herdr;
+  version = pins.version;
   srcs = {
     x86_64-linux = {
       url = "https://github.com/herdrdev/herdr/releases/download/v${version}/herdr-linux-x86_64";
-      hash = "sha256-KgL+0WvrZR7wBuHUPwSPZSyk3FitBTzS1ERQVj1cVLc=";
+      hash = pins."x86_64-linux";
     };
     aarch64-linux = {
       url = "https://github.com/herdrdev/herdr/releases/download/v${version}/herdr-linux-aarch64";
-      hash = "sha256-9Mz03nRfLLmjmpg+m6NwPa1Q7CpY3qgwJs6rchu9jZ4=";
+      hash = pins."aarch64-linux";
     };
   };
   src = srcs.${system} or (throw "herdr-prebuilt: unsupported system ${system}");

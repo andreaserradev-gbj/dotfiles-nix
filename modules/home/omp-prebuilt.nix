@@ -38,19 +38,25 @@
 # - The glibc (not musl) variant is used: musl would add libstdc++/libgcc
 #   NEEDEDs that stock NixOS does not ship, per upstream's own Alpine note.
 #
-# Update procedure: bump BOTH the version here and the omp flake input's
-# ?ref= in flake.nix (they must agree — omp.nix's settings are written for
-# a specific compiled-in CURRENT_SETUP_VERSION), re-hash, done. No compile.
+# Update procedure: run `nfb` (scripts/nfb.sh) — it bumps this tool's version
+# and both hashes in modules/home/tool-pins.json and re-locks the matching
+# flake input in one step, so the two can never disagree (omp.nix's settings
+# are written for a specific compiled-in CURRENT_SETUP_VERSION, which is why
+# the pin and the module must move together). No compile.
 let
-  version = "18.2.8";
+  # Version + both hashes come from modules/home/tool-pins.json — the same table
+  # flake.nix builds this tool's `?ref=` from, so the pin and the binary cannot
+  # drift apart. Written only by `nfb` (scripts/nfb.sh).
+  pins = (builtins.fromJSON (builtins.readFile ./tool-pins.json)).omp;
+  version = pins.version;
   srcs = {
     x86_64-linux = {
       url = "https://github.com/can1357/oh-my-pi/releases/download/v${version}/omp-linux-x64";
-      hash = "sha256-sMAdpzOdh/1dJtf6p7YcExpQZIOZlieDiZ/ZOm2LHWU=";
+      hash = pins."x86_64-linux";
     };
     aarch64-linux = {
       url = "https://github.com/can1357/oh-my-pi/releases/download/v${version}/omp-linux-arm64";
-      hash = "sha256-qapj5DyVzKoGg+n+0DRjxAGCniIK0rvEFLNB0tSeWAY=";
+      hash = pins."aarch64-linux";
     };
   };
   src = srcs.${system} or (throw "omp-prebuilt: unsupported system ${system}");

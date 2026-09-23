@@ -12,8 +12,10 @@ let
   # from-source fallback is one flag away: swap this for
   # `omp.packages.${pkgs.stdenv.hostPlatform.system}.default` (or build the
   # flake input's package) — settings below are identical either way, since
-  # both binaries are v18.2.8 and read the same config.yml. The prebuilt
+  # both binaries are v18.2.10 and read the same config.yml. The prebuilt
   # needs nix-ld (dev-gated, modules/nixos/dev.nix) for its /lib64 loader.
+  # KEEP IN STEP with modules/home/tool-pins.json on a tag bump (`nfb`): this
+  # is the version the settings were written against.
   ompPkg = pkgs.callPackage ./omp-prebuilt.nix {
     system = pkgs.stdenv.hostPlatform.system;
   };
