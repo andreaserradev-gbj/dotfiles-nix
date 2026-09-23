@@ -24,7 +24,7 @@ in
 # and documented in doc/omp.md. Gate matches the other dev-only HM modules
 # (herdr.nix, opencode.nix): hplaptop (local.dev.enable = false) evaluates
 # this to the empty config and never sees the package, the settings, or the
-# two home.file assets below.
+# home.file assets below.
 #
 # The declarative settings come from omp's own HM module
 # (homeManagerModules.default, threaded as the `omp` flake input via
@@ -179,6 +179,24 @@ in
         headers.Authorization = "Bearer \${CONTEXT7_API_KEY}";
       };
     };
+
+    # Global agent rules, user scope — omp's counterpart of opencode's
+    # ~/.config/opencode/AGENTS.md, and the SAME store asset
+    # (config/agents/AGENTS.md; see modules/home/opencode.nix). Context-file
+    # discovery reads ~/.omp/agent/AGENTS.md through the native provider
+    # (priority 100) and keeps only ONE user-scope context file per session
+    # (omp's docs/context-files.md), so this is what makes the rules load
+    # deterministically here. The opencode copy is NOT a fallback: foreign
+    # user-level roots are opt-in through `enabledProviders`, empty in this
+    # config (docs/settings.md), which is the same decision that keeps the
+    # opencode-only herdr plugin out (see the MCP block above). Verified live:
+    # the deployed file answers all three probe questions, while a --config
+    # overlay disabling the native provider drops every one of them.
+    # A future ~/.agents/AGENTS.md (priority 70) is likewise shadowed by
+    # native. Deliberately NOT RULES.md: the sticky rule is re-sent on every
+    # request, these rules belong in the once-per-session opening context.
+    # Store symlink like mcp.json above: hand-edits fail loudly, not silently.
+    home.file.".omp/agent/AGENTS.md".source = ../../config/agents/AGENTS.md;
 
     # Shell completions: omp generates them from live command metadata (never
     # drifts from the installed version). Cached in ~/.cache — the generator
