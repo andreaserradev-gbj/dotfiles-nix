@@ -82,6 +82,7 @@ lib.mkIf osConfig.local.dev.enable {
       nrb = "nh os boot"; # build + stage for next boot, don't activate now
       nrp = "nh os build"; # preview: build + diff vs current, no activation (run after nfu)
       nfu = "nix flake update --flake ${repo}"; # bump inputs (nixpkgs, home-manager) → rewrites flake.lock
+      nfb = "${repo}/scripts/nfb.sh"; # bump the pinned tool tags (omp, herdr) to upstream's latest release, then re-lock those inputs
       nfc = "nix flake check ${repo}"; # evaluate/validate the flake without building a system
       nfi = "nix flake init -t ${repo}#devshell"; # initialize a new project (node-flavored default)
       nfp = "nix flake init -t ${repo}#python-devshell"; # initialize a Python project (uv + python3)

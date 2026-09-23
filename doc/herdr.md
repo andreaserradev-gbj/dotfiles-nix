@@ -18,8 +18,12 @@ dev-gated home-layer tool.
   [doc/adopting-tools.md](adopting-tools.md) triage. The input is pinned to
   `?ref=v0.9.1`: an unpinned `github:` input would move on every `nfu`, the
   same wrong pace as tracking a moving branch for a system component.
-  Bumping = edit `?ref=` in [flake.nix](../flake.nix), `nix flake lock`,
-  commit both.
+  The pin is bumped by `nfb` (checklist at the bottom): it writes the version +
+  both hashes in [modules/home/tool-pins.json](../modules/home/tool-pins.json),
+  this `?ref=` in [flake.nix](../flake.nix), and re-fetches the two vendored
+  agent assets from the new tag, all in one run. The `?ref=` must stay a
+  literal Nix string — Nix's flake parser rejects a computed input URL
+  (verified 2026-09-23), so the pin file cannot feed `inputs.*.url`.
 - **`herdr.inputs.nixpkgs.follows = "nixpkgs-unstable"`.** A tool flake carries
   its own nixpkgs into `flake.lock` (the "second nixpkgs" cost documented in
   [adopting-tools.md](adopting-tools.md)). Following our unstable tree — the
@@ -104,30 +108,38 @@ rebuild, and is re-run manually per tag bump (below).
 
 ## Update checklist (per herdr tag bump)
 
-1. Edit the version + both hashes in
-   [herdr-prebuilt.nix](../modules/home/herdr-prebuilt.nix) (the
-   `herdr-linux-x86_64` / `herdr-linux-aarch64` assets; re-hash with
-   `nix hash convert --hash-algo sha256 --to sri`).
-2. Edit `?ref=vX.Y.Z` on the herdr input in [flake.nix](../flake.nix) — must
-   agree with step 1 (the vendored agent assets are re-vendored from the
-   same tag).
-3. `nix flake lock` and `git add flake.lock`.
-4. **Re-check BOTH vendored agent assets against the new tag:**
-   compare `HERDR_INTEGRATION_VERSION` in
-   `src/integration/assets/opencode/herdr-agent-state.js` (v0.9.1 = 12) and
-   in `src/integration/assets/omp/herdr-agent-state.ts` (v0.9.1 = 10) with
-   each vendored copy's marker. The counters are independent — one can move
-   without the other. If either changed, re-vendor that file byte-for-byte
-   (`cp` from the tag-resolved `nix flake metadata …` source path) — the
-   assets and the binary must stay version-matched.
-5. Re-run the skill install: `npx skills add herdrdev/herdr --skill herdr -g`
-   (also needed on first install of a new machine).
-6. **No compile happens** — CI substitutes the ~25 MB static binary (a FOD
+One command does the mechanical half: **`nfb`** (`scripts/nfb.sh`, alias in
+[shell.nix](../modules/home/shell.nix)). It checks upstream's latest release,
+asks before writing, then updates the version + both hashes in
+[tool-pins.json](../modules/home/tool-pins.json), the `?ref=` in
+[flake.nix](../flake.nix), the `herdr` lock entry, and both vendored agent
+assets — so pin, binary and assets cannot drift apart. Hashes come from the
+release's own SHA256 digest, cross-checked against a download of this host's
+asset; the asset files are re-fetched from the new tag and written only if
+their bytes changed.
+
+1. `nfb`, answer `y` for herdr.
+2. `git diff` — [tool-pins.json](../modules/home/tool-pins.json) (three
+   fields), flake.nix, flake.lock, plus the agent assets **if** their bytes
+   moved. Each asset carries its own `HERDR_INTEGRATION_VERSION` counter
+   (v0.9.1: opencode plugin = 12, omp extension = 10; never compare one
+   against the other) — `nfb` prints the old → new marker next to the file, and
+   `src/integration/assets/omp/herdr-agent-state.ts` upstream vendors here as
+   `config/omp/herdr-omp-agent-state.ts` (renamed on vendoring). The two are
+   byte-for-byte copies: review them, never edit them.
+3. Re-run the skill install: `npx skills add herdrdev/herdr --skill herdr -g`
+   (still manual — `nfb` prints this reminder; also needed on first install of
+   a new machine).
+4. **No compile happens** — CI substitutes the ~25 MB static binary (a FOD
    failure here means the hash or URL is wrong, not a build issue). The
    rust/zig toolchain is gone from the closure, so the ~5-min herdr
    buildPhase class is gone too.
-7. `git add` everything, `./scripts/check-hosts.sh`: expect `vm` + `geekom`
+5. `git add` everything, `./scripts/check-hosts.sh`: expect `vm` + `geekom`
    drvPaths to move, `hplaptop` byte-identical.
+6. `nrp`, rebuild, then `herdr --version` and `herdr integration status`
+   (expect `omp: current`) to confirm binary and assets moved together.
+7. Version literals in this doc's prose (`v0.9.1`, the two markers above) stay
+   a manual tail: update them in the same commit if they moved.
 8. PR → CI → squash merge per [workflow.md](workflow.md).
 
 Post-rebuild verification for the omp extension:

@@ -1,6 +1,6 @@
 # omp (oh-my-pi) — the second coding agent
 
-omp ([github:can1357/oh-my-pi](https://github.com/can1357/oh-my-pi), v18.2.8)
+omp ([github:can1357/oh-my-pi](https://github.com/can1357/oh-my-pi), v18.2.10)
 is a coding agent — a fork of Mario Zechner's Pi with an expanded tool surface
 (LSP wired in, DAP debugging, subagents, web search). It was adopted on
 2026-09-21 as a **coexisting** second harness alongside
@@ -12,11 +12,16 @@ and its results, not this doc, will drive any primary-harness switch.
 
 ## Why this shape
 
-- **Upstream flake, tag-pinned** (`?ref=v18.2.8` in [flake.nix](../flake.nix)).
+- **Upstream flake, tag-pinned** (`?ref=v18.2.10` in [flake.nix](../flake.nix)).
   omp is not in nixpkgs (searched 2026-09-21), so the package comes from its
   upstream flake — the "upstream flake" row of the
   [triage ladder](adopting-tools.md). An unpinned `github:` input would move
-  on every `nfu`; bumping = edit `?ref=`, `nix flake lock`, commit both.
+  on every `nfu`; the pin is bumped by `nfb` (see the checklist at the bottom),
+  which writes the version + both hashes in
+  [modules/home/tool-pins.json](../modules/home/tool-pins.json) and this
+  `?ref=` in the same run. The `?ref=` itself must stay a literal Nix string:
+  Nix's flake parser rejects a computed input URL (`let`-bound or builtins-
+  derived — verified 2026-09-23), so the pin file cannot feed `inputs.*.url`.
 - **`omp.inputs.nixpkgs.follows = "nixpkgs-unstable"`** — the same
   second-nixpkgs-cost argument as
   [herdr](herdr.md#why-this-shape): a tool flake carries its own nixpkgs
@@ -59,8 +64,10 @@ and its results, not this doc, will drive any primary-harness switch.
     re-derives). Fallback to the from-source build is one line:
     `package = omp.packages.${pkgs.stdenv.hostPlatform.system}.default;`
   - Consequence for CI: **an omp tag bump no longer compiles anything** —
-    a bump edits the pin in omp-prebuilt.nix + `?ref=` in flake.nix
-    (they must agree), re-hashes, and CI substitutes a ~244 MB binary.
+    a bump writes the version + both hashes in
+    [tool-pins.json](../modules/home/tool-pins.json) and the `?ref=` in
+    flake.nix (one `nfb` run keeps them in step), and CI substitutes a
+    ~244 MB binary.
     `nfu` moves of `nixpkgs-unstable` no longer touch omp's binary either
     (the flake input is still locked for the HM module + version pin of
     record). The 31-minute CI compile class is gone entirely.
@@ -216,21 +223,27 @@ checklist in [herdr.md](herdr.md) covers both. Verify with
 
 ## Update checklist (per omp tag bump)
 
-1. Edit the version + both hashes in
-   [omp-prebuilt.nix](../modules/home/omp-prebuilt.nix) (the glibc asset for
-   each arch; re-hash with `nix hash convert --hash-algo sha256 --to sri` or
-   let the FOD error print the expected hash).
-2. Edit `?ref=vX.Y.Z` on the omp input in [flake.nix](../flake.nix) — must
-   agree with step 1 (the HM module + settings are written for that
-   version's compiled-in `CURRENT_SETUP_VERSION`).
-3. `nix flake lock` and `git add flake.lock`.
-4. Re-vendor the herdr omp extension if its version marker changed at the
-   new tag (same checklist as [herdr.md](herdr.md) step 3 — the extension
-   rides the *herdr* input, so this only coincides with omp bumps).
-5. **No compile happens** — CI substitutes the ~244 MB prebuilt (a FOD
-   failure here means the hash or URL is wrong, not a build issue).
-6. `git add` everything, `./scripts/check-hosts.sh`: expect `vm` + `geekom`
+One command does the mechanical half: **`nfb`** (`scripts/nfb.sh`, alias in
+[shell.nix](../modules/home/shell.nix)). It checks upstream's latest release,
+asks before writing, then updates all three sites — the version + both hashes
+in [tool-pins.json](../modules/home/tool-pins.json), the `?ref=` in
+[flake.nix](../flake.nix), and the lock entry for the `omp` input — so the pin
+and the binary can no longer disagree. Hashes come from the release's own
+SHA256 digest, cross-checked against a download of this host's asset.
+
+1. `nfb`, answer `y` for omp (the version here and in `omp.nix`'s comment must
+   move with it — the HM module + settings are written for that version's
+   compiled-in `CURRENT_SETUP_VERSION`).
+2. `git diff` — [tool-pins.json](../modules/home/tool-pins.json) (three
+   fields) + flake.nix + flake.lock, nothing else.
+3. `git add` everything, `./scripts/check-hosts.sh`: expect `vm` + `geekom`
    drvPaths to move, `hplaptop` byte-identical (dev-gated).
+4. **No compile happens** — CI substitutes the ~244 MB prebuilt (a FOD
+   failure here means the hash or URL is wrong, not a build issue).
+5. `nrp`, rebuild, then `omp --version` on the host to confirm the binary
+   moved with the pin.
+6. Version literals in this doc's prose stay a manual tail: update them in the
+   same commit if they moved.
 7. PR → CI → squash merge per [workflow.md](workflow.md).
 
 ## Trial record (Phase 0, 2026-09-21)

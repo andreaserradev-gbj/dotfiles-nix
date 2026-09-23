@@ -14,8 +14,9 @@
 # this module no longer binds it — the default package is the upstream
 # prebuilt (below). From-source fallback: re-add `herdr` to the function
 # args and set `home.packages = [ herdr ];`. The input stays in flake.lock
-# as the version pin of record and for re-vendoring the integration assets
-# (doc/herdr.md checklist).
+# as the version pin of record; `nfb` (scripts/nfb.sh) bumps it together with
+# modules/home/tool-pins.json and re-fetches the two vendored integration
+# assets below (doc/herdr.md checklist).
 let
   # Prebuilt-by-default: upstream's STATIC-PIE release binary (see
   # herdr-prebuilt.nix for why — the from-source build measures ~5 min on a

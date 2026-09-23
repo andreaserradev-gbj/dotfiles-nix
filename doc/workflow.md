@@ -12,6 +12,7 @@ host argument** — the same alias is correct on every machine.
 | `nrt`                 | `nh os test`           | activate now, don't touch the bootloader — a reboot reverts it     |
 | `nrb`                 | `nh os boot`           | stage for next boot, don't activate now                            |
 | `nfu`                 | `nix flake update`     | bump every input — rewrites `flake.lock`                           |
+| `nfb`                 | `scripts/nfb.sh`       | bump omp/herdr to upstream's latest release, re-lock those inputs  |
 | `nfc`                 | `nix flake check`      | validate the flake without building a system                       |
 | `nfi`                 | `nix flake init -t …`  | drop the devshell template into the current project                |
 | `ngl` / `ngd` / `ngc` | shell functions        | list / diff / interactively delete generations                     |
