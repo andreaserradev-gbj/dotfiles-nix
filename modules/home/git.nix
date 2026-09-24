@@ -18,7 +18,6 @@ lib.mkIf osConfig.local.dev.enable {
     };
   };
 
-  # delta is its own module now; enableGitIntegration wires core.pager + interactive.diffFilter
   programs.delta = {
     enable = true;
     enableGitIntegration = true;

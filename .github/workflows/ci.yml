@@ -1,74 +1,8 @@
-# CI for the flake. What runs and why:
-#
-# 1. evaluate — check-hosts.sh evaluates all three hosts. Evaluation is
-#    arch-independent, so the aarch64 VM (`nixos`) is covered here too,
-#    on an x86_64 runner, at zero build cost. This is the same gate used
-#    locally, on purpose: a config that fails it should fail identically
-#    on both. The job also runs the formatter and the two Nix linters —
-#    see the comments on those steps.
-#
-# 2. build matrix — full toplevel builds, but ONLY for hosts whose drvPath
-#    actually moved since the last commit CI built (scripts/changed-hosts.sh
-#    against `verified`). A host with an identical drvPath is not "probably
-#    fine": it is the same derivation, and that derivation already built
-#    green, so re-downloading its closure onto a fresh runner proves nothing
-#    and costs ~6 minutes for geekom alone. A doc- or CI-only change moves
-#    no host and skips the matrix entirely; a flake.lock bump moves every
-#    host and skips nothing. Candidate hosts are named here, not in the
-#    script, so this file stays the one place that says what CI builds. Only
-#    hplaptop updates *from GitHub unattended* (see doc/workflow.md);
-#    geekom is rebuilt by hand and is in the matrix because it is the
-#    other x86_64 host whose build cost is real and whose breakage would
-#    otherwise surface only at the next manual `nrb`. For hplaptop the
-#    point of CI is to surface a broken commit within minutes of it
-#    landing on `main`, before the next unattended `nrb` picks it up —
-#    it does not retroactively remove one, and an `nrb` that races the
-#    build can still install it. The aarch64 VM is deliberately NOT
-#    built: it is dormant (README's host list) — the `evaluate` job
-#    above still covers it, so bit-rot surfaces, and no machine
-#    installs it. Building the cage + foot kiosk under QEMU emulation
-#    would cost ~1h of CI per push for no risk reduction.
-#
-# 3. gate — the single required status check. It always runs and simply
-#    aggregates the jobs above. Requiring the matrix jobs directly would
-#    deadlock the moment a build is skipped: a required check that never
-#    reports leaves a PR waiting forever, not passing. Branch protection on
-#    `main` therefore requires `evaluate` and `gate`, never `build (…)`.
-#
-# 4. advance-verified — fast-forwards the `verified` branch to a `main`
-#    commit whose whole build matrix went green. The branch is the
-#    intended pull target for the unattended host, and IS that host's
-#    pull target today: hplaptop's `nrb` builds
-#    `github:…?ref=verified` with `--refresh`
-#    (modules/home/maintenance.nix), so an `nrb` can only ever pick up a
-#    commit CI has already built.
-#
-# Builds substitute almost entirely from cache.nixos.org because both
-# hosts pin stable 26.05 — if the "fetched" lines disappear and jobs
-# start compiling, an input has drifted off the stable channel and DRIFT
-# should be investigated, not disk space freed up. The 60-minute timeout
-# bounds exactly that drift scenario; a normal substituted build takes
-# ~10. If space ever does run out, add the runner-cleanup step from
-# https://github.com/actions/runner-images#available-images manually;
-# do not add it preemptively.
-#
-# TWO ASSUMPTIONS LIVE ON GITHUB, NOT IN THIS FILE — neither is
-# verifiable from a clone, and both silently degrade the gate if changed:
-#
-#   a. Settings -> Actions -> General -> Workflow permissions must be
-#      "Read repository contents and packages permissions" (the
-#      read-only default). The workflow-level `permissions:` below
-#      narrows to that explicitly, and advance-verified re-grants
-#      `contents: write` for its job alone. If the repo-wide setting is
-#      ever flipped to read-write, every other job silently gains a
-#      write token it does not need — this file cannot detect that.
-#
-#   b. Branch protection on `main` (require this workflow to pass before
-#      merge) is configured in the GitHub UI. Nothing in the repo
-#      asserts it, and nothing here fails if it is removed. Without it
-#      CI is advisory on `main`: red runs still merge, and
-#      advance-verified simply does not fire, so `verified` quietly
-#      stops advancing rather than loudly breaking.
+# CI for the flake, in four stages: evaluate (the multi-host drvPath gate) ->
+# build (only the hosts whose drvPath moved) -> gate (the single required
+# check) -> advance-verified (moves `verified` behind a green gate).
+# Rationale for all four stages, the GitHub-side settings this file cannot
+# assert, and the drift/60-minute-timeout warning: doc/workflow.md, section CI.
 name: ci
 
 on:
@@ -77,15 +11,13 @@ on:
   pull_request:
 
 # Two quick pushes to `main` must not race: the older run finishes last and its
-# advance-verified push to `verified` is rejected as a non-fast-forward, turning
-# a healthy pipeline red. They queue instead. On a pull request a new push makes
-# the previous run obsolete, so it is cancelled.
+# advance-verified push would be a non-fast-forward, turning a healthy pipeline
+# red. They queue instead. On a PR a new push makes the previous run obsolete.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Least privilege by default. Only advance-verified overrides this, at job
-# scope, and only to push the `verified` ref.
+# Least privilege by default; only advance-verified re-grants write, at job scope.
 permissions:
   contents: read
 
@@ -96,49 +28,28 @@ jobs:
     outputs:
       hosts: ${{ steps.changed.outputs.hosts }}
     steps:
-      # Third-party actions are pinned to a full commit SHA: a tag is a
-      # movable ref, and a compromised or retagged action runs with this
-      # workflow's token. The tag in the trailing comment is the human
-      # bump handle — there is no dependabot here, so bumping is manual:
-      # resolve with `git ls-remote --tags <repo>` and replace both.
+      # Third-party actions are pinned to a full commit SHA, with the tag in the
+      # trailing comment as the human bump handle: a tag is a movable ref, and a
+      # compromised or retagged action runs with this workflow's token. No
+      # dependabot here, so bumping is manual (doc/workflow.md, section CI).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # v22+ defaults to installing *Determinate* Nix (flakehub integration and
-      # its GHA-backed cache). Two reasons to turn that off here: the hosts run
-      # stock Nix, so CI should verify against what they actually run; and the
-      # Determinate cache layer emits "Failed to save/restore: Cache service
-      # …" warnings on every run when GitHub's cache service hiccups. We fetch
-      # straight from cache.nixos.org (nothing expensive or custom to cache).
+      # determinate: false — the hosts run stock Nix, so CI must verify against
+      # what they actually run.
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
         with:
           determinate: false
-      # treefmt check mode: fails on any unformatted file, format or not.
-      # Small enough to piggyback here — the runner already has Nix, and a
-      # formatting break should block the same way an evaluation break does.
-      # (The local pre-commit hook only covers what is being committed; this
-      # catches everything, e.g. a hook skipped with --no-verify. On a local
-      # dirty tree, treefmt's git walk skips untracked files instead — in a
-      # fresh CI checkout every file is tracked, so the gap is CI-only.)
+      # treefmt check mode: fails on any unformatted file, including ones the
+      # local pre-commit hook never saw.
       - run: nix fmt -- --ci
-      # statix and deadnix run ONLY here and in the devShell — the pre-commit
-      # hook runs nixfmt alone, so this is the only place either one gates.
-      # Both come from the flake's devShell, so CI and `nix develop` use the
-      # same pinned versions. statix's disabled-lint list lives in statix.toml
-      # (load-bearing: a TOML parse error there makes the whole list inert).
-      # deadnix --fail turns findings into a non-zero exit; without it deadnix
-      # reports and exits 0, which is a report, not a gate.
+      # statix and deadnix gate ONLY here and in the devShell — the pre-commit
+      # hook runs nixfmt alone. `--fail` is what makes deadnix a gate at all.
       - run: nix develop -c statix check .
       - run: nix develop -c deadnix --fail
       - run: ./scripts/check-hosts.sh
-      # Decide the build matrix. The candidate set is `geekom hplaptop` — the
-      # x86_64 hosts. The aarch64 VM is deliberately absent for the reason in
-      # the header, and naming the candidates here keeps that policy in this
-      # file rather than duplicating it into the script.
-      #
-      # NIX_CONFIG carries the job's own token because resolving the baseline
-      # means fetching `github:owner/repo/<rev>` as a flake: unauthenticated
-      # GitHub API calls from Actions runners share a pool and can be rate
-      # limited, which would fail the step for reasons having nothing to do
-      # with the change under test.
+      # The candidates are named HERE, not in changed-hosts.sh, so this file
+      # stays the one place that says what CI builds. NIX_CONFIG carries the
+      # job's own token: fetching the baseline flake anonymously shares the
+      # rate-limited GitHub API pool that Actions runners draw from.
       - id: changed
         env:
           NIX_CONFIG: "access-tokens = github.com=${{ github.token }}"
@@ -149,8 +60,7 @@ jobs:
 
   build:
     needs: evaluate
-    # An empty matrix is not a valid strategy, so the job is skipped outright
-    # rather than being asked to iterate over nothing.
+    # An empty matrix is not a valid strategy, so skip the job outright.
     if: needs.evaluate.outputs.hosts != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -168,11 +78,9 @@ jobs:
           ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
           --print-build-logs
 
-  # The one required status check. Always runs, so it always reports — which
-  # is the whole reason it exists. `skipped` is an ACCEPTED build result: it
-  # means changed-hosts.sh found no host whose derivation differs from one
-  # already built, which is a stronger statement than a fresh green build, not
-  # a weaker one. `cancelled` and `failure` are not accepted.
+  # The one required status check: it always runs, so it always reports, and
+  # `skipped` is an ACCEPTED build result (no host moved = already built green).
+  # `cancelled` and `failure` are not.
   gate:
     needs: [evaluate, build]
     if: always()
@@ -191,27 +99,16 @@ jobs:
           esac
           echo "gate: pass"
 
-  # Fast-forward `verified` to this commit once the gate is green.
-  # `needs: gate` is the entire point: `verified` must never name a commit
-  # whose x86_64 hosts were not either built here or proven identical to a
-  # commit that was.
-  #
-  # Push-to-main only. On a pull_request the checked-out ref is a merge
-  # commit that exists nowhere afterwards, and GITHUB_TOKEN is read-only for
-  # forks — advancing `verified` from there would be both wrong and
-  # impossible.
+  # Fast-forward `verified`, but only behind a green gate: `verified` must never
+  # name a commit whose x86_64 hosts were not built here or proven identical.
+  # Push-to-main only — on a pull_request the checkout is a merge commit that
+  # exists nowhere afterwards, and GITHUB_TOKEN is read-only for forks.
   advance-verified:
     needs: gate
-    # `always()` is load-bearing and must not be "tidied away". A skipped job
-    # propagates skip TRANSITIVELY through the needs graph: when `build` skips,
-    # `gate` rescues itself with always() and passes, but anything downstream
-    # of gate still inherits that skip unless it also opts out of the default
-    # success() semantics. Without always() here, every doc- or CI-only commit
-    # would silently fail to advance `verified` — observed exactly once, on
-    # 005b6107, which left verified a commit behind main.
-    #
-    # always() alone would also run on cancellation, so the gate result is
-    # asserted explicitly rather than inherited.
+    # `always()` is load-bearing and must not be "tidied away": a skipped job
+    # propagates skip TRANSITIVELY through the needs graph, so without it every
+    # doc- or CI-only commit silently fails to advance `verified`. always() alone
+    # also runs on cancellation, so the gate result is asserted explicitly below.
     if: >-
       always()
       && needs.gate.result == 'success'
@@ -219,21 +116,16 @@ jobs:
       && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # The one job that needs write. Scoped here rather than at workflow level
-    # so evaluate/build keep a read-only token.
+    # The one job that needs write; scoped here so evaluate/build stay read-only.
     permissions:
       contents: write
     steps:
-      # fetch-depth: 0 — the default depth-1 checkout is a shallow clone, and
-      # pushing one is only reliable when the remote already has every object
-      # being sent. It does here (HEAD is the main commit that just pushed),
-      # but the repo is small enough that a full clone costs nothing and
-      # removes the question entirely.
+      # fetch-depth: 0 — pushing a shallow clone is only reliable when the remote
+      # already has every object being sent; the repo is small, so just clone all.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      # Non-forced: if `verified` has somehow diverged from main's history the
-      # push is REJECTED rather than rewritten. That is the safe failure — a
-      # red advance-verified means someone should look, not that a host is
-      # about to install something unbuilt (hosts just stay where they are).
+      # Non-forced, deliberately: a diverged `verified` is REJECTED rather than
+      # rewritten, so a red advance-verified means a host stays where it is, not
+      # that it installs something unbuilt.
       - run: git push origin HEAD:verified

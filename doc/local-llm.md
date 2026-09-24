@@ -76,6 +76,7 @@ context on dense-model intuition.
 | full 262144 load | fits | 20.4 weights + 5.5 KV + ≤0.3 compute; ~9 GiB GTT headroom; 29 tok/s after |
 | TTFT (warm, short prompt) | ~120 ms prefill | 0.33.3; metadata caching (0.32.15) roughly halved TTFT upstream |
 | GPU placement | 100% GPU, `size_vram` = full model size | `ollama ps` is the check |
+| iGPU on vs off (FIM A/B, qwen2.5-coder, same prompt) | 3B: 20 → 22 tok/s; 1.5B: 37 → 41 | ~10%: the iGPU shares the CPU's LPDDR5x, so decode is bandwidth-bound — the real gain is that inference stops competing with the editor for cores |
 | 27b shallow decode | 8 t/s (35b: 33) | `qwen3.8:…-ctx128k` 100% GPU, seed 42, temp 0, 300 tok — 2026-09-17 A/B |
 | 27b decode at depth | 10 t/s after 11926-tok prefill (35b: 32) | same protocol; both models flat with depth — hybrid attention holds |
 | 27b prefill | 97 t/s @ 3421 tok / 91 @ 11926 (35b: 364/348) | fresh prompts each time — a repeated prompt hits the KV cache and lies |
@@ -130,6 +131,10 @@ Vulkan's GTT spill is exactly what makes 256k context possible here.
 BIOS carve-out (8→16 GiB) and `amdgpu.gttsize=` were considered and rejected:
 decode is flat with KV resident in GTT, and carving VRAM only steals from the
 shared pool the runner reaches anyway.
+
+No service-level config is needed for GPU access: the upstream unit already
+ships `SupplementaryGroups=render`, `DeviceAllow=char-drm` and
+`PrivateDevices=false`, so its `DynamicUser` reaches `/dev/dri/renderD128` as-is.
 
 (2026-09-17: the 27b at full 262144 is the first load that does not fit —
 16 GiB KV against a 35.1 GiB available pool. If a future model ever makes

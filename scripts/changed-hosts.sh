@@ -1,30 +1,9 @@
 #!/usr/bin/env bash
 # changed-hosts.sh — print, as a JSON array, the hosts whose system drvPath
-# differs from the last commit CI actually built.
-#
-# This is the build-skipping gate. A host whose drvPath is byte-identical to
-# one on the baseline is not "probably fine": it is the SAME derivation, and
-# that derivation already built green. Re-downloading its closure onto a fresh
-# runner proves nothing and costs ~6 minutes for geekom alone.
-#
-# The baseline is `verified`, not `main`: `verified` is by construction the
-# last commit whose whole build matrix passed, whereas `main` may hold a commit
-# whose build is still running or has failed. Comparing against `main` could
-# therefore skip a build on the strength of a build that never succeeded.
-#
-# A doc- or CI-only change moves no host, prints [], and skips the build matrix
-# entirely. A flake.lock bump moves every host and skips nothing — correct in
-# both directions, and derived rather than guessed.
-#
+# differs from the last commit CI actually built (baseline defaults to `verified`).
+# The build-skipping gate: an identical drvPath is the SAME derivation, already
+# built green, so rebuilding it proves nothing. See doc/workflow.md, section CI.
 # Usage: changed-hosts.sh [baseline-ref] [host...]
-#
-# Naming hosts restricts the answer to that set. CI passes the hosts it is
-# willing to build, so the "which hosts does CI build" policy stays in ci.yml
-# next to the comment explaining it, rather than being restated here. With no
-# host arguments every host in the flake is considered.
-#
-# Output: a JSON array on stdout, for a GitHub Actions matrix. Human-readable
-# reasoning goes to stderr so the two never mix.
 set -euo pipefail
 
 BASELINE_REF="${1:-verified}"
@@ -34,7 +13,7 @@ ALLOWED="$*"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-# Same derivation-not-restatement rule as check-hosts.sh: ask the flake.
+# Ask the flake, never a hardcoded list — the rule check-hosts.sh states.
 HOSTS="$(nix eval --raw .#nixosConfigurations \
   --apply 'cs: builtins.concatStringsSep " " (builtins.attrNames cs)')"
 if [ -z "$HOSTS" ]; then
@@ -42,8 +21,11 @@ if [ -z "$HOSTS" ]; then
   exit 1
 fi
 
-# Intersect with the caller's set, and fail loudly on a name the flake does not
-# define — a typo in ci.yml's matrix would otherwise silently build nothing.
+# Naming hosts restricts the answer to that set (CI passes the hosts it builds, so
+# the "what does CI build" policy stays in ci.yml); with none, all are considered.
+#
+# Fail loudly on a name the flake does not define — a typo in ci.yml's matrix
+# would otherwise silently build nothing.
 if [ -n "$ALLOWED" ]; then
   for want in $ALLOWED; do
     case " $HOSTS " in
@@ -58,8 +40,8 @@ if [ -n "$ALLOWED" ]; then
 fi
 
 # The baseline is fetched as a flake by REVISION, not read from the local
-# checkout, because its drvPath must be evaluated against the flake.lock that
-# commit shipped. A lock bump legitimately moves every host; evaluating the old
+# checkout: its drvPath must be evaluated against the flake.lock that commit
+# shipped — a lock bump legitimately moves every host, and evaluating the old
 # tree with the new lock would hide exactly that.
 slug="${GITHUB_REPOSITORY:-}"
 if [ -z "$slug" ]; then
@@ -79,11 +61,10 @@ else
   for host in $HOSTS; do
     attr="nixosConfigurations.${host}.config.system.build.toplevel.drvPath"
     cur="$(nix eval --raw ".#${attr}")"
-    # A failing baseline eval is not an error: there is then no prior build to
-    # lean on, so the host must be built. It has two causes — a host that does
-    # not exist on the baseline, or a broken eval (no network, GitHub rate
-    # limit) — and only the eval's stderr tells them apart, so it is printed,
-    # not discarded.
+    # A failing baseline eval is not an error — there is then no prior build to
+    # lean on, so the host must be built. Its stderr is printed rather than
+    # discarded: only that distinguishes "host absent on the baseline" from a
+    # broken eval (no network, GitHub rate limit).
     base_err="$(mktemp)"
     if base="$(nix eval --raw "github:${slug}/${baseline_sha}#${attr}" 2>"$base_err")"; then
       rm -f "$base_err"
@@ -103,9 +84,9 @@ else
   done
 fi
 
-# Emit a JSON array. `jq` is not in the devShell and this needs no dependency:
-# host names are flake attribute names, so they cannot contain a quote or a
-# backslash and need no escaping.
+# Emit a JSON array for the Actions matrix on STDOUT; all reasoning above goes to
+# stderr so the two never mix. No `jq` needed (it is not in the devShell): host
+# names are flake attribute names, so they cannot contain a quote or backslash.
 out=""
 for host in $changed; do
   out="${out}${out:+,}\"${host}\""

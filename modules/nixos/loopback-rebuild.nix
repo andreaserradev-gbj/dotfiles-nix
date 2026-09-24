@@ -1,29 +1,16 @@
-# The loopback-rebuild seam. A host that sets `local.loopbackRebuild.enable`
-# can run its OWN rebuild through SSH to itself (`nrs`/`nrt` in
-# modules/home/shell.nix gain `--target-host <user>@localhost`), so the
-# activation runs inside sshd's session scope instead of the graphical
-# session that launched it — doc/workflow.md's "never run `nrs` from the
-# machine's own graphical console" hazard, discharged without needing a
-# second machine. Phase 1 of a switch can restart the display stack; sshd
-# lives outside it, so the activation survives.
+# The loopback-rebuild seam: with `local.loopbackRebuild.enable`,
+# modules/home/shell.nix gives nrs/nrt `--target-host <user>@localhost`, so the
+# activation runs inside sshd's session scope instead of the graphical session
+# that launched it — doc/workflow.md's "never run `nrs` from the graphical
+# console" hazard, discharged without a second machine. Inert without `enable`.
 #
-# Inert unless a host flips it on: the VM's aliases stay plain (it is usually
-# rebuilt over SSH from outside anyway) and hplaptop never sees the aliases
-# at all (shell.nix is dev-gated, and this whole file is inert without
-# `enable`).
-#
-# The two keys are per-host literals BY DESIGN — this file does not and must
-# not try to read them off the running system, for the same reason
-# user.nix's `repo` is a literal: a config that derives its own state from
-# the machine it is describing cannot be rebuilt from a clean checkout.
-# The values are public (a public key is public); the corresponding PRIVATE
-# key must already exist at ~/.ssh/id_ed25519 on the host itself. That file
-# is deliberately NOT managed by the flake: HM programs.ssh has no
-# key-generation option, and dropping a private key into a store path would
-# make it world-readable. Forkers: `ssh-keygen -t ed25519 -N "" -f
-# ~/.ssh/id_ed25519` once, then paste the .pub here.
-#
-# `user` is threaded via extraSpecialArgs from flake.nix (same as dev.nix).
+# `authorizedKey`/`hostKey` are per-host literals BY DESIGN: they must not be read
+# off the running system (same reason user.nix's `repo` is a literal) — a config
+# that derives its own state from the machine it describes cannot be rebuilt from
+# a clean checkout. Both values are public; the matching PRIVATE key lives at
+# ~/.ssh/id_ed25519 on the host and is deliberately unmanaged (a private key in a
+# store path would be world-readable). Generate it WITHOUT a passphrase — an
+# unattended rebuild cannot type one.
 {
   config,
   lib,
@@ -38,24 +25,17 @@ in
   options.local.loopbackRebuild = {
     enable = lib.mkEnableOption "loopback rebuilds: this host rebuilds itself over SSH to localhost, keeping activation outside the display stack (shell.nix wires nrs/nrt through --target-host)";
 
-    # The host's OWN user key (e.g. `ssh-keygen -lf ~/.ssh/id_ed25519.pub`
-    # identifies it). Appended to the authorized keys that dev.nix already
-    # manages — a plain attrset list merge, no conflict — so the loopback
-    # connection authenticates with the key that lives on the machine
-    # itself, never with the Mac's key (whose private half must not be
-    # copied anywhere). Inbound use is restricted to loopback below: the key is
-    # passphrase-less and sits on the machine, so any copy of it would otherwise
-    # be a way in from anywhere.
+    # The host's OWN user key (`ssh-keygen -lf ~/.ssh/id_ed25519.pub` identifies
+    # it), merged with the keys dev.nix already manages. Loopback-only below: the
+    # key is passphrase-less and sits on the machine.
     authorizedKey = lib.mkOption {
       type = lib.types.str;
       description = "This host's own SSH public key, authorized for loopback only (from=\"127.0.0.1,::1\") — the machine SSHing into itself, not a way in from anywhere else.";
     };
 
-    # Pinned via programs.ssh.knownHosts so the manual `ssh-keyscan` step is
-    # gone: a fresh checkout + one rebuild pins localhost's host key before
-    # the first loopback nrs ever runs. hostNames covers the three ways
-    # `localhost` can resolve (it, 127.0.0.1, ::1) so a resolver change
-    # cannot trigger a MITM warning — sshd binds both address families.
+    # Pinned via knownHosts so the manual `ssh-keyscan` step is gone; hostNames
+    # covers the three ways `localhost` resolves, so a resolver change cannot look
+    # like a MITM.
     hostKey = lib.mkOption {
       type = lib.types.str;
       description = "This host's own sshd public key (the .pub of /etc/ssh/ssh_host_ed25519_key), pinned as the known host key for localhost.";
