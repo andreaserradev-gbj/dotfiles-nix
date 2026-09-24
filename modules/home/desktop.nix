@@ -194,16 +194,15 @@ lib.mkIf osConfig.local.desktop.enable {
       # stable symlink installed by xdg.dataFile in gtk.nix, not a store hash, so
       # a wallpaper package bump never leaves a stale URI behind.
       #
-      # `picture-uri` is a `file://` URL, so an absolute path is unavoidable
-      # there, and `config.xdg.dataHome` does not help: it resolves to
-      # `$HOME/.local/share`, which GNOME's background reader does not expand.
-      # Taking the username from HM's evaluated `homeDirectory` keeps the only
-      # username literal in the repo in user.nix. `zoom` scales the 4K image down
-      # cleanly to any single display; `spanned` would stretch it and needs a
-      # wider source.
+      # `picture-uri` is a `file://` URL, so the URI needs an absolute path:
+      # `config.xdg.dataHome` is one (derived from HM's evaluated
+      # `homeDirectory`, which comes from user.nix), and using it instead of a
+      # literal `/.local/share` keeps the URI correct if that option is ever
+      # moved. `zoom` scales the 4K image down cleanly to any single display;
+      # `spanned` would stretch it and needs a wider source.
       "org/gnome/desktop/background" = {
-        picture-uri = "file://${config.home.homeDirectory}/.local/share/backgrounds/catppuccin-mocha.png";
-        picture-uri-dark = "file://${config.home.homeDirectory}/.local/share/backgrounds/catppuccin-mocha.png";
+        picture-uri = "file://${config.xdg.dataHome}/backgrounds/catppuccin-mocha.png";
+        picture-uri-dark = "file://${config.xdg.dataHome}/backgrounds/catppuccin-mocha.png";
         picture-options = "zoom";
       };
 
@@ -211,7 +210,7 @@ lib.mkIf osConfig.local.desktop.enable {
       # SEPARATELY — easy to miss, leaving the lock screen on GNOME's default
       # while the desktop is Mocha.
       "org/gnome/desktop/screensaver" = {
-        picture-uri = "file://${config.home.homeDirectory}/.local/share/backgrounds/catppuccin-mocha.png";
+        picture-uri = "file://${config.xdg.dataHome}/backgrounds/catppuccin-mocha.png";
         picture-options = "zoom";
       };
     })

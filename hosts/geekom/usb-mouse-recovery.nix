@@ -1,16 +1,19 @@
 # Auto-recovery for USB mice that fail enumeration at cold boot: bounce the
 # mouse's xHCI controller, emulating the replug. The Razer Basilisk V3 misses the
 # kernel's ~4 s retry window on ANY port and the kernel never retries; bouncing
-# `c8:00.0` resets buses 3+4 only (the mouse's port plus the front-panel hub
-# chain) — BT radio and Corne sit on separate PCI functions (doc/troubleshooting.md).
+# `c8:00.0` resets only that controller's root hubs, so the BT radio (a different
+# controller) and the Corne (another function of the same device) are untouched
+# (doc/troubleshooting.md).
 {
   pkgs,
   ...
 }:
 
 let
-  # Vendor:product of the Razer Basilisk V3 and the xHCI controller whose root hub
-  # carries it (c8:00.0 → buses 3/4) — literals like loopback-rebuild's pinned keys.
+  # Vendor:product of the Razer Basilisk V3 and the xHCI controller whose root
+  # hubs carry it — literals like loopback-rebuild's pinned keys. Only the PCI
+  # address is pinned: the bus numbers `lsusb -t` prints are assigned during
+  # probe and can move between boots.
   mouseId = "1532:0099";
   xhciPci = "0000:c8:00.0";
 

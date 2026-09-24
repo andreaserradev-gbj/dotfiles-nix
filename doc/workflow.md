@@ -3,7 +3,9 @@
 Rebuild aliases (defined in `modules/home/shell.nix`). They are fronted by
 [`nh`](https://github.com/nix-community/nh), a nicer `nixos-rebuild`/GC
 front-end. `NH_FLAKE` points at this repo, so **none of them need a path or a
-host argument** — the same alias is correct on every machine.
+host argument** — the same alias is correct on every machine. `hplaptop` is the
+exception: with no checkout and no `nh`, her `nrb` and `ngca` come from
+`modules/home/maintenance.nix` instead (see [doc/bare-metal-hplaptop.md](bare-metal-hplaptop.md)).
 
 | alias                 | command                | what it actually does                                             |
 | --------------------- | ---------------------- | ----------------------------------------------------------------- |
@@ -12,16 +14,18 @@ host argument** — the same alias is correct on every machine.
 | `nrt`                 | `nh os test`           | activate now, don't touch the bootloader — a reboot reverts it     |
 | `nrb`                 | `nh os boot`           | stage for next boot, don't activate now                            |
 | `nfu`                 | `nix flake update`     | bump every input — rewrites `flake.lock`                           |
+| `nfud`                | shell function         | dry run of `nfu`: diff the would-be lock update, write nothing     |
 | `nfb`                 | `scripts/nfb.sh`       | bump omp/herdr to upstream's latest release; re-locks omp's flake input only |
 | `nfc`                 | `nix flake check`      | validate the flake without building a system                       |
-| `nfi`                 | `nix flake init -t …`  | drop the devshell template into the current project                |
+| `nfi` / `nfp`         | `nix flake init -t …`  | drop the devshell / python-devshell template into the current project |
 | `ngl` / `ngd` / `ngc` | shell functions        | list / diff / interactively delete generations                     |
 | `ngca`                | `nh clean all` + prune | bulk GC keeping the newest, then prune the boot menu               |
 | `nixcfg`              | `cd ~/dotfiles-nix`    | jump to this repo                                                  |
 
 **Always `git add` before a `--flake` command.** Flakes only see git-tracked
-files, so an untracked new module or asset is invisible to the build — the
-error is a confusing "path does not exist," not "you forgot to stage."
+files, so an untracked new module or asset is invisible to the build. Nix names
+it — `Path 'X' … is not tracked by Git`, followed by the `git add` that fixes it
+— but only after you have already started the build.
 `scripts/check-hosts.sh` warns about untracked files _before_ it prints any
 result, precisely because a green result on a stale tree is worse than a red one.
 
@@ -69,9 +73,11 @@ text**.
 > `boot.initrd.availableKernelModules`. Only a reboot tests the boot path. A
 > green `nrs` is not "it will boot".
 
-> **`ngca` keeps exactly one generation.** A freshly installed host has only
-> `system-1-link`, so running it there leaves nothing to roll back to — and on
-> bare metal the boot menu is the only recovery path. Wait until several
+> **`ngca` on a dev host keeps exactly one generation** (`nh clean all`, whose
+> `--keep` defaults to 1; hplaptop's is the 14-day variant — see
+> [doc/bare-metal-hplaptop.md](bare-metal-hplaptop.md)). A freshly installed host
+> has only `system-1-link`, so running it there leaves nothing to roll back to —
+> and on bare metal the boot menu is the only recovery path. Wait until several
 > generations exist and a reboot has confirmed the current one is healthy.
 > `configurationLimit` bounds bootloader _entries_, not generations; they are
 > different numbers.
@@ -218,14 +224,17 @@ nixpkgs.url = "github:NixOs/nixpkgs/nixos-<release>";
 home-manager.url = "github:nix-community/home-manager/release-<release>";
 ```
 
-Nothing else in the repo names the release in a functional way. The
-`home-manager` line must track the `nixpkgs` line because HM release branches
-are cut per NixOS release (and wired with `follows`, so it inherits the same
-nixpkgs evaluation).
+Nothing else in the repo names the release in a functional way, except the two
+dev-shell templates (`templates/devshell/flake.nix`,
+`templates/python-devshell/flake.nix`), which pin the same branch so a project
+shell reuses store paths the system already has — bump their `nixos-<release>`
+refs too. The `home-manager` line must track the `nixpkgs` line because HM
+release branches are cut per NixOS release (and wired with `follows`, so it
+inherits the same nixpkgs evaluation).
 
 To move to a new release (e.g. 26.05 → 26.11):
 
-1. Edit the two refs in `flake.nix`.
+1. Edit the two refs in `flake.nix` (and the two in `templates/*/flake.nix`).
 2. `nix flake update nixpkgs home-manager` — re-resolves the lock to the new
    branch (`nfu` alone re-resolves *within* the pinned branch only).
 3. `nrp`, review the diff, then activate per the table above.
@@ -251,7 +260,7 @@ branch, so seeing no version movement on `nfu` is the normal condition, not a
 broken update. Two tools are the exception, both pinned from
 `nixpkgs-unstable` via the escape hatch below: `ollama` since 2026-09-11 and
 `opencode` since 2026-09-22. For both, `nfu` (or a targeted
-`nix flake lock --update-input nixpkgs-unstable`) DOES move them.
+`nix flake update nixpkgs-unstable`) DOES move them.
 
 ### Need a newer version before the next release?
 

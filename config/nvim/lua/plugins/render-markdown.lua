@@ -2,7 +2,6 @@
 -- checkboxes, callouts as Unicode). Modal: rendered in normal mode, raw source
 -- in insert mode. LazyVim preset keeps styling aligned with the LazyVim theme.
 --
--- Trial only — adopt/decide via doc/adopting-tools.md before merging to main.
 -- Icons come from LazyVim's mini.icons, markdown parsers from treesitter.lua.
 return {
   "MeanderingProgrammer/render-markdown.nvim",

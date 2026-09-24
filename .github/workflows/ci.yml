@@ -47,12 +47,12 @@ jobs:
       - run: nix develop -c deadnix --fail
       - run: ./scripts/check-hosts.sh
       # The candidates are named HERE, not in changed-hosts.sh, so this file
-      # stays the one place that says what CI builds. NIX_CONFIG carries the
-      # job's own token: fetching the baseline flake anonymously shares the
-      # rate-limited GitHub API pool that Actions runners draw from.
+      # stays the one place that says what CI builds. The baseline fetch needs a
+      # token so it does not share the rate-limited anonymous pool Actions
+      # runners draw from; the installer action already supplies one —
+      # `github-token` defaults to `${{ github.token }}` and it writes
+      # `access-tokens` into /etc/nix/nix.conf (its src/index.ts, pinned v22).
       - id: changed
-        env:
-          NIX_CONFIG: "access-tokens = github.com=${{ github.token }}"
         run: |
           hosts="$(./scripts/changed-hosts.sh verified geekom hplaptop)"
           echo "hosts=$hosts" >> "$GITHUB_OUTPUT"

@@ -1,6 +1,6 @@
 # herdr — terminal workspace manager for coding agents
 
-herdr ([github:herdrdev/herdr](https://github.com/herdrdev/herdr), v0.9.1) is a
+herdr ([github:herdrdev/herdr](https://github.com/herdrdev/herdr)) is a
 terminal workspace manager built around AI coding agents: panes and tabs like
 zellij, plus an agent registry that tracks which agent (opencode, claude, codex,
 …) runs in which pane. It was promoted into the flake as a dev-gated home-layer
@@ -34,8 +34,8 @@ greppable place, and the single `nfb` run re-fetches them from the same release
 tag as the binary, so they cannot drift apart. Vendoring pins them to reviewed,
 version-matched copies and makes a stray install (`herdr integration install omp`
 offering to write its own copy) fail loudly instead of drifting silently. The two
-carry **independent** version counters — at v0.9.1 the opencode plugin is 12 and
-the omp extension is 10. Never compare one against the other; each is diffed only
+carry **independent** version counters (the `HERDR_INTEGRATION_VERSION` marker at
+the top of each file). Never compare one against the other; each is diffed only
 against the same-file asset at the new tag. The skill is deliberately *not*
 vendored: npx-managed like the other skills, it stays editable/fresh without a
 rebuild and is re-run manually per bump.
@@ -46,15 +46,21 @@ Assets are verbatim — edit the asset, not a generator (there is none).
 
 - `onboarding = false` — top-level boolean, not a table.
 - `[theme] name = "catppuccin"` — canonical name (`catppuccin-mocha` is an alias).
-- `[update] version_check = false` — **the only phone-home knob**; strace-verified
-  at the trial: with it false, zero AF_INET connects. herdr *does* ship a
-  self-updater (`herdr update`, channel set) but it is inert under Nix — the store
-  binary cannot self-replace, and there is no "disable self-updater" setting to
-  make. Same decision as opencode's disabled auto-updater
+- `[update]` holds herdr's **two** phone-home knobs, both curl-based:
+  `version_check = false` (it only announces a version this install cannot take)
+  and `manifest_check` **left on by design** — it refreshes the agent-detection
+  manifests, and the agent registry is the reason this tool is here; the asset
+  carries that reason next to the keys. Measured: a strace of the client
+  with `version_check = false` shows the manifest fetch as the only outbound
+  traffic. herdr *does* ship a self-updater (`herdr update`, channel set) but it
+  is inert under Nix — on a store binary it refuses with "self-update is disabled
+  for Nix installs", and there is no "disable self-updater" setting to make. Same
+  decision as opencode's disabled auto-updater
   ([modules/home/opencode.nix](../modules/home/opencode.nix)).
 
-**Keymap.** Every binding is array-form, carrying BOTH the herdr prefix chord and
-a bare single, mirroring zellij's navigation
+**Keymap.** Every binding is array-form; each focus binding carries BOTH a herdr
+prefix chord and a bare single, and the rest one key each — the whole set mirrors
+zellij's navigation
 ([config/zellij/config.kdl](../config/zellij/config.kdl); the asset is the source
 of truth for the list). The bare singles are **arrows**, not `alt+hjkl`: neovim
 claims `alt+h` (toggle-hidden in grep/fzf pickers), and any bare alt-letter here
@@ -63,8 +69,8 @@ pane, and zellij already trains the Alt-arrow habit. Two upstream gaps worth
 knowing: there is **no quit key** (`prefix+q` *detaches* — the server keeps
 running; killing it is a CLI action), and wider zellij-mirror bindings were
 deliberately left out of the asset — extend it after testing, don't ship
-unverified keymap claims. `herdr config check` validates the asset (ran clean on
-geekom at v0.9.1).
+unverified keymap claims. `herdr config check` validates the asset (it prints
+`config: ok`).
 
 ## Update checklist (per herdr tag bump)
 
@@ -89,18 +95,20 @@ the `tool-pins.json` entry is the pin of record.
 4. `git add` everything, `./scripts/check-hosts.sh`: expect `vm` + `geekom`
    drvPaths to move, `hplaptop` byte-identical.
 5. `nrp`, rebuild, then `herdr --version` and `herdr integration status` (expect
-   `omp: current`) to confirm binary and assets moved together.
-6. Version literals in this doc's prose (`v0.9.1`, the two asset counters) are a
-   manual tail: update them in the same commit if they moved.
-7. PR → CI → squash merge per [workflow.md](workflow.md).
+   `omp: current`) to confirm binary and assets moved together. The same output
+   also shows `opencode: needs repair`: opencode's integration is multi-file (the
+   plugin plus a `herdr-tui-session.js` and a `tui.jsonc` entry, and only the
+   plugin is vendored), so that flag is the unvendored companions, not a version
+   mismatch.
+6. PR → CI → squash merge per [workflow.md](workflow.md).
 
 **No compile happens** — CI substitutes the ~25 MB static binary (a FOD failure
 here means the hash or URL is wrong, not a build issue). The binary is
 **static-PIE** (zero NEEDED libraries): no nix-ld dependency and nothing to
 ELF-patch — the derivation sets `dontStrip`/`dontPatchELF` and installs the bytes
-as-is; never ELF-patch it. The rust/zig toolchain (~1,150 drv paths on geekom)
-left the closure with the source build, so a tag bump re-hashes instead of
-recompiling and `nfu` no longer rebuilds herdr's binary.
+as-is; never ELF-patch it. The rust/zig toolchain left the closure with the source
+build, so a tag bump re-hashes instead of recompiling and `nfu` no longer rebuilds
+herdr's binary.
 
 Fallback to the from-source build means re-adding the `herdr` flake input and
 `home.packages = [ herdr ];` (see herdr.nix). Cost accepted and named: the trust
@@ -124,5 +132,5 @@ boundary widens from "herdr's build recipe" to "upstream's release CI"
 - [doc/adopting-tools.md](adopting-tools.md) — the ladder this followed
 - [doc/workflow.md](workflow.md) — rebuild aliases, escape-hatch policy, release cycle
 - [config/zellij/config.kdl](../config/zellij/config.kdl) — the zellij keymap herdr's alt-singles mirror
-- [modules/home/herdr.nix](../modules/home/herdr.nix) — the module (owning comments for both vendored assets + the skill)
+- [modules/home/herdr.nix](../modules/home/herdr.nix) — the module (owning comments for both vendored assets)
 - upstream docs: herdr.dev/docs

@@ -7,16 +7,15 @@
 > their own setup. It is **not** a community project: Issues, Discussions,
 > the Wiki, and Projects are disabled, and **PRs will not be accepted** — I
 > don't review them, because every commit here is verified against my own
-> machines first — the laptop installs, unattended, from a `verified` branch
-> that CI advances only after a green build. If something here helped you,
-> fork it — the [license is MIT](#license) and stripping it to your machines
-> is the intended use. See [`user.nix`](user.nix) for the one file to edit in
-> a fork.
+> machines first: the laptop pulls updates from a `verified` branch that CI
+> advances only after a green build. If something here helped you, fork it —
+> the [license is MIT](#license) and stripping it to your machines is the
+> intended use. See [Forking](#forking) for the files to edit first.
 
 Personal NixOS configuration for **three machines built from one flake** — an
 Apple Silicon development VM, an x86_64 desktop, and an x86_64 laptop for a
-non-technical user. One command rebuilds the system and my `$HOME` on any of
-them:
+non-technical user. One command rebuilds the system and my `$HOME` on any host
+with a checkout of this repo:
 
 ```sh
 sudo nixos-rebuild switch --flake .
@@ -60,7 +59,8 @@ Everything lives in a single flake with two layers folded together:
   `home-manager switch`), so one `nixos-rebuild` builds both.
 
 The split is the whole point of the multi-host layout: anything under
-`modules/` is shared and moves **every** host when it changes, anything under
+`modules/` is shared, so a change there can move more than one host at once (a
+module behind the dev gate leaves `hplaptop`, dev off, alone); anything under
 `hosts/` moves one. `scripts/check-hosts.sh` is how you find out which you just
 did.
 
@@ -68,7 +68,7 @@ did.
 
 ```
 flake.nix              nixosConfigurations.nixos (aarch64) + .geekom + .hplaptop (x86_64)
-user.nix               personal identity — the one file to edit when forking
+user.nix               personal identity per host, plus the repo URL `nrb` updates from
 home.nix               Home Manager entrypoint — imports modules/home/
 hosts/vm/              the aarch64 UTM VM
 hosts/geekom/          the x86_64 mini PC
@@ -80,7 +80,7 @@ modules/nixos/         system layer, shared by every host
   common.nix             users, shell, system packages
   desktop.nix            defines AND consumes the `local.desktop` option
   dev.nix                defines AND consumes the `local.dev` option
-modules/home/          one module per tool (zsh, git, neovim, …) — 100% Nix
+modules/home/          one module per tool (zsh, git, neovim, …) — Nix modules, pins in tool-pins.json
   maintenance.nix        `nrb`/`ngca` aliases for non-dev hosts (no `nh`)
 config/<tool>/…        verbatim assets referenced by the modules (nvim tree,
                        bat theme, fastfetch, zellij) — 100% non-Nix
@@ -111,7 +111,7 @@ bootstrap.sh           one-command install of any host, from a live ISO
 | ------------------------------ | --------------------------------------------------------- |
 | [doc/install-vm.md](doc/install-vm.md)             | Installing the UTM VM: `bootstrap.sh`, SSH setup, manual fallback |
 | [doc/bare-metal-geekom.md](doc/bare-metal-geekom.md) | The full bare-metal runbook: firmware, wifi, Bluetooth, suspend |
-| [doc/bare-metal-hplaptop.md](doc/bare-metal-hplaptop.md) | The hplaptop delta: design constraints, suspend mask, updates via `nrb` |
+| [doc/bare-metal-hplaptop.md](doc/bare-metal-hplaptop.md) | The hplaptop delta: design constraints, suspend, updates via `nrb` |
 | [doc/workflow.md](doc/workflow.md)                 | Rebuild aliases, which command from where, release upgrades, `/etc/nixos` cleanup |
 | [doc/secrets.md](doc/secrets.md)                   | sops-nix: storage model, edit/rotate/rekey workflow, trust boundary, credential tiers |
 | [doc/dev-environments.md](doc/dev-environments.md) | Per-project dev shells: the `devshell` template, direnv, SSH port forwards |
@@ -132,14 +132,28 @@ bootstrap.sh           one-command install of any host, from a live ISO
   and if the VM console is the only thing reachable:
   [doc/vm-console.md](doc/vm-console.md)
 
-> **Forking?** Everything personal lives in one file, [`user.nix`](user.nix):
-> `username`, `fullName`, `email`, `timeZone`, and `sshKey` (optional — omit it
-> and dev hosts get sshd with no authorized key). Edit it in your
-> fork and commit _before_ installing — the install walkthroughs pick this up
-> where it matters.
+## Forking
+
+**Everything personal is not in one file.** Edit these in your fork, and commit
+_before_ installing — the install walkthroughs pull the config from git:
+
+- [`user.nix`](user.nix) — `username`, `fullName`, `email`, `timeZone`, optional
+  `sshKey` (omit it and dev hosts get sshd with no authorized key), and `repo`,
+  the flake `nrb` updates from: leave it and your fork keeps pulling mine.
+- `bootstrap.sh` — `REPO=`, the URL spelled out because the script runs before
+  any clone exists.
+- `.sops.yaml` — the age recipients. `secrets/andrea/secrets.yaml` is encrypted
+  to my key and geekom's, so either add yours (`sops updatekeys`) or drop the
+  secrets directory and the `sops.*` lines in `modules/nixos/dev.nix`
+  ([doc/secrets.md](doc/secrets.md) owns that workflow).
+- `hosts/*/disk-config.nix` (the disk device) and
+  `hosts/*/hardware-configuration.nix` (initrd modules, by-label mounts) —
+  facts about _my_ machines, captured on them.
+- `hosts/geekom/default.nix` — `local.loopbackRebuild`'s two keys are per-host
+  literals; `modules/nixos/loopback-rebuild.nix` says why.
 
 ## License
 
-[MIT](LICENSE) — fork, strip, and reuse freely; see [`user.nix`](user.nix) for
-the one file to edit when forking. This repo is maintained for my own
-machines only — see the notice at the top regarding contributions.
+[MIT](LICENSE) — fork, strip, and reuse freely; see [Forking](#forking) for the
+files to edit first. This repo is maintained for my own machines only — see the
+notice at the top regarding contributions.

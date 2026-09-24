@@ -16,10 +16,10 @@ Real hardware has its own walkthroughs — firmware, boot order, wifi carry-over
 Bluetooth — under [doc/bare-metal-geekom.md](bare-metal-geekom.md) and
 [doc/bare-metal-hplaptop.md](bare-metal-hplaptop.md).
 
-> **Forking?** Point the bootstrap/install URLs below at your fork; the one file to
-> edit is [`user.nix`](../user.nix), and it must be committed _before_ installing
-> because `bootstrap.sh` pulls the config from git — see the
-> [README's fork callout](../README.md) for what it holds.
+> **Forking?** Point the bootstrap/install URLs below at your fork and edit the
+> files the [README's Forking section](../README.md#forking) lists — all of them
+> must be committed _before_ installing, because `bootstrap.sh` pulls the config
+> from git.
 
 ## 1. Create the UTM VM
 
@@ -36,11 +36,12 @@ Bluetooth — under [doc/bare-metal-geekom.md](bare-metal-geekom.md) and
   (cage takes the host's preferred mode — [doc/vm-console.md](vm-console.md)).
   Takes effect on the next full VM start (a guest reboot is not enough).
 
-Boot the ISO to the installer's root shell and confirm networking (`ping nixos.org`).
+Boot the ISO — it autologins as `nixos`, with passwordless `sudo` — and confirm
+networking (`ping nixos.org`).
 
 ## 2. One-command install
 
-From the booted ISO's root shell:
+From the booted ISO's shell:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/andreaserradev-gbj/dotfiles-nix/main/bootstrap.sh \
@@ -54,9 +55,10 @@ curl -fsSL https://raw.githubusercontent.com/andreaserradev-gbj/dotfiles-nix/mai
 
 `bootstrap.sh` (at the repo root) runs the install in four announced phases:
 
-1. **Pre-flight.** Fetches `hosts/<host>/disk-config.nix` over HTTPS, reads the
-   target device back out of the file it actually fetched, and refuses to go on
-   if that path is still a `PLACEHOLDER`. A wrong device costs two seconds here
+1. **Pre-flight.** Fetches the host's disk layout over HTTPS — `hosts/vm/` for
+   attr `nixos`, since the two names differ here — reads the target device back
+   out of the file it actually fetched, and refuses to go on if that path is
+   still a `PLACEHOLDER`. A wrong device costs two seconds here
    instead of surfacing after partitioning, on hardware you are standing in
    front of.
 2. **Confirm.** Prints the host, the layout URL and **the disk it is about to
@@ -68,9 +70,10 @@ curl -fsSL https://raw.githubusercontent.com/andreaserradev-gbj/dotfiles-nix/mai
    layers — system and `$HOME` — straight from the flake.
 
 There's no `nixos-generate-config` and no throwaway config: the committed
-`hardware-configuration.nix` mounts by those two labels and
-`hosts/<host>/default.nix` already carries your SSH key, so a fresh install
-collapses to disko plus one `nixos-install`.
+`hardware-configuration.nix` mounts by those two labels and the SSH key rides in
+from `user.nix` instead, so a fresh install collapses to disko plus one
+`nixos-install` — the key is the one part that must be in the repo before it
+runs (section 3).
 
 > **The install is interactive, by design.** An unattended disk wipe is the one
 > thing worth a keystroke. The subtlety is that the script itself arrives on
@@ -80,9 +83,10 @@ collapses to disko plus one `nixos-install`.
 
 > **Why `-fsSL`, not `-sL`?** `-f` makes curl fail loudly on a bad URL instead of
 > silently piping a 404 HTML page into `sudo bash` (which then surfaces as the
-> baffling `404:: command not found`). Two prompts are still suppressed, because
-> neither has a terminal to appear on: `--yes-wipe-all-disks` (disko's wipe
-> confirm) and `--no-root-passwd` (nixos-install's root-password prompt).
+> baffling `404:: command not found`). Two prompts are still suppressed, for that
+> same stdin reason: `--yes-wipe-all-disks` (disko's wipe confirm) and
+> `--no-root-passwd` (nixos-install's root-password prompt) would each try to read
+> the piped script.
 
 > **disko is pinned in the script, not in `flake.lock`.** `bootstrap.sh` runs
 > from a live ISO, outside the flake, so it cannot inherit the lock.
@@ -96,6 +100,11 @@ When it finishes:
 
 1. In UTM, detach the ISO (Drive → eject).
 2. `reboot`.
+3. `passwd` at the console, first thing. `modules/nixos/common.nix` sets
+   `initialPassword = "nixos"` for the account and this repo is public, so until
+   you change it the login password is written down on the internet.
+   `users.mutableUsers` keeps its default of `true`, so the change survives every
+   rebuild. (No keyring to re-key — the VM runs no desktop.)
 
 The VM boots straight into its local console — [doc/vm-console.md](vm-console.md).
 Log in from the Mac over SSH with your key — next.
@@ -113,12 +122,13 @@ is the _only_ way in over the network — there is no password fallback.
 > dev host needs nothing added for SSH — verify rather than re-implement:
 > `nix eval .#nixosConfigurations.<host>.config.services.openssh.enable`.
 
-> **`sshKey` is optional — and is currently ABSENT.** The work MacBook's key was
-> revoked in 2026-09 and nothing replaced it, so `user.nix` declares no `sshKey`
-> and dev hosts build with an empty authorized-keys list. Combined with the line
-> above — SSH is the only way in over the network — **geekom is reachable only
-> from its own console** until a key is enrolled. Steps 1-2 below are the
-> re-enrolment procedure, not just first-install setup.
+> **`sshKey` is optional — and is currently ABSENT.** `user.nix` owns the field
+> and says why the absence is deliberate: `modules/nixos/dev.nix` treats it as
+> optional, so dev hosts build with an empty authorized-keys list instead of
+> failing evaluation. Combined with the line above — SSH is the only way in over
+> the network — **a dev host is reachable only from its own console** until a key
+> is enrolled. Step 1 below is the re-enrolment procedure, not just
+> first-install setup.
 
 1. **Generate a key on the machine that will connect** — not on the host you are
    installing, and not on a machine you are about to hand back (skip if that
@@ -130,23 +140,31 @@ is the _only_ way in over the network — there is no password fallback.
 
 2. **Put its public half in `user.nix`** as `sshKey = "ssh-ed25519 …";` and commit.
    `modules/nixos/dev.nix` installs it into every dev host's `authorizedKeys` at
-   build time, so it must be in the repo _before_ the install in step 2.
+   build time, so it must be in the repo _before_ the install in section 2.
    The private half never leaves the machine that generated it and never enters
    this repo — see the same rule in
    [bare-metal-geekom.md](bare-metal-geekom.md).
 
-3. **Find the VM's IP** from the local console — it's a DHCP lease, so it can change
+3. **Re-enrol the VM as a sops recipient.** The key that unwraps the secret
+   ciphertext is the machine's own SSH host key (`sops.age.sshKeyPaths` in
+   `modules/nixos/dev.nix`), and a fresh VM has a new one that `.sops.yaml` does
+   not list — until it does, activation on that VM cannot unwrap the data key.
+   Take the pubkey off the VM's console with
+   `ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub`; [doc/secrets.md](secrets.md)
+   owns the policy and has the re-key commands.
+
+4. **Find the VM's IP** from the local console — it's a DHCP lease, so it can change
    across reboots:
 
     ```sh
-    ip -4 addr show enp0s1        # the 192.168.64.x on the virtio NIC
+    ip -4 addr                     # the 192.168.64.x lease on the virtio NIC
     ```
 
-4. **Add a `Host` block** to the Mac's `~/.ssh/config`:
+5. **Add a `Host` block** to the Mac's `~/.ssh/config`:
 
     ```
     Host nixos
-      HostName 192.168.64.12          # the IP from step 3
+      HostName 192.168.64.12          # the IP from step 4
       User andrea
       IdentityFile ~/.ssh/id_ed25519
       IdentitiesOnly yes
@@ -166,10 +184,19 @@ is the _only_ way in over the network — there is no password fallback.
 ## Manual install (fallback / reference)
 
 If you'd rather drive the install by hand — or `bootstrap.sh` won't run — do what
-the script does, by hand. Boot the ISO to the root shell, confirm networking, then:
+the script does, by hand. Boot the ISO, confirm networking, then:
 
 **Partition `/dev/vda` (UTM's virtio disk) as GPT with stable labels.** The repo
-mounts by label, not UUID:
+mounts by label, not UUID. Two partitions — a 512M `EF00` ESP, then root filling
+the rest — which is what `hosts/vm/disk-config.nix` declares (`sgdisk` and
+`partprobe` are both on the minimal ISO):
+
+```sh
+sgdisk --clear /dev/vda                            # fresh GPT
+sgdisk --new=1:0:+512M --typecode=1:EF00 /dev/vda  # ESP
+sgdisk --new=2:0:0     --typecode=2:8300 /dev/vda  # root: first free sector to the disk end
+partprobe /dev/vda && udevadm settle               # publish /dev/vda2 and the by-label links
+```
 
 ```sh
 mkfs.fat -F32 -n BOOT /dev/vda1     # ESP  -> label BOOT
@@ -185,7 +212,7 @@ mkdir -p /mnt/boot && mount /dev/disk/by-label/BOOT /mnt/boot
 > same labels; disko and this manual path produce an identical layout.)
 >
 > **The root label is per host.** The VM's root is labelled `nixos`, `geekom`'s
-> is labelled `geekom`; the ESP is `BOOT` on both. Each host's
+> `geekom`, `hplaptop`'s `hplaptop`; the ESP is `BOOT` on all three. Each host's
 > `disk-config.nix` and `hardware-configuration.nix` have to agree on the pair,
 > and both files carry a comment saying so.
 
@@ -193,7 +220,7 @@ mkdir -p /mnt/boot && mount /dev/disk/by-label/BOOT /mnt/boot
 committed config already carries the by-label mounts, the EFI fix
 (`boot.loader.efi.canTouchEfiVariables = false`, the aarch64/UTM fix — UTM's
 firmware can't take NVRAM boot-entry writes, so systemd-boot uses its fallback
-path), and your SSH key:
+path) and the SSH key from `user.nix` (section 3):
 
 ```sh
 export NIX_CONFIG="experimental-features = nix-command flakes"
@@ -203,10 +230,8 @@ reboot               # detach the install medium first
 
 > **The attr is required here, unlike a daily rebuild** — a running system resolves
 > its own host ([README](../README.md)). The live ISO calls itself `nixos` whatever
-> you are installing, so any hostname-derived fallback resolves to the VM. Today
-> that fails loudly on x86_64 hardware — wrong architecture — but it would quietly
-> pick the wrong machine the moment a second x86_64 host exists. Name the host
-> explicitly at install time, every time.
+> you are installing, so any hostname-derived fallback resolves to the VM. Name
+> the host explicitly at install time, every time.
 
 > If a fresh VM's disk layout ever differs from the committed template, re-run
 > `nixos-generate-config`, re-apply the two by-label mount edits, and commit.

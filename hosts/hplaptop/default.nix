@@ -64,10 +64,10 @@
   # Firmware updates through the LVFS; the VM has no real firmware to update.
   services.fwupd.enable = true;
 
-  # Suspend works here and stays UNMASKED (verified on-site 2026-08-27 —
-  # doc/bare-metal-hplaptop.md). If resume regresses after a firmware update,
-  # restore the systemd.targets mask from git history rather than debugging dconf
-  # (the full reasoning is in hosts/geekom/default.nix).
+  # Suspend works here and stays UNMASKED (verified on-site;
+  # doc/bare-metal-hplaptop.md carries the date and the block). If resume
+  # regresses after a firmware update, restore that systemd.targets mask rather
+  # than debugging dconf (the full reasoning is in hosts/geekom/default.nix).
 
   # Set once at install; never bump (doc/workflow.md).
   system.stateVersion = "26.05";

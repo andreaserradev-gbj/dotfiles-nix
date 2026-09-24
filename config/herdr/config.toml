@@ -1,30 +1,23 @@
 # herdr — terminal workspace manager for coding agents.
 #
-# Nix-managed copy (modules/home/herdr.nix symlinks it into place). Originally
-# proven during the Phase 0 ephemeral trial (2026-09): keymap verified live,
-# `herdr config check` passed, strace showed zero network connects.
-#
-# Keymap mirrors zellij's pane navigation, split across two families:
-# - prefix chords keep zellij's alt-direct letters (prefix+alt+h…),
-# - the bare singles are alt+ARROWS, mirroring zellij's Alt left/down/up/right
-#   focus binds. The bare alt+h/j/k/l singles were dropped because neovim
-#   claims alt+h (unhide in grep/fzf pickers); alt+arrows leave hjkl to the
-#   app inside the pane. Verified against herdr 0.9.0 docs: arrow key names
-#   are valid key strings.
+# Nix-managed copy (modules/home/herdr.nix symlinks it into place). Knob-by-knob
+# rationale, the keymap's zellij mirroring and the gotchas: doc/herdr.md; this
+# file is the source of truth for the bindings themselves.
 # alt+d for split_horizontal mirrors zellij's pane-mode "d" (NewPane "down")
 # — a stacked split, exactly what alt+d does in zellij's pane mode.
-# Tab nav moved off alt+i/alt+o (2026-09-16): neovim claims alt+i, and zellij
-# already passes alt+i through to apps in locked mode (config/zellij/config.kdl
-# unbinds it there). Shift+arrows keep the arrows-for-navigation family and
-# match the browser/VS Code convention.
 # No quit key exists in herdr — prefix+q detaches; closing the server is a
-# CLI action, not a keybinding (documented gap, doc/herdr.md).
+# CLI action, not a keybinding (documented gap).
 onboarding = false
 
-# The only phone-home knob. strace-verified during the trial: false → zero
-# AF_INET connects. The binary itself cannot self-update under Nix (store
-# path is read-only); version bumps are flake-side (?ref=vX.Y.Z + nix flake
-# lock — see doc/herdr.md).
+# Two phone-home knobs, both curl-based (upstream src/app/mod.rs):
+# - `version_check` GETs the releases API on every launch and announces a
+#   version this install cannot take (the store path is read-only, so `herdr
+#   update` is inert under Nix). OFF here; version bumps are the tool-pins.json
+#   entry, bumped by nfb.
+# - `manifest_check` refreshes the agent-detection manifests from
+#   herdr.dev/agent-detection/index.toml. Deliberately LEFT ON: the agent
+#   registry is why this tool is here, and turning it off freezes detection at
+#   the manifests shipped with the binary.
 [update]
 version_check = false
 
