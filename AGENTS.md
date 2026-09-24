@@ -28,15 +28,13 @@ Start from the [README](README.md) for the model and the
 
 ## Working rules
 
-- **Comments are load-bearing.** This repo documents *why* — e.g. why geekom
-  uses `ollama-vulkan` with `OLLAMA_IGPU_ENABLE`, why `boot.loader.efi`
-  can't touch NVRAM on the VM, why suspend stays masked on `geekom` (no S3;
-  hplaptop was verified clean and unmasked — see
-  [doc/bare-metal-hplaptop.md](doc/bare-metal-hplaptop.md)).
-  Read the surrounding comments before changing anything; preserve and extend
-  them when the reasoning changes. Do not "clean up" a comment you have not
-  understood — `"Did you read the comment?"` in `hosts/vm/default.nix` is
-  aimed at exactly that mistake.
+- **Comments explain why, briefly.** Read the surrounding comments before changing
+  code, and don't delete one you haven't understood. When writing one: say why the
+  code is the way it is *now*, in as few lines as it takes. No history ("used to",
+  "was removed", dates, "verified on …"), no versions, line numbers or counts —
+  point at the source (`tool-pins.json`, `git log`). A rationale lives in one place;
+  elsewhere, point to it. When the reasoning changes, rewrite the comment, don't
+  append to it. History belongs in the commit message.
 - **Assets are verbatim.** `config/<tool>/…` is copied, not templated — edit the
   file itself, not a generator (there is none).
 - **Formatting** is `nixfmt` via `nix fmt` (pre-commit hook installed by
@@ -89,12 +87,13 @@ Start from the [README](README.md) for the model and the
 ## Verification before claiming success
 
 1. `git add` the changed files.
-2. `./scripts/check-hosts.sh` — every host must still evaluate, and the
+2. Diff adds more comment lines than code lines? Cut before committing.
+3. `./scripts/check-hosts.sh` — every host must still evaluate, and the
    `drvPath` deltas must match your intent (shared change → all hosts move;
    host change → exactly one moves).
-3. Docs changed? Check every `](...)` link resolves and keep files under
+4. Docs changed? Check every `](...)` link resolves and keep files under
    ~500 lines (split when a doc grows past that).
-4. **Push issued?** `.github/workflows/ci.yml` builds `geekom` and `hplaptop`
+5. **Push issued?** `.github/workflows/ci.yml` builds `geekom` and `hplaptop`
    from GitHub, and `hplaptop` updates itself unattended from `verified`
    (`nrb` with `--refresh`) — a branch CI fast-forwards only after the build
    goes green, so a commit that fails cannot reach that machine. Still fix or
