@@ -1,11 +1,7 @@
-# The developer tooling seam. Imported by EVERY host through commonModules,
-# but wholly inert unless the host sets `local.dev.enable`. hplaptop leaves it
-# off: it is a non-technical user's machine with no nix-ld, ollama, opencode,
-# nodejs, uv, jq, python3, and no sshd.
-#
-# `local.*` is this repo's own option namespace — nothing upstream owns it, so
-# there is no collision risk as more seams (desktop, gaming, docker, dev, …)
-# get added.
+# The developer tooling seam. Imported by EVERY host through commonModules, but
+# wholly inert unless the host sets `local.dev.enable`. hplaptop leaves it off:
+# a non-technical user's machine with no nix-ld, ollama, opencode, nodejs, uv,
+# jq, python3, and no sshd.
 {
   config,
   lib,
@@ -22,126 +18,93 @@ in
   options.local.dev.enable = lib.mkEnableOption "developer tooling (nix-ld, ollama, opencode, nodejs, uv, jq, python3, sshd)";
 
   config = lib.mkIf cfg.enable {
-    # A real dynamic loader at /lib/ld-linux-*.so.*, plus NIX_LD, so prebuilt
-    # binaries fetched outside Nix can actually execute. Without this that path is
-    # stub-ld and every such binary dies with a bare "No such file or directory".
-    # That is the real cause behind the hand-maintained LSP server list and its
-    # name-mapping table in modules/home/neovim.nix: Mason downloads prebuilt
-    # binaries, so it could never have worked here.
+    # A real dynamic loader at /lib/ld-linux-*.so.* plus NIX_LD, so prebuilt
+    # binaries fetched outside Nix can execute. Without it that path is stub-ld
+    # and every such binary dies with a bare "No such file or directory" — which
+    # is the real cause behind the hand-maintained LSP list and name-mapping table
+    # in modules/home/neovim.nix (Mason downloads prebuilt binaries).
     programs.nix-ld.enable = true;
 
-    # Account informations — the SSH authorized key is dev-only because sshd
-    # itself is gated behind this seam (see services.openssh below). A host with
-    # `local.dev.enable = false` (hplaptop) gets no sshd and no key. A host
-    # that IS dev-enabled but whose user.nix entry has no `sshKey` gets sshd
-    # with an empty key list — hence `lib.optionals` rather than a bare list.
-    # Do not "tidy" it back: a bare list fails evaluation outright with
-    # `error: attribute 'sshKey' missing`.
+    # The SSH authorized key is dev-only because sshd itself is (see
+    # services.openssh below). `lib.optionals` rather than a bare list: a dev host
+    # whose user.nix entry has no `sshKey` gets sshd with an empty key list, while
+    # a bare list fails evaluation with `error: attribute 'sshKey' missing`.
     users.users.${user.username}.openssh.authorizedKeys.keys = lib.optionals (user ? sshKey) [
       user.sshKey
     ];
 
-    # On `nodejs`, `uv` and `python3` being global, which LOOKS like it violates
-    # this repo's per-project-devshell rule: they are AGENT RUNTIMES, not
-    # project toolchains. The dev-workflow skills execute from
-    # ~/.agents/skills — outside any project, so no devshell can ever supply
-    # their interpreters and launchers.
-    #
-    # nodejs: runtime for the skills' .cjs scripts (also provides npm/npx).
-    # uv: fast Python package installer/resolver (Rust) and a LAUNCHER —
-    # uvx (uv's nix-run equivalent) fetches its own standalone Python builds
-    # (python-build-standalone) that run under programs.nix-ld above.
-    # python3: added 2026-08-29 after repeated one-off scripting needs
-    # (JSON/YAML validation, quick computations) from sessions outside any
-    # project — previously worked around with ad-hoc `nix shell nixpkgs#yq`.
-    # Same agent-runtime reasoning as nodejs. It is NOT a project toolchain:
-    # `pip install` outside a venv fails by design on NixOS, and project code
-    # still belongs in the python-devshell template (see below).
+    # On `nodejs`, `uv` and `python3` being GLOBAL, which looks like it violates
+    # the per-project-devshell rule: they are AGENT RUNTIMES, not project
+    # toolchains. The dev-workflow skills execute from ~/.agents/skills — outside
+    # any project, so no devshell can supply their interpreters and launchers.
+    # nodejs runs the skills' .cjs scripts (and brings npm/npx); `uvx` fetches its
+    # own standalone Python builds, which run under nix-ld above; python3 is for
+    # one-off scripting from sessions outside any project — `pip install` outside
+    # a venv fails by design on NixOS, and project code belongs in
+    # templates/python-devshell/.
     environment.systemPackages = with pkgs; [
-      # Agent harness; free licence, so no predicate entry needed. From
-      # nixos-unstable, like ollama-vulkan on geekom: opencode is a fast-moving
-      # userland CLI whose bumps land on unstable only, so 26.05's 1.15.10 lags
-      # the 1.18.x this line installs (doc/workflow.md, "Need a newer version
-      # before the next release?"). `unstablePkgs` is passed to every host
-      # (flake.nix) but is forced only here and in hosts/geekom/default.nix —
-      # this list sits inside `mkIf cfg.enable`, so a host with the dev gate off
-      # never evaluates the second tree.
+      # From nixos-unstable: opencode is a fast-moving userland CLI whose bumps
+      # land on unstable only, so 26.05 lags upstream (doc/workflow.md). The
+      # second tree is forced only here and in hosts/geekom/default.nix, because
+      # this list sits inside `mkIf cfg.enable`.
       unstablePkgs.opencode
-      nodejs # runtime for the skills' .cjs scripts (also provides npm/npx)
+      nodejs
       jq # ollama, opencode and the flake all speak JSON
       uv
-      # Cloned repos that need a flake-pinned Python use the python-devshell
-      # template instead — see templates/python-devshell/.
-      python3 # CPython 3.13 (26.05 default); agent one-off scripting, see above
+      python3
     ];
 
-    # Enable the OpenSSH daemon. Off on hplaptop (dev.enable = false) — Elisa
-    # updates via `nrb` (fetches from GitHub), no SSH access needed on her box.
+    # Off on hplaptop (dev.enable = false): Elisa updates via `nrb`, no SSH needed.
     services.openssh = {
       enable = true;
       settings = {
         PasswordAuthentication = false;
         KbdInteractiveAuthentication = false;
 
-        # Explicit, though the upstream default (`prohibit-password`) is
-        # already inert here: root has no authorized key, so there is nothing
-        # for a key-only root login to match. Stating it removes the reliance
-        # on that inference — a future commit that adds a root key for some
-        # unrelated reason would otherwise silently open root SSH, and the
-        # only thing standing in the way would have been a default nobody
-        # wrote down.
+        # Explicit, though the default (`prohibit-password`) is already inert
+        # here: root has no authorized key. Stating it removes the reliance on
+        # that inference — a future root key added for some unrelated reason would
+        # otherwise open root SSH, with a default nobody wrote down in the way.
         PermitRootLogin = "no";
       };
     };
 
-    # Ollama. The ENABLE is shared; the PACKAGE is not. This default build is
-    # CPU-only, which is all the aarch64 VM can use — it renders in software and
-    # has no GPU to talk to. geekom overrides cfg.package to ollama-vulkan in its
-    # own host file; the reasoning for Vulkan-over-ROCm lives there, next to the
-    # GPU it applies to.
+    # Ollama. The ENABLE is shared, the PACKAGE is not: this CPU-only default is
+    # all the aarch64 VM can use (it renders in software, no GPU to talk to),
+    # while geekom overrides it to ollama-vulkan in its own host file, next to the
+    # GPU that reasoning applies to.
     #
     # Deliberately NOT setting `services.ollama.acceleration`: it was REMOVED in
-    # 26.05 and any config that sets it fails to evaluate. Tutorials still show
-    # it. The replacement is the cfg.package swap described above.
-    #
-    # The `ollama` CLI arrives automatically — the module puts cfg.package into
-    # environment.systemPackages, so listing it above would be redundant.
+    # 26.05 and any config that sets it fails to evaluate — tutorials still show
+    # it. The cfg.package swap above is the replacement. The `ollama` CLI arrives
+    # with the module, so listing it in systemPackages would be redundant.
     services.ollama.enable = true;
 
     # Declarative secrets (sops-nix). Two boundaries must not be conflated:
+    # TRUST (who can decrypt — recipient keys in .sops.yaml; hplaptop is not a
+    # recipient, so the ciphertext is opaque to her) and DEV GATE (who declares
+    # and mounts them — this block, so hplaptop never evaluates sops.secrets and
+    # never pulls in the sops binary). Belt to .sops.yaml's braces: a secret
+    # nobody declares is never shipped to a machine.
     #
-    # 1. TRUST BOUNDARY: who can decrypt. Set in .sops.yaml by recipient
-    #    keys — hplaptop's host key is not a recipient, so even the
-    #    ciphertext copied there is opaque to it. That layer costs nothing
-    #    here; it lives in .sops.yaml.
-    # 2. DEV-GATE BOUNDARY: who declares and mounts secrets. This whole
-    #    block is inside `mkIf cfg.enable`, so hplaptop never even
-    #    evaluates sops.secrets — nothing is added to its activation
-    #    script, /run/secrets stays empty, no sops binary is pulled in.
-    #    Belt to .sops.yaml's braces: a secret nobody declares is never
-    #    shipped to the machine at all.
-    #
-    # defaultSopsFile is a STORE PATH (repo file captured by the flake),
-    # not an absolute string: that is what makes sops-nix validate at EVAL
-    # time that every declared secret key exists in the ciphertext — a
-    # missing/renamed key fails check-hosts.sh instead of failing silently
-    # at activation on a rebuild machine weeks later. Ciphertext in the
-    # store is inert; only the host's own SSH key can open it.
+    # defaultSopsFile as a STORE PATH (the repo file captured by the flake) rather
+    # than an absolute string is what makes sops-nix check at EVAL time that every
+    # declared key exists in the ciphertext, instead of failing at activation
+    # weeks later. Ciphertext in the store is inert — only the host's key opens it.
     sops.defaultSopsFile = ../../secrets/andrea/secrets.yaml;
-    # Explicit for self-documentation, though sops-nix already defaults to
-    # the ed25519 host keys: a reader should not have to know upstream
-    # defaults to know how their machine unlocks secrets. (The personal age
-    # key is intentionally NOT listed: it lives in ~/.config/sops/age/ only
-    # on machines where a human edits secrets, not where they are consumed.)
+    # Explicit for self-documentation though sops-nix already defaults to these:
+    # a reader should not have to know upstream defaults to know how the machine
+    # unlocks secrets. The personal age key is deliberately NOT listed — it lives
+    # in ~/.config/sops/age/ only where a human edits secrets, not where they are
+    # consumed.
     sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
     sops.secrets.CONTEXT7_API_KEY = {
-      # Owned by the dev user so the guarded shell export can `cat` it
-      # without root; mode 0400 (sops default) keeps it single-reader.
+      # Owned by the dev user so the guarded shell export can `cat` it without
+      # root; mode 0400 (sops default) keeps it single-reader.
       owner = user.username;
     };
-    # Second consumer of the shell-export pattern: ~/code/typesafe-lab's
-    # `real` provider reads TYPESAFE_API_KEY from the environment. Same
-    # owner/mode reasoning as CONTEXT7_API_KEY above.
+    # Second consumer of the shell-export pattern: ~/code/typesafe-lab's `real`
+    # provider reads TYPESAFE_API_KEY from the environment. Same owner/mode.
     sops.secrets.TYPESAFE_API_KEY = {
       owner = user.username;
     };
