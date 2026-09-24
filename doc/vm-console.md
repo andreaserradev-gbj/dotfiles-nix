@@ -43,16 +43,9 @@ broken compositor cannot lock you out: `ssh` in and roll back a generation.
 
 ## Development stays on the Mac
 
-The GUI-in-VM is _only_ the terminal. Editing, the browser, and the dev loop stay
-on the Mac over SSH. To reach a dev server running inside the VM:
-
-```sh
-ssh -L 5173:[::1]:5173 nixos     # forward the VM port to the Mac
-```
-
-or bind the server to `0.0.0.0`, open the firewall port, and hit the VM's IP.
-(For why the forward target is the v6 loopback, see the Vite note in
-[doc/dev-environments.md](dev-environments.md).)
+The GUI-in-VM is _only_ the terminal; editing, the browser and the dev loop stay on
+the Mac. Reaching a dev server inside the VM is the ordinary SSH port forward —
+[doc/dev-environments.md](dev-environments.md).
 
 ## Known limitations
 

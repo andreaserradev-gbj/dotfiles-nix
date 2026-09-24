@@ -198,15 +198,9 @@ fast-forwards it behind a green `gate`. A commit that does not build therefore
 cannot reach the laptop at all: a red `main` leaves `verified` where it was, and
 the machine keeps running the last commit that built.
 
-This was a race until `nrb` was repointed, patched until then with a human
-rule. `nrb` pulled `main` directly; CI starts *after* the push, so an `nrb`
-timed between the two could install a commit whose build had not finished, and
-a red check does not revert `main` by itself. AGENTS.md carried the
-compensating rule — a failing commit must be fixed or reverted before anything
-else lands. That rule is still worth keeping, for a different reason now:
-while `main` is red, `verified` stops advancing and the laptop quietly stops
-receiving updates. It is no longer the thing standing between a broken commit
-and the machine.
+The AGENTS.md rule that a failing commit is fixed or reverted promptly still
+matters, though for a different reason than it was written for: while `main` is
+red, `verified` stops advancing and the laptop quietly stops receiving updates.
 
 The aarch64 VM is **not** in the build matrix: it is dormant (README's host
 list) and only `evaluate` covers it — `ci.yml` carries the reason next to the

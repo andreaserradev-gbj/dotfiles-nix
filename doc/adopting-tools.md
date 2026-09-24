@@ -40,9 +40,12 @@ to look for: `packages.<system>` listing your architecture, `apps.default`
 
 - Rust → `pkgs.rustPlatform.buildRustPackage` with `cargoLock.lockFile`
 - Go → `buildGoModule` with `vendorHash`
-- prebuilt release binary → `stdenv.mkDerivation` + `fetchurl` +
-  `autoPatchelfHook` (note: `programs.nix-ld` on dev hosts exists so
-  *unmanaged trial* binaries can run — it is not a substitute for packaging)
+- prebuilt release binary → `stdenv.mkDerivation` + `fetchurl` of the asset for
+  `stdenv.hostPlatform.system`, installing the bytes as-is (`dontStrip`,
+  `dontPatchELF`) — **never `autoPatchelfHook` on a static-PIE or Bun-standalone
+  asset**; those patchelf traps are documented in [doc/omp.md](omp.md) and
+  [doc/herdr.md](herdr.md). `programs.nix-ld` on dev hosts only lets *unmanaged
+  trial* binaries run — it is not a substitute for packaging
 
 Pin the source with `fetchFromGitHub` to a tag, keep the package small and
 local to this repo (it then rides the normal PR → CI flow), and consider
@@ -125,12 +128,12 @@ config, so she never sees the tool.
 
 ## 4. Verify, ship, roll back
 
-1. `git add` everything (golden rule 1 — flakes see tracked files only).
+1. `git add` everything — flakes see tracked files only, the golden rule in
+   [AGENTS.md](../AGENTS.md).
 2. `./scripts/check-hosts.sh` before and after. Expected: `vm` and `geekom`
-   `drvPath`s move; **`hplaptop` is byte-identical**. Explain the move with
-   `nvd diff` — the tool's store path appearing in the dev hosts' closures
-   and nowhere else is the whole story.
-3. PR → CI → auto-merge, per [doc/workflow.md](workflow.md)'s release cycle.
+   move; **`hplaptop` is byte-identical** — explain every move
+   ([doc/workflow.md](workflow.md)).
+3. PR → CI → auto-merge, per [AGENTS.md](../AGENTS.md)'s release cycle.
 4. Revert is the payoff for doing it this way: `git restore --staged
    --worktree` plus one rebuild. No profile surgery, GC reclaims the store.
 
@@ -143,10 +146,9 @@ config, so she never sees the tool.
 > small, userland, low-blast-radius tools; weigh it against the criteria
 > documented there.
 
-> **Check for a self-updater.** A tool that offers to replace its own binary
-> fights Nix ownership of that binary. The repo's precedent is opencode's
-> disabled auto-updater (`modules/home/opencode.nix`) — check the new tool's
-> config for the equivalent knob before adopting.
+> **Check for a self-updater.** A tool that replaces its own binary fights Nix
+> ownership — find the off switch in its config before adopting (precedents:
+> `modules/home/opencode.nix`, [doc/herdr.md](herdr.md)).
 
 > **Check for overlap.** A new tool may shadow an existing module's role (a
 > second terminal multiplexer vs `zellij`, a second coding agent vs
@@ -158,6 +160,7 @@ config, so she never sees the tool.
 
 ---
 
-- Promotion release cycle (PR, CI, `verified`): [doc/workflow.md](workflow.md)
+- Promotion release cycle (PR, CI, `verified`): [AGENTS.md](../AGENTS.md);
+  CI and `verified` mechanics: [doc/workflow.md](workflow.md)
 - Global vs per-project rule: [doc/dev-environments.md](dev-environments.md)
 - Common failure modes: [doc/troubleshooting.md](troubleshooting.md)

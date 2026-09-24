@@ -103,9 +103,9 @@ is precisely when a wrong disk needs spotting.
 ## 6. Install
 
 Put the real by-id path into `hosts/geekom/disk-config.nix`, then **commit and
-push before installing** — `bootstrap.sh` fetches the layout from GitHub, not
-from your working tree. A forgotten push fails safely: the script refuses to run
-against a `PLACEHOLDER` path.
+push before installing** — `bootstrap.sh` reads that layout from GitHub, not from
+your working tree; a forgotten push fails safely, because the script refuses to run
+against a `PLACEHOLDER` path ([doc/install-vm.md](install-vm.md), section 2).
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/andreaserradev-gbj/dotfiles-nix/main/bootstrap.sh \
@@ -197,8 +197,8 @@ bluetoothctl
 ## 10. SSH, in both directions
 
 **Inbound, from the Mac.** Nothing needs adding to the NixOS config — sshd, the
-password-auth lockout and your key all arrive from `modules/nixos/dev.nix`
-(gated behind `local.dev.enable`, which is true on `geekom`).
+password-auth lockout and your key arrive from the dev gate, documented once in
+[doc/install-vm.md](install-vm.md), section 3.
 What you do need is to clear the stale host key:
 
 ```sh
@@ -209,8 +209,7 @@ ssh-keygen -R <address>          # on the Mac, before the first connection
 > live ISO has its own ephemeral key and accepts a password; the installed system
 > generates a fresh one and is key-only. If you accepted the ISO's key earlier,
 > ssh will refuse the installed system with a MITM warning. Remove the stale
-> entry — do **not** reach for the VM's `StrictHostKeyChecking no`. Verify the new
-> fingerprint against the console with
+> entry. Verify the new fingerprint against the console with
 > `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` if you want it done properly.
 
 Add a `Host` block to the Mac's `~/.ssh/config`:
@@ -225,11 +224,10 @@ Host geekom
   ServerAliveCountMax 3
 ```
 
-> **Do not copy the `Host nixos` block.** It carries `StrictHostKeyChecking no`
-> and `UserKnownHostsFile /dev/null`, safe only because the VM is a throwaway on
-> a private vmnet whose host key churns. This is a real machine on a real LAN —
-> those two lines would disable host-key verification on the one host where it
-> actually matters.
+> **Do not copy the `Host nixos` block.** Its `StrictHostKeyChecking no` and
+> `UserKnownHostsFile /dev/null` are safe only on the throwaway VM
+> ([doc/install-vm.md](install-vm.md), section 3) — on this real LAN they would
+> disable host-key verification where it actually matters.
 
 > **Pin the address with a DHCP reservation on the router**, keyed to the MAC
 > from `ip link`. The VM can hardcode an IP because UTM's vmnet assigns
@@ -288,7 +286,7 @@ by **how you get them back**, which is the only grouping that helps at 11pm:
 | Wifi password       | Retype at `nmtui`. Absent from this repo deliberately — it is public.                                                                                |
 | GitHub key          | Regenerate on the box **and** re-add the public half to GitHub. Forgetting the second half fails confusingly.                                         |
 | Bluetooth pairings  | `/var/lib/bluetooth` is not in this repo. Every pairing is lost and every device must be re-paired — which is why a wired mouse or keyboard is needed. |
-| Application state   | Browser profiles, credential stores, anything you signed into. It lives outside this repo and does not survive a reinstall.                            |
+| Application state   | Browser profiles, credential stores, anything you signed into — the Tier 2/3 rule ([doc/secrets.md](secrets.md)) says none of it is declarative, so none of it comes back. |
 
 The first three take minutes if you know they are coming and cost an evening if
 you do not. Listing them is the whole point.
