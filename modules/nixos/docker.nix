@@ -21,10 +21,10 @@ in
   config = lib.mkIf cfg.enable {
     virtualisation.docker.enable = true;
 
-    # Published ports (`-p`, compose `ports:`) bypass the NixOS firewall
-    # entirely, so a container binds on the LAN unless the address says
-    # otherwise. `ip` is dockerd's default bind address for them: loopback,
-    # unless a per-port `-p 0.0.0.0:…` opts out.
+    # Published ports bypass the NixOS firewall entirely, so a container binds
+    # on the LAN unless the address says otherwise. `ip` is dockerd's default
+    # bind address for the DEFAULT bridge only — compose networks are
+    # user-defined and need an explicit `127.0.0.1:` in every `ports:` entry.
     virtualisation.docker.daemon.settings.ip = "127.0.0.1";
 
     # THE `docker` GROUP IS ROOT-EQUIVALENT. Any member can run

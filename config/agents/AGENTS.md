@@ -68,10 +68,10 @@ is installed read-only, so edit it there, never in place.
 
 ## Environment & Tooling
 
-- Docker exists on geekom only (`local.docker.enable`), and its published ports
-  bind to `127.0.0.1` by default (`virtualisation.docker.daemon.settings.ip`):
-  `-p 8080:80` is reachable from this host alone. Bind explicitly when LAN access
-  is intended — `-p 0.0.0.0:8080:80`.
+- Docker exists on geekom only (`local.docker.enable`). `daemon.settings.ip`
+  makes `docker run -p 8080:80` loopback-only, but only on the default bridge:
+  a compose project's user-defined network ignores it, so its `ports:` entries
+  each need an explicit `127.0.0.1:`. Opt into the LAN with `0.0.0.0:` instead.
 - Never pass `--volumes` to `docker prune`/`docker system prune`. It deletes
   every volume not attached to a *running* container, so stopping a dev database
   container and then pruning silently wipes its data volume. Use scoped commands
