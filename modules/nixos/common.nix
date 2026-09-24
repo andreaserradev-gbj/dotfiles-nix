@@ -1,6 +1,5 @@
-# Shared NixOS configuration — imported by every host.
-# Anything host-specific (hostName, stateVersion, hardware, display stack)
-# belongs in hosts/<host>/ instead, NOT here.
+# Shared NixOS configuration — imported by every host. Host-specific settings
+# (hostName, stateVersion, hardware, display stack) belong in hosts/<host>/.
 {
   pkgs,
   lib,
@@ -9,58 +8,38 @@
 }:
 
 {
-  # Use the systemd-boot EFI boot loader.
   boot.loader.systemd-boot.enable = true;
 
-  # Cap the boot menu at the 10 most recent generations. Without this it grows
-  # unbounded; cleared generations also linger in /boot/loader/entries until a
-  # `nixos-rebuild boot`/`switch` reconciles the loader entries.
+  # Without this the boot menu and /boot/loader/entries grow unbounded.
   boot.loader.systemd-boot.configurationLimit = 10;
 
   # The default (`true`) lets anyone at the boot menu press `e` and boot with
   # `init=/bin/sh` — a root shell with no login. Worst on hplaptop, no LUKS.
   boot.loader.systemd-boot.editor = false;
 
-  # Configure network connections interactively with nmcli or nmtui.
   networking.networkmanager.enable = true;
 
-  # Wi-Fi power saving parks the radio between beacons, so packets arriving for an
-  # idle station wait for the next DTIM instead of being delivered at once. On a
-  # mains-powered mini PC that trades interactive latency for battery life that
-  # does not exist. It measured as ~80ms round trips inbound to this host while
-  # outbound traffic to the same gateway was ~23ms — exactly the asymmetry that
-  # makes an SSH session feel laggy while throughput still looks fine.
-  # Bare assignment (priority 100, `defaultOverridePriority`); a laptop host
-  # (hplaptop) overrides to `true` with `lib.mkForce` (priority 50) — LOWER
-  # priority wins. No `mkDefault` here (priority 1000) because it would tie
-  # with nixpkgs' own `mkDefault` on the same option and cause an eval conflict.
+  # Wi-Fi power saving parks the radio between beacons, so packets for an idle
+  # station wait for the next DTIM — battery life this mains-powered box does not
+  # have. Measured ~80 ms inbound round trips vs ~23 ms outbound to the same
+  # gateway: the asymmetry that makes SSH feel laggy while throughput looks fine.
+  # Bare assignment (priority 100, `defaultOverridePriority`); hplaptop's
+  # `lib.mkForce` (priority 50) is lower, so it wins there.
   networking.networkmanager.wifi.powersave = false;
 
-  # Set your time zone (lifted into user.nix — the one file a forker edits).
   time.timeZone = user.timeZone;
 
-  # Console (TTY) keyboard layout, lifted into user.nix like timeZone. The
-  # field is optional: hosts without it keep the kernel default ("us"). This
-  # covers the TTYs only; the graphical layout is set in desktop.nix, and the
-  # two are set from the same field so they can never disagree.
+  # TTY layouts only; the graphical layout is set from the same field in
+  # desktop.nix, so the two cannot disagree. Optional: no field → kernel "us".
   console.keyMap = user.keyboardLayout or "us";
 
-  # System locale — messages, number/date formats, measurement units, and the
-  # default language of every app that follows the session locale (GNOME,
-  # LibreOffice, Brave, ...). Lifted into user.nix like timeZone. Optional:
-  # hosts without it keep the nixpkgs default AND the default `supportedLocales`
-  # (the config below must stay byte-identical on hosts that don't opt in —
-  # same rule that keeps the keyboard dconf key off geekom).
+  # Optional (hosts without `locale` keep the nixpkgs default); the config below
+  # must stay byte-identical on those hosts — same rule as modules/home/desktop.nix.
   i18n.defaultLocale = user.locale or "en_US.UTF-8";
   i18n.supportedLocales = lib.mkIf (user ? locale) [ "all" ];
 
   programs.zsh.enable = true;
 
-  # Account informations
-  # `shell = pkgs.zsh` wins over nixpkgs' `mkDefault "/bin/bash"` for
-  # isNormalUser by priority: a bare assignment is 100 and `mkDefault` is 1000,
-  # and LOWER wins. A host that wants a different shell (hplaptop → bash)
-  # overrides with `lib.mkForce` (priority 50), lower still.
   users.users.${user.username} = {
     isNormalUser = true;
     description = user.fullName;
@@ -73,8 +52,8 @@
   };
 
   # Named predicate rather than a blanket `allowUnfree`: anything ELSE unfree
-  # that wanders in as a dependency still fails eval instead of being waved
-  # through silently. The list is the complete set of unfree packages accepted.
+  # that wanders in as a dependency still fails eval. This list is the complete
+  # set of accepted packages.
   nixpkgs.config.allowUnfreePredicate =
     pkg:
     builtins.elem (lib.getName pkg) [
@@ -82,26 +61,21 @@
       "steam-unwrapped"
     ];
 
-  # List packages installed in system profile.
-  #
-  # `vim`, `wget`, `git` are baseline system tools, NOT dev tooling — `git` here
-  # is the VCS the system uses (for `nixos-rebuild`), not the user's dev git
-  # config which lives in modules/home/git.nix (and IS dev-gated).
+  # `git` here is the system's VCS (for `nixos-rebuild`); the user's dev git
+  # config is in modules/home/git.nix and IS dev-gated.
   environment.systemPackages = with pkgs; [
-    vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
+    vim
     wget
     git
   ];
 
-  # Modern `nix` CLI + flakes
   nix.settings.experimental-features = [
     "nix-command"
     "flakes"
   ];
 
-  # No substituter is declared here, deliberately: the only one a tool flake
-  # advertises (nix-community's, via nixConfig) serves nothing this repo
-  # consumes — the tools are prebuilt fetches (tool-pins.json) — while its key
-  # would be trusted for EVERY store path on every host. From-source fallbacks
-  # build locally instead; cache.nixos.org remains the default.
+  # No substituter is declared, deliberately: the key of the only cache a tool
+  # flake advertises would be trusted for EVERY store path on every host, for a
+  # cache nothing here consumes. Rationale and the trust scope: doc/omp.md.
+  # cache.nixos.org remains the default.
 }
