@@ -12,7 +12,7 @@ host argument** — the same alias is correct on every machine.
 | `nrt`                 | `nh os test`           | activate now, don't touch the bootloader — a reboot reverts it     |
 | `nrb`                 | `nh os boot`           | stage for next boot, don't activate now                            |
 | `nfu`                 | `nix flake update`     | bump every input — rewrites `flake.lock`                           |
-| `nfb`                 | `scripts/nfb.sh`       | bump omp/herdr to upstream's latest release, re-lock those inputs  |
+| `nfb`                 | `scripts/nfb.sh`       | bump omp/herdr to upstream's latest release; re-locks omp's flake input only |
 | `nfc`                 | `nix flake check`      | validate the flake without building a system                       |
 | `nfi`                 | `nix flake init -t …`  | drop the devshell template into the current project                |
 | `ngl` / `ngd` / `ngc` | shell functions        | list / diff / interactively delete generations                     |
@@ -47,14 +47,15 @@ text**.
 
 > **The loopback exception.** On hosts with the `loopbackRebuild` seam enabled
 > (`modules/nixos/loopback-rebuild.nix` — geekom today), `nrs` and `nrt` are
-> functions that route the activation through SSH to `localhost` (the
-> `NH_LOOPBACK_TARGET` variable, wired in `modules/home/shell.nix`). sshd's
-> session scope is outside the display stack, so the graphical-console hazard
-> does not apply to them: they are safe from any terminal on the machine. The
-> seam also authorizes the machine's own key and pins its host key for
-> `localhost`, so it works on a fresh checkout with no manual steps. If sshd
-> is ever broken, fall back to the plain `nh os switch` (the alias behavior
-> on non-loopback hosts) or the `nrb` + reboot row above.
+> shell aliases carrying `--target-host andrea@localhost --hostname <this host>`
+> (built in `modules/home/shell.nix`), so the activation runs through SSH to
+> `localhost`. sshd's session scope is outside the display stack, so the
+> graphical-console hazard does not apply to them: they are safe from any
+> terminal on the machine. The seam also authorizes the machine's own key and
+> pins its host key for `localhost`, so it works on a fresh checkout with no
+> manual steps. If sshd is ever broken, fall back to `nh os switch --ask`
+> directly — what `nrs` is on a host without the seam — or the `nrb` + reboot
+> row above.
 
 > **Diagnosing a switch that appears to have done nothing:** check
 > `ls /nix/var/nix/profiles/ | grep system-` for a new generation. No new
@@ -267,12 +268,18 @@ consumed for a **small, explicit selection of tools**:
 inputs.nixpkgs-unstable.url = "github:NixOs/nixpkgs/nixos-unstable";
 ```
 
-The input exists in [flake.nix](../flake.nix) today. The binding is
-**host-gated**: `hostArgs` in flake.nix passes `unstablePkgs` as a module arg
-only to hosts named in its `unstableHosts` map (two today — `geekom` and the
-`nixos` VM), so a host that never references it never evaluates the second tree
-(lazy, on first reference), and the moving daily input stays out of every other
-host's closure — hplaptop's above all.
+The input exists in [flake.nix](../flake.nix) today, and the binding is
+**passed to every host**: `specialArgs` on each `nixosConfigurations` entry
+carries `unstablePkgs = nixpkgs-unstable.legacyPackages.<system>` because a
+shared module consumes it — `modules/nixos/dev.nix` takes it for opencode.
+What stays gated is the *forcing*: the second tree is evaluated lazily, on
+first reference, and only these sites reference it — `ollama-vulkan` in
+[hosts/geekom/default.nix](../hosts/geekom/default.nix) and `unstablePkgs.opencode`
+inside dev.nix's `mkIf cfg.enable`. hplaptop receives the binding and her
+closure is byte-identical (`check-hosts.sh` is the proof: her drvPath has never
+moved across this refactor). So the rule for new code is: reference
+`unstablePkgs` from a host file, or from a shared module **behind the dev
+gate** — never from shared code every host evaluates unconditionally.
 
 Adopted for two packages so far:
 
@@ -285,9 +292,9 @@ Adopted for two packages so far:
   [doc/local-llm.md](local-llm.md)). The older caution against pulling ollama
   from unstable mid-cycle was written without measurements and is superseded by
   that doc.
-- `opencode` on geekom and the VM (2026-09-22), through the
-  `local.dev.opencodePackage` seam ([modules/nixos/dev.nix](../modules/nixos/dev.nix)
-  — the same "ENABLE shared, PACKAGE per host" shape ollama uses): 26.05 carries
+- `opencode` on geekom and the VM (2026-09-22), through
+  [modules/nixos/dev.nix](../modules/nixos/dev.nix) (`unstablePkgs.opencode` in
+  its `environment.systemPackages`, inside the dev gate): 26.05 carries
   1.15.10 while unstable carries 1.18.x, three minor series of agent fixes the
   stable branch will not have before the next release. Adopted with no on-box
   gate because the tool is a userland CLI with no daemon, no GPU path and no

@@ -13,26 +13,15 @@ dev-gated home-layer tool.
 
 ## Why this shape
 
-- **Upstream flake, tag-pinned.** herdr is not in nixpkgs, so the package comes
-  from its upstream flake — the "upstream flake" row of
-  [doc/adopting-tools.md](adopting-tools.md) triage. The input is pinned to
-  `?ref=v0.9.1`: an unpinned `github:` input would move on every `nfu`, the
-  same wrong pace as tracking a moving branch for a system component.
-  The pin is bumped by `nfb` (checklist at the bottom): it writes the version +
-  both hashes in [modules/home/tool-pins.json](../modules/home/tool-pins.json),
-  this `?ref=` in [flake.nix](../flake.nix), and re-fetches the two vendored
-  agent assets from the new tag, all in one run. The `?ref=` must stay a
-  literal Nix string — Nix's flake parser rejects a computed input URL
-  (verified 2026-09-23), so the pin file cannot feed `inputs.*.url`.
-- **`herdr.inputs.nixpkgs.follows = "nixpkgs-unstable"`.** A tool flake carries
-  its own nixpkgs into `flake.lock` (the "second nixpkgs" cost documented in
-  [adopting-tools.md](adopting-tools.md)). Following our unstable tree — the
-  same tree the [workflow escape hatch](workflow.md) already tracks — drops
-  that cost; herdr's dependency matrix (zig, rust) resolves fine against it
-  (`zig_0_15` at adoption, `zig_0_16` since v0.9.1 — both verified present).
-  The escape-hatch comment in
-  flake.nix names the consumers: ollama and opencode (via the per-host
-  `unstablePkgs` bindings), herdr and omp (each via its own input's follows).
+- **No flake input: the pin lives in the pin table.** herdr is not in nixpkgs,
+  and its package is upstream's release binary — so the pin that matters is the
+  `herdr` entry in
+  [modules/home/tool-pins.json](../modules/home/tool-pins.json): version plus
+  both per-arch hashes. herdr has no flake input at all — once the package
+  became the prebuilt FOD the input fed nothing but a fallback nothing
+  exercised, so it and its lock nodes are gone. `nfb` (checklist at
+  the bottom) bumps the table and re-fetches the two vendored agent assets from
+  the new tag, all in one run.
 - **Dev-gated home layer.** [modules/home/herdr.nix](../modules/home/herdr.nix)
   wraps its whole body in `lib.mkIf osConfig.local.dev.enable`, exactly like
   [modules/home/zellij.nix](../modules/home/zellij.nix). `hplaptop` (dev off)
@@ -40,12 +29,11 @@ dev-gated home-layer tool.
   drvPath staying byte-identical across Phases 1–2 while `vm` and `geekom`
   moved. The gate is the point, per
   [adopting-tools.md](adopting-tools.md#3-promote--through-the-seam).
-- **Threading, not host-gating.** The package reaches HM modules via
-  `home-manager.extraSpecialArgs` in flake.nix (the
-  [adopting-tools.md](adopting-tools.md) step 2 shape). Phase 1 proved the
-  binding is lazy: all three hosts' drvPaths were byte-identical before and
-  after threading. The host-gating fallback (`optionalAttrs`, the
-  `unstablePkgs` pattern in flake.nix) was prepared but never needed.
+- **Locally built derivation, not a threaded binding.** `herdr.nix` calls
+  [herdr-prebuilt.nix](../modules/home/herdr-prebuilt.nix) with `pkgs.callPackage`,
+  so no host carries a `herdr` argument in `extraSpecialArgs` — the threading
+  shape of [adopting-tools.md](adopting-tools.md) step 2 is only needed when the
+  package itself comes from a flake input (as omp's does, [omp.md](omp.md)).
 - **The binary is upstream's prebuilt release, not a source build**
   ([herdr-prebuilt.nix](../modules/home/herdr-prebuilt.nix), wired via
   `home.packages` in [herdr.nix](../modules/home/herdr.nix)). The from-source
@@ -63,20 +51,21 @@ dev-gated home-layer tool.
     trap), but the same rule holds: never ELF-patch it.
   - Tradeoff, accepted and named: the trust boundary widens from "herdr's
     build recipe" to "upstream's release CI" (hash-pinned, nobody
-    re-derives). Fallback to the from-source build is one line:
-    `home.packages = [ herdr ];` (the flake input's own build).
+    re-derives). Fallback to the from-source build means re-adding the `herdr`
+    flake input and `home.packages = [ herdr ];` (see herdr.nix).
   - Consequence: herdr and its rust/zig toolchain (rustc, rust-docs, cargo,
     zig, the zig-cache, cargo-vendor — ~1,150 drv paths on geekom) leave the
     closure entirely; a herdr tag bump re-hashes instead of recompiling;
-    `nfu` moves of `nixpkgs-unstable` no longer rebuild herdr's binary. The
-    flake input stays in the lock: it is the version pin of record and feeds
-    the module's package fallback.
+    `nfu` moves of `nixpkgs-unstable` no longer rebuild herdr's binary. The pin
+    of record is the `herdr` entry in
+    [tool-pins.json](../modules/home/tool-pins.json), which is what the
+    derivation fetches its version and both hashes from.
 
 ## Ownership: Nix-managed vs npx-managed
 
 | artifact | owned by | how it gets there |
 |---|---|---|
-| herdr binary | Nix | upstream prebuilt FOD ([herdr-prebuilt.nix](../modules/home/herdr-prebuilt.nix)) → `home.packages`, dev-gated; from-source fallback = the `herdr` flake input's package |
+| herdr binary | Nix | upstream prebuilt FOD ([herdr-prebuilt.nix](../modules/home/herdr-prebuilt.nix)) → `home.packages`, dev-gated; version + hashes from [tool-pins.json](../modules/home/tool-pins.json) |
 | `~/.config/herdr/config.toml` | Nix | `xdg.configFile` from the verbatim asset [config/herdr/config.toml](../config/herdr/config.toml) |
 | `~/.config/opencode/plugins/herdr-agent-state.js` | Nix | `xdg.configFile` from the vendored byte-for-byte copy [config/opencode/plugins/herdr-agent-state.js](../config/opencode/plugins/herdr-agent-state.js) |
 | `~/.omp/agent/extensions/herdr-omp-agent-state.ts` | Nix | `home.file` from the vendored byte-for-byte copy [config/omp/herdr-omp-agent-state.ts](../config/omp/herdr-omp-agent-state.ts) (added 2026-09-21 with the [omp adoption](omp.md)) |
@@ -85,8 +74,8 @@ dev-gated home-layer tool.
 The plugin lives in `config/opencode/plugins/` and the omp extension in
 `config/omp/`, but both are deployed by [modules/home/herdr.nix](../modules/home/herdr.nix),
 **not** by opencode.nix / omp.nix — keeping the herdr↔agent couplings in one
-greppable place, and each asset's version rides the same flake input as the
-binary, so they can never drift apart.
+greppable place, and each asset is re-fetched from the same release tag as the
+binary by the one `nfb` run, so they can never drift apart.
 
 Why the assets are vendored at all: opencode loads plugins from
 `~/.config/opencode/plugins/` and omp loads extensions from
@@ -111,17 +100,16 @@ rebuild, and is re-run manually per tag bump (below).
 One command does the mechanical half: **`nfb`** (`scripts/nfb.sh`, alias in
 [shell.nix](../modules/home/shell.nix)). It checks upstream's latest release,
 asks before writing, then updates the version + both hashes in
-[tool-pins.json](../modules/home/tool-pins.json), the `?ref=` in
-[flake.nix](../flake.nix), the `herdr` lock entry, and both vendored agent
-assets — so pin, binary and assets cannot drift apart. Hashes come from the
-release's own SHA256 digest, cross-checked against a download of this host's
+[tool-pins.json](../modules/home/tool-pins.json) and re-fetches both vendored
+agent assets — so pin, binary and assets cannot drift apart. Hashes come from
+the release's own SHA256 digest, cross-checked against a download of this host's
 asset; the asset files are re-fetched from the new tag and written only if
 their bytes changed.
 
 1. `nfb`, answer `y` for herdr.
-2. `git diff` — [tool-pins.json](../modules/home/tool-pins.json) (three
-   fields), flake.nix, flake.lock, plus the agent assets **if** their bytes
-   moved. Each asset carries its own `HERDR_INTEGRATION_VERSION` counter
+2. `git diff` — [tool-pins.json](../modules/home/tool-pins.json) (three fields)
+   plus the agent assets **if** their bytes moved. Each asset carries its own
+   `HERDR_INTEGRATION_VERSION` counter
    (v0.9.1: opencode plugin = 12, omp extension = 10; never compare one
    against the other) — `nfb` prints the old → new marker next to the file, and
    `src/integration/assets/omp/herdr-agent-state.ts` upstream vendors here as

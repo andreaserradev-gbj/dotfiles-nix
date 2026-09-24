@@ -17,8 +17,7 @@ lib.mkIf osConfig.local.dev.enable {
   # such wrapper, so the off switch has to come from config — re-verified
   # against the 1.18.31 source (cli/upgrade.ts bails on `autoupdate === false`
   # before any fetch). Version freshness comes from the nixpkgs-unstable pin
-  # (local.dev.opencodePackage in flake.nix's hostArgs, set by the two dev
-  # hosts) plus `nfu`.
+  # (unstablePkgs.opencode in modules/nixos/dev.nix) plus `nfu`.
   #
   # The package itself lives in environment.systemPackages (the harness is
   # machine-level); this module owns only the per-user config.

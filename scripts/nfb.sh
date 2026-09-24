@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # nfb.sh — bump the pinned upstream tool tags (omp, herdr) to their latest
 # release: version + both per-arch hashes in modules/home/tool-pins.json, the
-# matching `?ref=` in flake.nix, herdr's two vendored agent assets, then re-lock
-# just those flake inputs. It replaces the hand checklists that used to live in
-# doc/omp.md and doc/herdr.md ("Update checklist (per … tag bump)").
+# matching `?ref=` in flake.nix for the tools that HAVE a flake input (omp — see
+# `flake_input` below), herdr's two vendored agent assets, then re-lock just
+# those inputs. It replaces the hand checklists that used to live in doc/omp.md
+# and doc/herdr.md ("Update checklist (per … tag bump)").
 #
 # WHY IT PROMPTS: a bump is a deliberate act with a review surface — the git
 # diff is where the new hashes and the re-vendored asset bytes get looked at —
@@ -26,7 +27,8 @@
 # fails with "must be an attribute set" / "expected a string but got a thunk"
 # (verified 2026-09-23, both shapes). So modules/home/tool-pins.json cannot feed
 # `inputs.*.url`; this script writing both sites in one run is what keeps the
-# pin table and the input ref in step.
+# pin table and the input ref in step — for the tools listed in `flake_input`,
+# the ones that still have an input.
 #
 # Exit codes: 0 ran to completion (applied, declined, or nothing new);
 #             1 a check or an apply failed, or a dependency is missing;
@@ -41,8 +43,9 @@ usage: nfb.sh [--help]
 
 For each tool in turn: reports whether a newer release exists and, on a TTY,
 asks before writing. A bump updates modules/home/tool-pins.json (version + both
-per-arch hashes), the tool's `?ref=` in flake.nix, re-vendors herdr's two agent
-assets, and re-locks the named flake input. Without a TTY it only reports.
+per-arch hashes), re-vendors herdr's two agent assets, and — for the tools with
+a flake input (omp) — rewrites the `?ref=` in flake.nix and re-locks that input.
+Without a TTY it only reports.
 EOF
 }
 
@@ -89,6 +92,11 @@ declare -A asset=(
   [herdr:x86_64-linux]=herdr-linux-x86_64
   [herdr:aarch64-linux]=herdr-linux-aarch64
 )
+# The subset of the tools that also have a flake input whose `?ref=` this script
+# owns. herdr is absent by design: its flake input was removed (nothing bound it
+# — the package is the prebuilt FOD), so its pin lives only in tool-pins.json and
+# rewrite_ref/relock have nothing to touch for it.
+declare -A flake_input=([omp]=1)
 systems=(x86_64-linux aarch64-linux)
 
 # herdr's vendored agent assets, in lockstep with the binary: upstream path at
@@ -113,12 +121,15 @@ fail() {
   exit 1
 }
 
-# rewrite_ref REPO_SLUG TAG — point the one input URL for that repo at TAG.
-# Anchored on the repo slug (unique in flake.nix) and asserted afterwards: a
-# silent no-match would leave the pin table and the input ref disagreeing, which
-# is the exact failure this command exists to prevent.
+# rewrite_ref TOOL TAG — point the one input URL for that tool's repo at TAG.
+# Skipped for a tool with no flake input (herdr). Anchored on the repo slug
+# (unique in flake.nix) and asserted afterwards: a silent no-match would leave
+# the pin table and the input ref disagreeing, which is the exact failure this
+# command exists to prevent.
 rewrite_ref() {
-  local repo_slug="$1" tag="$2" n
+  local tool="$1" tag="$2" n
+  [ -n "${flake_input[$tool]:-}" ] || return 0
+  local repo_slug="${slug[$tool]}"
   sed -i -E "s|(github:${repo_slug}\?ref=)v[^\"]*|\1${tag}|" "$flake_file"
   n="$(grep -c "github:${repo_slug}?ref=${tag}" "$flake_file" || true)"
   if [ "$n" != "1" ]; then
@@ -128,11 +139,13 @@ rewrite_ref() {
 
 # relock TOOL TAG — re-resolve just that input, and only when the lock does not
 # already name TAG (so a routine run is silent, and a run interrupted between
-# the pin write and the lock heals itself on the next invocation).
-# Staging first is load-bearing: flakes read the git INDEX, so the new pin table
-# and `?ref=` must be added before `nix flake update` can see them.
+# the pin write and the lock heals itself on the next invocation). Skipped for a
+# tool with no flake input (herdr). Staging first is load-bearing: flakes read
+# the git INDEX, so the new pin table and `?ref=` must be added before
+# `nix flake update` can see them.
 relock() {
   local tool="$1" tag="$2" locked
+  [ -n "${flake_input[$tool]:-}" ] || return 0
   locked="$(jq -r --arg t "$tool" '.nodes[$t].original.ref // empty' flake.lock)"
   if [ "$locked" = "$tag" ]; then
     return 0
@@ -247,7 +260,7 @@ for tool in "${tools[@]}"; do
     "$pins_file" >"$tmp_pins"
   mv "$tmp_pins" "$pins_file"
 
-  rewrite_ref "${slug[$tool]}" "$tag"
+  rewrite_ref "$tool" "$tag"
 
   if [ "$tool" = herdr ]; then
     for i in "${!herdr_asset_up[@]}"; do

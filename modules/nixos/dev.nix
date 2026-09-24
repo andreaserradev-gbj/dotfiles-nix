@@ -10,6 +10,7 @@
   config,
   lib,
   pkgs,
+  unstablePkgs,
   user,
   ...
 }:
@@ -19,23 +20,6 @@ let
 in
 {
   options.local.dev.enable = lib.mkEnableOption "developer tooling (nix-ld, ollama, opencode, nodejs, uv, jq, python3, sshd)";
-
-  # The ENABLE is shared; the PACKAGE is not — the same seam ollama already
-  # uses (services.ollama.package, overridden in hosts/geekom/default.nix).
-  # The reason here is version freshness, not hardware: opencode is a
-  # fast-moving userland CLI whose bumps land on nixos-unstable only, so 26.05
-  # sits at 1.15.10 while unstable carries 1.18.x (doc/workflow.md, "Need a
-  # newer version before the next release?"). Each dev host that wants the
-  # newer package points this at its own `unstablePkgs.opencode` — bound
-  # per-host in flake.nix `hostArgs`, never threaded globally — while the
-  # default keeps a host on its own tree. hplaptop (dev off) never evaluates
-  # this module, so the second nixpkgs tree stays out of its closure entirely.
-  options.local.dev.opencodePackage = lib.mkOption {
-    type = lib.types.package;
-    default = pkgs.opencode;
-    defaultText = lib.literalExpression "pkgs.opencode";
-    description = "opencode package for this host — the host's own pkgs by default, `unstablePkgs.opencode` on hosts tracking unstable.";
-  };
 
   config = lib.mkIf cfg.enable {
     # A real dynamic loader at /lib/ld-linux-*.so.*, plus NIX_LD, so prebuilt
@@ -74,11 +58,15 @@ in
     # `pip install` outside a venv fails by design on NixOS, and project code
     # still belongs in the python-devshell template (see below).
     environment.systemPackages = with pkgs; [
-      # Agent harness; free licence, so no predicate entry needed. The package
-      # comes from the option above, not from this list, because the two dev
-      # hosts override it to their `unstablePkgs.opencode` (26.05's 1.15.10 vs
-      # unstable's 1.18.x) — see the option's comment.
-      cfg.opencodePackage
+      # Agent harness; free licence, so no predicate entry needed. From
+      # nixos-unstable, like ollama-vulkan on geekom: opencode is a fast-moving
+      # userland CLI whose bumps land on unstable only, so 26.05's 1.15.10 lags
+      # the 1.18.x this line installs (doc/workflow.md, "Need a newer version
+      # before the next release?"). `unstablePkgs` is passed to every host
+      # (flake.nix) but is forced only here and in hosts/geekom/default.nix —
+      # this list sits inside `mkIf cfg.enable`, so a host with the dev gate off
+      # never evaluates the second tree.
+      unstablePkgs.opencode
       nodejs # runtime for the skills' .cjs scripts (also provides npm/npx)
       jq # ollama, opencode and the flake all speak JSON
       uv

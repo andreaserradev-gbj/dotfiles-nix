@@ -22,11 +22,10 @@ and its results, not this doc, will drive any primary-harness switch.
   `?ref=` in the same run. The `?ref=` itself must stay a literal Nix string:
   Nix's flake parser rejects a computed input URL (`let`-bound or builtins-
   derived — verified 2026-09-23), so the pin file cannot feed `inputs.*.url`.
-- **`omp.inputs.nixpkgs.follows = "nixpkgs-unstable"`** — the same
-  second-nixpkgs-cost argument as
-  [herdr](herdr.md#why-this-shape): a tool flake carries its own nixpkgs
-  into `flake.lock` unless its input follows ours. omp's lock is cut against
-  nixos-unstable, so the follow is exact.
+- **`omp.inputs.nixpkgs.follows = "nixpkgs-unstable"`** — a tool flake carries
+  its own nixpkgs into `flake.lock` (the "second nixpkgs" cost documented in
+  [adopting-tools.md](adopting-tools.md)) unless its input follows ours. omp's
+  lock is cut against nixos-unstable, so the follow is exact.
   Additionally `omp.inputs.nixpkgs-darwin-x64.follows = "nixpkgs"`: that
   input only matters for x86_64-darwin (omp keeps Intel-mac support on the
   last stable darwin tree), no host here is one, and following it raw would
@@ -83,8 +82,9 @@ and its results, not this doc, will drive any primary-harness switch.
   wraps its whole body in `lib.mkIf osConfig.local.dev.enable`, exactly like
   [herdr.nix](herdr.md) and [opencode.nix](../modules/home/opencode.nix).
   hplaptop (dev off) evaluates it to the empty config. The flake input is
-  threaded via `home-manager.extraSpecialArgs` (the
-  [herdr](herdr.md#why-this-shape) shape); the **input**, not the package —
+  threaded via `home-manager.extraSpecialArgs` — the threading shape of
+  [adopting-tools.md](adopting-tools.md) step 2, needed when the package comes
+  from a flake input; the **input**, not the package —
   omp's own `homeManagerModules.default` defaults `programs.omp.package` to
   its flake's own build.
 
