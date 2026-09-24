@@ -9,10 +9,10 @@
 # of herdr buildPhase on a fast CI runner (~6 min with its rust toolchain
 # unpack + zig cache), it rebuilt on EVERY CI run because runner stores do
 # not persist (the drv was byte-identical across PRs #25 and #26 — it
-# recompiled anyway), and it re-triggers on every nfu that moves
-# nixpkgs-unstable (the herdr flake input follows that tree). The release
-# binaries are what upstream's own install path ships; verified live on
-# NixOS at v0.9.1: `herdr --version` and `herdr config check` both pass.
+# recompiled anyway), and it re-triggered on every nfu that moved
+# nixpkgs-unstable. The release binaries are what upstream's own install path
+# ships; verified live on NixOS at v0.9.1: `herdr --version` and
+# `herdr config check` both pass.
 #
 # LOAD-BEARING: the binary is STATIC-PIE (zero NEEDED libs — no glibc, no
 # nix-ld, no libgcc). It must never be ELF-patched or stripped: there is
@@ -36,13 +36,13 @@
 #   is the unpacked binary.
 #
 # Update procedure (per herdr tag bump): run `nfb` (scripts/nfb.sh) — it bumps
-# the version and both hashes in modules/home/tool-pins.json, re-locks the
-# herdr flake input, and re-fetches the two vendored agent assets from the new
-# tag in one step, so pin, binary and assets can never disagree. No compile.
+# the version and both hashes in modules/home/tool-pins.json and re-fetches the
+# two vendored agent assets from the new tag in one step, so pin, binary and
+# assets can never disagree. No compile.
 let
-  # Version + both hashes come from modules/home/tool-pins.json — the same table
-  # flake.nix builds this tool's `?ref=` from, so the pin and the binary cannot
-  # drift apart. Written only by `nfb` (scripts/nfb.sh).
+  # Version + both hashes come from modules/home/tool-pins.json — the single
+  # source of the pin (herdr has no flake input). Written only by `nfb`
+  # (scripts/nfb.sh).
   pins = (builtins.fromJSON (builtins.readFile ./tool-pins.json)).herdr;
   version = pins.version;
   srcs = {

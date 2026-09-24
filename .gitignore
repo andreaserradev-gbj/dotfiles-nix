@@ -5,8 +5,6 @@ config/nvim/lazy-lock.json
 .dev
 .dev-archive
 
-/result
-
 # nix build output symlinks (nrp, nix build)
 result
 result-*

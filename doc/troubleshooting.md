@@ -29,7 +29,7 @@
   controller missing the kernel's ~4 s retry window at power-on; it is a
   per-power-on coin flip, not port-dependent. The kernel never retries, so
   the mouse stays dead until a replug. Mitigation:
-  `modules/nixos/usb-mouse-recovery.nix` (geekom-only) emulates the replug at
+  `hosts/geekom/usb-mouse-recovery.nix` emulates the replug at
   boot — after an 8 s settle it bounces the mouse's xHCI PCI function
   (`0000:c8:00.0`, buses 3+4 only; BT radio and Corne are on separate
   functions) when `1532:0099` is absent, and is a no-op on clean boots.

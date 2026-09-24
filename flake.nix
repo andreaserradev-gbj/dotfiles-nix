@@ -7,11 +7,11 @@
 
     # The workflow.md "escape hatch" (doc/workflow.md, "Need a newer version
     # before the next release?"): a second nixpkgs tracking unstable, consumed
-    # for a SMALL, explicit selection of tools. Four consumers today: ollama
-    # and opencode (via the geekom and VM `unstablePkgs` bindings), herdr and
-    # omp — each via its own input's `follows` below. It moves daily, so
-    # anything referencing it re-evaluates against a moving target — never
-    # import this where a shared module could see it.
+    # for a SMALL, explicit selection of tools. Three consumers today: ollama
+    # (geekom) and opencode (geekom + the VM) through `unstablePkgs`, and omp
+    # through its own input's `follows` below. It moves daily, so anything
+    # referencing it re-evaluates against a moving target — never import this
+    # where a shared module could see it.
     nixpkgs-unstable.url = "github:NixOs/nixpkgs/nixos-unstable";
 
     home-manager = {
@@ -27,46 +27,23 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # herdr (terminal workspace manager for coding agents), from its upstream
-    # flake — Phase 0 trial passed, promotion per doc/adopting-tools.md. Tag-
-    # pinned: an unpinned github: input moves on every `nfu`, and a tool-flake
-    # input carries its own nixpkgs into the lock — so its nixpkgs input
-    # follows our nixpkgs-unstable (the tree herdr's lock expects; zig_0_15
-    # verified present in both pins). Bumping = edit the `?ref=` below + re-lock,
-    # the same controlled cadence as the nixpkgs branch pins — except that `nfb`
-    # (scripts/nfb.sh) is what does it: it bumps the version and the binary
-    # hashes in modules/home/tool-pins.json and rewrites this `?ref=` in the
-    # same run, so the pin and the derivations cannot drift apart. This line
-    # stays a LITERAL because Nix's flake parser rejects a computed input URL
-    # (verified 2026-09-23: a `let`-bound/builtins-derived url fails with "must
-    # be an attribute set") — the pin file cannot be the input's source, only
-    # nfb writing both keeps them in step. The package is threaded via
-    # home-manager.extraSpecialArgs below; consumers gate on
-    # osConfig.local.dev.enable (modules/home/herdr.nix), so hosts with dev
-    # off never see it.
-    herdr = {
-      url = "github:herdrdev/herdr?ref=v0.9.1";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
-    };
-
-    # omp (oh-my-pi, coding agent), from its upstream flake — the same triage
-    # row and shape as herdr above: not in nixpkgs (searched 2026-09-21), so
-    # the package comes from the upstream flake, tag-pinned (`?ref=`; an
-    # unpinned github: input moves on every `nfu`). `nixpkgs` follows our
-    # unstable — the tree omp's own lock is cut against — so no third nixpkgs
-    # lands in the lock. `nixpkgs-darwin-x64` (omp keeps Intel-mac support on
-    # the last stable darwin tree) follows our stable nixpkgs instead: that
-    # input only matters for x86_64-darwin, which no host here is, and
-    # following it raw would add a THIRD nixpkgs tree to the lock for zero
-    # benefit. Lockfile cost accepted and documented in doc/omp.md: omp's
-    # inputs add bun2nix, nix-bun and oxalica rust-overlay, which build omp's
-    # Rust core + bun runtime on the from-source fallback — what this repo
-    # installs is the prebuilt release fetch from tool-pins.json. `nfb`
-    # (scripts/nfb.sh) rewrites this `?ref=` together with the version + hashes
-    # in modules/home/tool-pins.json (same literal-URL rule as herdr above). The
-    # HM module is threaded via extraSpecialArgs below and
-    # consumed by modules/home/omp.nix, gated on osConfig.local.dev.enable;
-    # hplaptop (dev off) never evaluates it.
+    # omp (oh-my-pi, coding agent), from its upstream flake — not in nixpkgs
+    # (searched 2026-09-21), so the package comes from the upstream flake,
+    # tag-pinned: an unpinned github: input moves on every `nfu`. `nixpkgs`
+    # follows our unstable — the tree omp's own lock is cut against — so no
+    # third nixpkgs lands in the lock. `nixpkgs-darwin-x64` (omp keeps Intel-mac
+    # support on the last stable darwin tree) follows our stable nixpkgs
+    # instead: that input only matters for x86_64-darwin, which no host here is,
+    # and following it raw would add a THIRD nixpkgs tree to the lock for zero
+    # benefit. Lockfile cost accepted and documented in doc/omp.md: omp's inputs
+    # add bun2nix, nix-bun and oxalica rust-overlay, which build omp's Rust core
+    # + bun runtime on the from-source fallback — what this repo installs is the
+    # prebuilt release fetch from tool-pins.json. `nfb` (scripts/nfb.sh) rewrites
+    # this `?ref=` together with the version + hashes in
+    # modules/home/tool-pins.json; the URL must stay a literal for Nix's flake
+    # parser, which nfb's header explains. The HM module is threaded via
+    # extraSpecialArgs below and consumed by modules/home/omp.nix, gated on
+    # osConfig.local.dev.enable; hplaptop (dev off) never evaluates it.
     omp = {
       url = "github:can1357/oh-my-pi?ref=v18.3.0";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
@@ -80,48 +57,11 @@
       nixpkgs-unstable,
       home-manager,
       sops-nix,
-      herdr,
       omp,
       ...
     }:
     let
       users = import ./user.nix;
-
-      # Per-host module args. `unstablePkgs` is the workflow.md escape hatch
-      # (doc/workflow.md, "Need a newer version before the next release?"): a
-      # second nixpkgs at nixos-unstable, imported with this repo's unfree
-      # predicate so it behaves like the host's own pkgs, bound ONLY on the
-      # hosts that actually consume it. A host that never references it gains
-      # nothing and loses nothing: the second evaluation happens lazily, on
-      # first reference, so the other host never pays for it.
-      #
-      # hostname → system, one entry per host that opted into the hatch. Two
-      # today, driven by two packages: geekom takes ollama-vulkan (measured
-      # TTFT/prefill-restore wins — hosts/geekom/default.nix) and opencode;
-      # the VM takes opencode for the same reason geekom does. opencode is the
-      # 2026-09-22 adoption: 26.05 carries 1.15.10 and nixos-unstable carries
-      # 1.18.x, because fast-moving userland CLI bumps never land on the
-      # stable branch between releases (doc/workflow.md). A host absent from
-      # this map must not see the second tree at all — that is what keeps the
-      # daily-moving input out of its closure and out of hplaptop's
-      # evaluation entirely.
-      unstableHosts = {
-        geekom = "x86_64-linux";
-        nixos = "aarch64-linux"; # the UTM VM (networking.hostName = "nixos")
-      };
-
-      hostArgs =
-        hostname: username:
-        {
-          user = users.${username};
-        }
-        // nixpkgs.lib.optionalAttrs (nixpkgs.lib.hasAttr hostname unstableHosts) {
-          # legacyPackages, not `import`: the `system` import argument is
-          # deprecated upstream. No allowUnfree wiring here — both adopted
-          # packages (ollama, opencode) are free software; revisit if an
-          # unfree tool ever adopts the hatch.
-          unstablePkgs = nixpkgs-unstable.legacyPackages.${unstableHosts.${hostname}};
-        };
 
       # The systems that get developer-facing outputs (`formatter`, `devShells`).
       # NOT the systems that get hosts: `nixosConfigurations` stay written out
@@ -175,7 +115,6 @@
         (
           {
             user,
-            pkgs,
             ...
           }:
           {
@@ -184,10 +123,6 @@
             home-manager.backupFileExtension = "backup";
             home-manager.extraSpecialArgs = {
               inherit user;
-              # `pkgs.system` is a nixpkgs alias that emits an evaluation
-              # warning since 2025-10-28 (pkgs/top-level/aliases.nix);
-              # stdenv.hostPlatform.system is the replacement.
-              herdr = herdr.packages.${pkgs.stdenv.hostPlatform.system}.default;
               # The flake INPUT (not the package): modules/home/omp.nix
               # imports omp's homeManagerModules.default, whose
               # programs.omp.package already defaults to
@@ -201,9 +136,26 @@
       ];
     in
     {
+      # `unstablePkgs` is the workflow.md escape hatch (doc/workflow.md, "Need a
+      # newer version before the next release?"): a second nixpkgs at
+      # nixos-unstable. legacyPackages, not `import` — the `system` import
+      # argument is deprecated upstream. No allowUnfree wiring: the adopted
+      # packages (ollama, opencode) are free software.
+      #
+      # It is passed to EVERY host as a module arg because a shared module
+      # consumes it (modules/nixos/dev.nix takes it for opencode), but the
+      # second tree is evaluated lazily and forced only where a package
+      # references it: ollama-vulkan in hosts/geekom/default.nix, and opencode
+      # behind dev.nix's dev gate. hplaptop receives the binding and her
+      # closure does not move. So: reference `unstablePkgs` from a host file,
+      # or from a shared module ONLY behind the dev gate — never from shared
+      # code that every host evaluates unconditionally.
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
         system = "aarch64-linux";
-        specialArgs = hostArgs "nixos" "nixos";
+        specialArgs = {
+          user = users.nixos;
+          unstablePkgs = nixpkgs-unstable.legacyPackages.aarch64-linux;
+        };
         modules = commonModules ++ [
           ./hosts/vm
         ];
@@ -211,7 +163,10 @@
 
       nixosConfigurations.geekom = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
-        specialArgs = hostArgs "geekom" "geekom";
+        specialArgs = {
+          user = users.geekom;
+          unstablePkgs = nixpkgs-unstable.legacyPackages.x86_64-linux;
+        };
         modules = commonModules ++ [
           ./hosts/geekom
         ];
@@ -219,7 +174,10 @@
 
       nixosConfigurations.hplaptop = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
-        specialArgs = hostArgs "hplaptop" "hplaptop";
+        specialArgs = {
+          user = users.hplaptop;
+          unstablePkgs = nixpkgs-unstable.legacyPackages.x86_64-linux;
+        };
         modules = commonModules ++ [
           ./hosts/hplaptop
         ];

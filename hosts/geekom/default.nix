@@ -5,8 +5,9 @@
 # Shared settings live in modules/nixos/common.nix.
 {
   pkgs,
-  # The nixos-unstable nixpkgs instance, bound only on this host (flake.nix
-  # `hostArgs`). Exists for exactly one package today: ollama-vulkan, below.
+  # The nixos-unstable nixpkgs instance, passed to every host by flake.nix
+  # (`specialArgs`). The one thing THIS host forces out of it: ollama-vulkan,
+  # below. opencode comes out of it too, through modules/nixos/dev.nix.
   unstablePkgs,
   ...
 }:
@@ -18,8 +19,9 @@
     # Cold-boot enumeration failures of the Razer Basilisk V3 (front AND rear
     # ports — see doc/troubleshooting.md and the module's header for why
     # port choice does not fix it). Auto-bounces the mouse's xHCI controller
-    # at boot when the mouse is absent; no-op on clean boots.
-    ../../modules/nixos/usb-mouse-recovery.nix
+    # at boot when the mouse is absent; no-op on clean boots. Geekom-only, and
+    # its IDs are geekom's, so it lives with this host rather than in modules/.
+    ./usb-mouse-recovery.nix
   ];
 
   # Network identity
@@ -102,17 +104,9 @@
 
   # Dev tooling — nix-ld, ollama, opencode, nodejs, uv, jq, sshd — is gated
   # behind `local.dev.enable` in modules/nixos/dev.nix. This host flips it on.
+  # opencode's version is not decided here: dev.nix takes it from
+  # nixos-unstable for every dev host.
   local.dev.enable = true;
-
-  # opencode from nixos-unstable (the workflow.md escape hatch — the same seam
-  # services.ollama.package uses further down): opencode's releases land on
-  # unstable only, so 26.05 stays at 1.15.10 while unstable carries 1.18.x —
-  # three minor series of agent fixes the stable branch will not have before
-  # the next release. Low blast radius (userland CLI, no daemon, no GPU path),
-  # which is exactly the "userland" row doc/workflow.md names as a fit. The VM
-  # sets the same line; the option's default keeps any other dev host on its
-  # own tree.
-  local.dev.opencodePackage = unstablePkgs.opencode;
 
   # Loopback rebuilds: `nrs`/`nrt` (modules/home/shell.nix) run the activation
   # over SSH to THIS machine, so phase 1 cannot be killed by the display stack
