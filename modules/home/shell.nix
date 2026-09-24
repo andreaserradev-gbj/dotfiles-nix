@@ -69,6 +69,10 @@ lib.mkIf osConfig.local.dev.enable {
       lg3 = "eza --tree --level=3 --icons --git --git-ignore";
       ll = "eza -lg --icons";
 
+      # `cdz` is zoxide (programs.zoxide below) under the name actually typed; an
+      # alias nothing in the config reads is not dead code.
+      cdz = "z";
+
       # --- NixOS / flake (repo = ~/dotfiles-nix; host = the local hostname) ---
       # Rebuilds and GC go through nh (programs.nh below); raw nixos-rebuild still works.
       nrb = "nh os boot";
