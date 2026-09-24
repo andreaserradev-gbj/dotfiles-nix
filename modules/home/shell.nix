@@ -7,17 +7,14 @@
   ...
 }:
 let
-  repoName = "dotfiles-nix"; # single source for the flake repo dir
-  repo = "~/${repoName}"; # shell aliases (~ expanded at runtime)
+  repoName = "dotfiles-nix";
+  repo = "~/${repoName}"; # ~ must stay literal: the aliases expand it at runtime
   repoAbs = "${config.home.homeDirectory}/${repoName}"; # NH_FLAKE needs an absolute path
 
-  # The flags `nrs`/`nrt` carry on hosts with the loopback seam on (geekom): a
+  # Flags `nrs`/`nrt` carry on hosts with the loopback seam on (geekom): a
   # switch's phase 1 can restart the display stack and kill the session that
-  # launched it, while an activation running under sshd is outside that scope.
-  # modules/nixos/loopback-rebuild.nix owns the seam; the aliases below consume
-  # this. Decided at build time, which is only safe because nrs/nrt now have
-  # exactly ONE definition site — the "later definition wins" trap that used to
-  # force them into initContent is gone.
+  # launched it, while an activation under sshd is outside that scope (the seam
+  # is owned by modules/nixos/loopback-rebuild.nix).
   #
   # --hostname is REQUIRED, not redundant: with --target-host set, nh otherwise
   # derives the flake attribute from the target ("localhost"), which is not a
@@ -25,17 +22,11 @@ let
   # it over stdin, so no TTY juggling.
   loop = lib.optionalString osConfig.local.loopbackRebuild.enable " --target-host ${user.username}@localhost --hostname ${osConfig.networking.hostName}";
 
-  # pnpm's shipped zsh completion is a thin dispatcher around `pnpm
-  # completion-server` that hands the server's entire reply -- ~50 global flags
-  # plus the package.json scripts -- to _describe, so `pnpm run <TAB>` buries
-  # the script names. config/zsh/_pnpm is that dispatcher with the flags
-  # filtered out; it explains itself. Shipping our own copy also drops the
-  # build-time dependency on pkgs.pnpm.
-  #
-  # It still has to be installed into fpath here: a dev shell only puts pnpm on
-  # PATH and never touches fpath, so a completion file would otherwise never be
-  # reachable. Autoloaded at Tab time, which also sidesteps direnv activating
-  # after zsh has already sourced its config.
+  # config/zsh/_pnpm is pnpm's shipped completion with the ~50 global flags
+  # filtered out — they buried the package.json script names — and it explains
+  # itself; shipping our own copy also drops the pkgs.pnpm build dependency. It
+  # still has to be installed into fpath here: a dev shell only puts pnpm on PATH
+  # and never touches fpath, so the completion would never be reachable.
   pnpmZshCompletion = pkgs.runCommand "pnpm-zsh-completion" { } ''
     install -Dm444 ${../../config/zsh/_pnpm} "$out/share/zsh/site-functions/_pnpm"
   '';
@@ -44,8 +35,8 @@ lib.mkIf osConfig.local.dev.enable {
   programs.zsh = {
     enable = true;
     enableCompletion = true;
-    autosuggestion.enable = true; # replaces the zsh-autosuggestions plugin
-    syntaxHighlighting.enable = true; # replaces the /opt/homebrew source line
+    autosuggestion.enable = true;
+    syntaxHighlighting.enable = true;
 
     oh-my-zsh = {
       enable = true;
@@ -53,7 +44,7 @@ lib.mkIf osConfig.local.dev.enable {
         "git"
         "npm"
         "docker"
-      ]; # dropped: brew, zsh-autosuggestions, aws, mvn, github (needs `hub`, not installed)
+      ];
     };
 
     history = {
@@ -65,43 +56,40 @@ lib.mkIf osConfig.local.dev.enable {
     };
 
     shellAliases = {
-      nv = "nvim"; # nvim lands in 4b — errors only if called meanwhile
-      zj = "zellij"; # 4b
-      hd = "herdr"; # like zj; coexists with zellij during trial
-      lz = "lazygit"; # 4a
-      cls = "clear && fastfetch"; # 4a
-      zshconfig = "nvim ${repo}/modules/home/shell.nix"; # the file this shell IS; `nixcfg` covers the whole repo
+      nv = "nvim";
+      zj = "zellij";
+      hd = "herdr";
+      lz = "lazygit";
+      cls = "clear && fastfetch";
+      zshconfig = "nvim ${repo}/modules/home/shell.nix"; # the file this shell IS; `nixcfg` = the whole repo
 
-      l = "eza --icons"; # eza installed below → works now
+      l = "eza --icons";
       lg = "eza --tree --level=1 --icons --git --git-ignore";
       lg2 = "eza --tree --level=2 --icons --git --git-ignore";
       lg3 = "eza --tree --level=3 --icons --git --git-ignore";
       ll = "eza -lg --icons";
 
       # --- NixOS / flake (repo = ~/dotfiles-nix; host = the local hostname) ---
-      # Rebuilds/GC go through nh (see programs.nh below): automatic nvd diff, sudo
-      # self-elevation, host+flake auto-detected via NH_FLAKE. Raw nixos-rebuild still works.
-      nrb = "nh os boot"; # build + stage for next boot, don't activate now
-      nrp = "nh os build"; # preview: build + diff vs current, no activation (run after nfu)
-      # nrs/nrt pick up the loopback flags bound in `loop` above on hosts with
-      # the seam on (geekom); the why lives there.
+      # Rebuilds and GC go through nh (programs.nh below); raw nixos-rebuild still works.
+      nrb = "nh os boot";
+      nrp = "nh os build";
       nrs = "nh os switch --ask${loop}";
       nrt = "nh os test${loop}";
-      nfu = "nix flake update --flake ${repo}"; # bump inputs (nixpkgs, home-manager) → rewrites flake.lock
-      nfb = "${repo}/scripts/nfb.sh"; # bump the pinned tool tags (omp, herdr) to upstream's latest release, then re-lock omp's flake input
-      nfc = "nix flake check ${repo}"; # evaluate/validate the flake without building a system
-      nfi = "nix flake init -t ${repo}#devshell"; # initialize a new project (node-flavored default)
-      nfp = "nix flake init -t ${repo}#python-devshell"; # initialize a Python project (uv + python3)
+      nfu = "nix flake update --flake ${repo}";
+      nfb = "${repo}/scripts/nfb.sh";
+      nfc = "nix flake check ${repo}";
+      nfi = "nix flake init -t ${repo}#devshell";
+      nfp = "nix flake init -t ${repo}#python-devshell";
       # Bulk GC (keep newest), then prune the boot menu. The pruning call comes
       # from the PROFILE path, never `/run/current-system`: after `nrb` stages a
-      # generation the two differ, and the running system's binary rewrites the
-      # bootloader with ITSELF as default — silently discarding the staged
-      # update, no error anywhere. The profile's current generation is by
-      # definition the intended boot default.
+      # generation the running system's binary rewrites the bootloader with ITSELF
+      # as default — silently discarding the staged update, no error anywhere.
+      # The same rule, with the hplaptop alias, is in modules/home/maintenance.nix.
       ngca = "nh clean all && sudo /nix/var/nix/profiles/system/bin/switch-to-configuration boot";
-      # ngl (list), ngd (diff) and ngc (interactive GC) are functions in initContent below, sharing the _gens formatter
-      nixcfg = "cd ${repo}"; # jump to the flake repo
-      speedtest = "NIXPKGS_ALLOW_UNFREE=1 nix run --impure nixpkgs#ookla-speedtest -- --accept-license --accept-gdpr"; # one-shot Ookla speedtest (unfree → per-invocation allow, not added to predicate)
+      # ngl (list), ngd (diff) and ngc (interactive GC) are functions in
+      # initContent below, sharing the _gens formatter.
+      nixcfg = "cd ${repo}";
+      speedtest = "NIXPKGS_ALLOW_UNFREE=1 nix run --impure nixpkgs#ookla-speedtest -- --accept-license --accept-gdpr"; # unfree per-invocation, not a global predicate
     };
 
     sessionVariables = {
@@ -111,35 +99,27 @@ lib.mkIf osConfig.local.dev.enable {
     };
 
     # NOTE — everything inside this `initContent` string is literal .zshrc text,
-    # comments included. Adding a line here CHANGES the derivation; it is not a
+    # comments included: adding a line here CHANGES the derivation, it is not a
     # free annotation the way a Nix comment (like this one) is.
     #
-    # DO NOT COPY THE CONTEXT7_API_KEY PATTERN BELOW FOR A HIGHER-VALUE SECRET.
-    # Exporting a secret into the shell environment puts it in every child
-    # process's environ, readable via /proc/<pid>/environ and leaked by anything
-    # that dumps the environment (a crash reporter, `env` in a pasted bug report,
-    # a CI log). It is acceptable for a context7 key, which is low-value and
-    # rate-limit-scoped. Anything else — SSH keys, cloud tokens, passwords —
-    # should stay a file under /run/secrets and be read at the point of use.
+    # DO NOT COPY THE SECRET-EXPORT PATTERN BELOW FOR A HIGHER-VALUE SECRET:
+    # exporting one puts it in every child process's environ, readable via
+    # /proc/<pid>/environ and leaked by anything that dumps the environment (a
+    # crash reporter, `env` in a pasted bug report, a CI log). It is acceptable
+    # for a low-value, rate-limit-scoped key; anything else — SSH keys, cloud
+    # tokens, passwords — belongs in /run/secrets, read at the point of use.
     initContent = ''
       # CONTEXT7_API_KEY — runtime secret for the context7 MCP server
-      # (modules/home/opencode.nix reads it via {env:...} interpolation).
-      # Provisioned by sops-nix on dev-enabled hosts only (modules/nixos/dev.nix
-      # declares it; home.nix already gates shell.nix off hplaptop, so this
-      # export never even loads on a non-recipient machine). The guard keeps
-      # shells quiet on rebuilds where the secret is not provisioned yet
-      # (fresh host before its first rebuild, or a host that was never a
-      # recipient) — the variable is simply empty and opencode falls back to
-      # anonymous mode / lower rate limits.
+      # (modules/home/opencode.nix reads it via {env:...}). Provisioned by
+      # sops-nix on dev-enabled hosts only: the guard keeps shells quiet where the
+      # secret is not provisioned yet, and opencode falls back to anonymous mode.
       export CONTEXT7_API_KEY="$(cat /run/secrets/CONTEXT7_API_KEY 2>/dev/null)"
 
       # TYPESAFE_API_KEY — runtime secret for ~/code/typesafe-lab's `real`
-      # provider (src/typesafe/real.ts reads it from the env). Same sops-nix
-      # provisioning and same guard rationale as CONTEXT7_API_KEY above.
-      # Acceptable to export because the key is low-value, like the context7
-      # one; note the consumer's loadEnvInto (src/cli.ts) only fills vars NOT
-      # already in the environment, so this export wins over the project's
-      # .env and that file can hold the placeholder.
+      # provider (src/typesafe/real.ts reads it from the env). Same provisioning
+      # and same guard as CONTEXT7_API_KEY above; the consumer's loadEnvInto
+      # (src/cli.ts) only fills vars NOT already in the environment, so this
+      # export wins over the project's .env.
       export TYPESAFE_API_KEY="$(cat /run/secrets/TYPESAFE_API_KEY 2>/dev/null)"
 
       # fzf navigation helpers
@@ -152,25 +132,15 @@ lib.mkIf osConfig.local.dev.enable {
         nixos-rebuild list-generations 2>/dev/null | awk '
           NR>1 { printf "%-5s %s %s   kernel %s%s\n", $1, $2, $3, $5, ($8=="True" ? "   <- current" : "") }'
       }
-      ngl() { _gens; }   # list generations, formatted like ngd/ngc
+      ngl() { _gens; }
 
       # nfud — the dry-run twin of nfu: resolve every input, write the would-be
-      # flake.lock to a temp file, print what moved, discard it. Nix has no
-      # --dry-run for `flake update` ("unrecognised flag" on 2.34.8), and
-      # --no-write-lock-file is not accepted there either (it only appears in
-      # --output-lock-file's description); --output-lock-file is the supported
-      # equivalent, verified to leave flake.lock and the git working tree
-      # untouched. The exit status IS the answer: 0 = nothing would move,
-      # 1 = something would, 2 = the resolution itself failed.
-      #
-      # The per-node summary leads because a raw flake.lock diff shows rev and
-      # narHash edits without naming the input they belong to — reconstructing
-      # that by hand is the whole reason this helper exists. It reads both locks
-      # with `-rn --slurpfile` rather than jq's `input`: that is one program run
-      # over two NAMED inputs, with no dependence on how an implementation
-      # iterates multiple input files (verified identical output on jq 1.8.2,
-      # which these hosts install via dev.nix under the same dev gate as this
-      # file, and on jaq 2.3.0, which does not share that iteration).
+      # flake.lock to a temp file, print what moved, discard it. `nix flake
+      # update` accepts no --dry-run and no --no-write-lock-file;
+      # --output-lock-file is the supported equivalent. The exit status IS the
+      # answer: 0 = nothing would move, 1 = something would, 2 = the resolution
+      # itself failed. The per-node summary leads because a raw lock diff shows
+      # rev and narHash edits without naming the input they belong to.
       nfud() {
         local tmp rc
         tmp=$(mktemp -t nfud.XXXXXX) || return 2
@@ -206,7 +176,6 @@ lib.mkIf osConfig.local.dev.enable {
 
       # ngd — nvd generation diff via fzf. Pick ONE generation (diff vs the
       # running system) or TAB two+ (diff oldest vs newest of the picks).
-      # Replaces the old last-two-only alias so you can reach any generation.
       ngd() {
         local sel gens
         sel=$(_pick_gens "$(_gens)" 'diff generation> ' 'TAB=mark more  .  1 pick = vs current  .  2+ = oldest vs newest')
@@ -220,9 +189,8 @@ lib.mkIf osConfig.local.dev.enable {
       }
 
       # ngc — interactive GC. fzf-pick which generations to DELETE (the running
-      # gen is never offered), confirm, reclaim the store, prune the boot menu.
-      # Bulk "delete all old" lives on the ngca alias. The boot-menu prune uses
-      # the profile path for the reason spelled out on that alias.
+      # gen is never offered), confirm, reclaim the store, prune the boot menu
+      # from the profile path for the reason on the ngca alias above.
       ngc() {
         local rows sel gens
         rows=$(_gens | grep -vF -- '<- current')
@@ -238,8 +206,6 @@ lib.mkIf osConfig.local.dev.enable {
         sudo /nix/var/nix/profiles/system/bin/switch-to-configuration boot
       }
 
-      # fzf UI styling (from 60-fzf.zsh). Dropped: the missing fzf-preview.sh
-      # preview, and the ctrl-r→git-ls-files bind that hijacked history search.
       export FZF_DEFAULT_OPTS="
           --style full
           --border --padding 1,2
@@ -260,14 +226,13 @@ lib.mkIf osConfig.local.dev.enable {
     '';
   };
 
-  # nh — nicer nixos-rebuild/GC front-end, backs the nr*/ngca aliases above.
+  # nh — nicer nixos-rebuild/GC front-end, backing the nr*/ngca aliases above.
   # NH_FLAKE (set from `flake`) lets `nh os …` run with no path/host args.
   programs.nh = {
     enable = true;
     flake = repoAbs;
   };
 
-  # shell-integration tools — the value IS the zsh wiring (folds in plan step 4a-4)
   programs.fzf = {
     enable = true;
     enableZshIntegration = true;
@@ -283,21 +248,19 @@ lib.mkIf osConfig.local.dev.enable {
   };
   home.packages = [
     pkgs.eza
-    # GitHub CLI: PR-first workflow against this repo (branch → PR → CI runs
-    # on the PR → merge). Dev-gated with the rest of shell.nix — Elisa's
-    # hplaptop needs neither PRs nor the auth state it drops in
-    # ~/.config/gh, and her host's drvPath must not move for it.
+    # GitHub CLI — PR-first workflow against this repo (branch → PR → CI → merge),
+    # dev-gated with the rest of shell.nix so hplaptop needs neither PRs nor the
+    # ~/.config/gh auth state it would drop there.
     pkgs.gh
     pkgs.file
     pkgs.nvd
     pnpmZshCompletion
   ];
 
-  # compinit caches its fpath scan in ~/.zcompdump-*, and decides the cache is
-  # fresh by mtime -- but Nix pins every store mtime to 1970, so a newly added
-  # completion (e.g. pnpmZshCompletion above) is invisible and Tab silently
-  # keeps doing nothing. Same failure mode as the nvim luac cache in
-  # modules/neovim.nix. Wipe it on every activation; the next shell rebuilds it.
+  # compinit caches its fpath scan in ~/.zcompdump-* and decides freshness by
+  # mtime, but Nix pins every store mtime to 1970, so a newly added completion
+  # stays invisible and Tab silently does nothing (same failure mode as the nvim
+  # luac cache). Wipe it on every activation; the next shell rebuilds it.
   home.activation.clearZshCompdump = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     run rm -f "${config.home.homeDirectory}"/.zcompdump*
   '';
