@@ -23,11 +23,11 @@ keys:
 creation_rules:
   # Andrea's secrets: encrypted to Andrea's personal key and geekom's.
   #
-  # SHAMIR TRAP: inside a key_groups entry, `age:` must NOT be preceded by
-  # `-`. A leading `-` starts a SECOND group, and sops applies shamir secret
-  # splitting across groups — each group then holds only a share, so no
-  # single host can decrypt on its own. The (unindented) form below keeps
-  # everything in ONE group: every recipient fully wraps the data key.
+  # SHAMIR TRAP: a `key_groups` list must hold exactly ONE `- age:` item. A
+  # second `- age:` entry makes sops treat them as separate groups and split
+  # the data key with shamir, so each group holds only a share and no single
+  # host can decrypt alone. The (unindented) `- age:` below is that one item:
+  # every recipient in its list fully wraps the data key.
   - path_regex: secrets/andrea/.*\.yaml$
     key_groups:
     - age:
