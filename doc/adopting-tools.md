@@ -1,9 +1,9 @@
 # Adopting a new tool
 
-Every tool in this repo has followed the same ladder: **trial it ephemeral,
-promote it through the flake only if it earns its place, never install outside
-the store.** A tool's README usually opens with a `curl … | sh` installer —
-that is the one path never taken here: it lands outside `/nix/store`,
+Tools here are adopted through the same ladder: **trial it ephemeral, promote it
+through the flake only if it earns its place, never install outside the store.**
+A tool's README usually opens with a `curl … | sh` installer — that is the one
+path never taken here: it lands outside `/nix/store`,
 invisible to generations, GC, and rollback, and it behaves differently on
 every machine that runs it.
 
