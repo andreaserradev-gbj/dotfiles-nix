@@ -240,13 +240,14 @@
   # root-equivalent — the module says what that does and does not cost.
   local.docker.enable = true;
 
-  # Vial — GUI for configuring QMK/VIA keyboards in real time. Lives here and
-  # not in modules/nixos/desktop.nix because it is for a physical keyboard
-  # plugged into this box, not a general desktop app. The udev rules shipped
-  # by the package are what let the GUI talk to the controller without root;
-  # without them Vial opens but sees no device.
+  # Vial — GUI for configuring QMK/VIA keyboards in real time. Here and not in
+  # modules/nixos/desktop.nix: it is for a physical keyboard on this box, not a
+  # general desktop app. The package's own rule (92-viia.rules) is MODE=0666 on
+  # EVERY hidraw device — raw key reports readable by any process — so it is not
+  # installed; this is that rule narrowed to Vial controllers by the serial their
+  # firmware reports, with an ACL for the active session instead of world-write.
   environment.systemPackages = [ pkgs.vial ];
-  services.udev.packages = [ pkgs.vial ];
+  services.udev.extraRules = ''KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{serial}=="*vial:f64c2b3c*", MODE="0660", TAG+="uaccess"'';
 
   # Set-once: pin state-format defaults to the install release. Never bump casually.
   system.stateVersion = "26.05";

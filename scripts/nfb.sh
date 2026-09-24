@@ -159,6 +159,14 @@ for tool in "${tools[@]}"; do
     failed=1
     continue
   }
+  # The tag feeds the `sed -i -E "s|…|\1${tag}|"` replacement and the `grep`
+  # assertion in rewrite_ref(); anything but vX.Y.Z could break out of either.
+  # Non-fatal like the checks above, so the other tool is still checked.
+  [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    printf '!! %s: release tag %s is not vX.Y.Z\n' "$tool" "$tag" >&2
+    failed=1
+    continue
+  }
   new="${tag#v}"
 
   # String comparison, not semver ordering: unequal is offered, equal is current.

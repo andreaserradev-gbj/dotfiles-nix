@@ -17,6 +17,10 @@
   # `nixos-rebuild boot`/`switch` reconciles the loader entries.
   boot.loader.systemd-boot.configurationLimit = 10;
 
+  # The default (`true`) lets anyone at the boot menu press `e` and boot with
+  # `init=/bin/sh` — a root shell with no login. Worst on hplaptop, no LUKS.
+  boot.loader.systemd-boot.editor = false;
+
   # Configure network connections interactively with nmcli or nmtui.
   networking.networkmanager.enable = true;
 
@@ -95,19 +99,9 @@
     "flakes"
   ];
 
-  # The nix-community binary cache, trusted at the SYSTEM level. Tool flakes
-  # consumed by this repo advertise it via their flake's nixConfig (herdr
-  # historically; oh-my-pi's Rust/bun2nix/nix-bun closure today), but
-  # flake-level nixConfig is only a PROMPT: on a host whose user is not a
-  # trusted nix user, answering y at the prompt still yields "warning:
-  # ignoring untrusted substituter" and every build runs locally. Declaring
-  # the cache here makes the substitution unconditional — no prompt, no
-  # ignored mirror. Nothing else adds substituters, so this is the complete
-  # substituter story; cache.nixos.org remains the default fallback
-  # automatically. Machine-level on purpose, so this moves ALL THREE hosts'
-  # drvPaths including hplaptop (no package diffs — a config-only move).
-  nix.settings.substituters = [ "https://nix-community.cachix.org" ];
-  nix.settings.trusted-public-keys = [
-    "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
-  ];
+  # No substituter is declared here, deliberately: the only one a tool flake
+  # advertises (nix-community's, via nixConfig) serves nothing this repo
+  # consumes — the tools are prebuilt fetches (tool-pins.json) — while its key
+  # would be trusted for EVERY store path on every host. From-source fallbacks
+  # build locally instead; cache.nixos.org remains the default.
 }

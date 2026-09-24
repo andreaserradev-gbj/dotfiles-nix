@@ -32,13 +32,13 @@ and its results, not this doc, will drive any primary-harness switch.
   last stable darwin tree), no host here is one, and following it raw would
   add a **third** nixpkgs tree to the lock for zero benefit.
 - **Lockfile cost, accepted and named**: omp's inputs add `bun2nix`,
-  `nix-bun` and `oxalica/rust-overlay` — omp's Rust core (~80k lines of
-  natives) and bun runtime are built from source. The nix-community binary
-  cache covers the *toolchain* deps but **no cache carries omp itself**
+  `nix-bun` and `oxalica/rust-overlay` — the from-source fallback's Rust core
+  (~80k lines of natives) and bun runtime. **No cache carries omp itself**
   (verified 2026-09-22 at v18.2.8: `nix path-info --store
   https://nix-community.cachix.org` reports the prebuilt store path "not
   valid" — `nix-community.cachix.org/nar/*.narinfo` 404s for it; omp's own
-  `nix.yml` CI evaluates but never builds/publishes).
+  `nix.yml` CI evaluates but never builds/publishes), which is what the
+  prebuilt switch below is for.
 - **The binary is upstream's prebuilt release, not a source build**
   ([omp-prebuilt.nix](../modules/home/omp-prebuilt.nix), wired via
   `programs.omp.package` in [omp.nix](../modules/home/omp.nix)). The
@@ -71,14 +71,14 @@ and its results, not this doc, will drive any primary-harness switch.
     `nfu` moves of `nixpkgs-unstable` no longer touch omp's binary either
     (the flake input is still locked for the HM module + version pin of
     record). The 31-minute CI compile class is gone entirely.
-- **Binary-cache trust is system-level** ([common.nix](../modules/nixos/common.nix)):
+- **No substituter is trusted for it** ([common.nix](../modules/nixos/common.nix)):
   omp's flake advertises nix-community's cache via `nixConfig`, but that is
-  only a prompt — an untrusted user's "y" still yields "warning: ignoring
-  untrusted substituter" and every dependency builds locally (hit live
-  during the trial). `nix.settings.substituters`/`trusted-public-keys` in
-  commonModules make the substitution unconditional. This is machine-level
-  config, so it moves **all three** drvPaths including hplaptop — a
-  config-only move (no package diffs).
+  only a prompt, so nothing substitutes from it here. Declaring
+  `nix.settings.substituters`/`trusted-public-keys` at machine level would make
+  it unconditional, and that trust covers EVERY store path on every host
+  (hplaptop included) — too much for a cache nothing here consumes, since the
+  binary is a fixed-output fetch. Consequence: a from-source fallback builds
+  its toolchain deps locally instead of substituting.
 - **Dev-gated home layer.** [modules/home/omp.nix](../modules/home/omp.nix)
   wraps its whole body in `lib.mkIf osConfig.local.dev.enable`, exactly like
   [herdr.nix](herdr.md) and [opencode.nix](../modules/home/opencode.nix).

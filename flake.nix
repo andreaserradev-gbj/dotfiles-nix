@@ -59,12 +59,12 @@
     # input only matters for x86_64-darwin, which no host here is, and
     # following it raw would add a THIRD nixpkgs tree to the lock for zero
     # benefit. Lockfile cost accepted and documented in doc/omp.md: omp's
-    # inputs add bun2nix, nix-bun and oxalica rust-overlay (its Rust core +
-    # bun runtime are built from source — no binary cache carries omp itself,
-    # only its toolchain deps come from nix-community's cache, trusted in
-    # common.nix). `nfb` (scripts/nfb.sh) rewrites this `?ref=` together with the
-    # version + hashes in modules/home/tool-pins.json (same literal-URL rule as
-    # herdr above). The HM module is threaded via extraSpecialArgs below and
+    # inputs add bun2nix, nix-bun and oxalica rust-overlay, which build omp's
+    # Rust core + bun runtime on the from-source fallback — what this repo
+    # installs is the prebuilt release fetch from tool-pins.json. `nfb`
+    # (scripts/nfb.sh) rewrites this `?ref=` together with the version + hashes
+    # in modules/home/tool-pins.json (same literal-URL rule as herdr above). The
+    # HM module is threaded via extraSpecialArgs below and
     # consumed by modules/home/omp.nix, gated on osConfig.local.dev.enable;
     # hplaptop (dev off) never evaluates it.
     omp = {

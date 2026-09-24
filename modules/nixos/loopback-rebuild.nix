@@ -43,10 +43,12 @@ in
     # manages — a plain attrset list merge, no conflict — so the loopback
     # connection authenticates with the key that lives on the machine
     # itself, never with the Mac's key (whose private half must not be
-    # copied anywhere).
+    # copied anywhere). Inbound use is restricted to loopback below: the key is
+    # passphrase-less and sits on the machine, so any copy of it would otherwise
+    # be a way in from anywhere.
     authorizedKey = lib.mkOption {
       type = lib.types.str;
-      description = "This host's own SSH public key, authorized so the machine can SSH into itself.";
+      description = "This host's own SSH public key, authorized for loopback only (from=\"127.0.0.1,::1\") — the machine SSHing into itself, not a way in from anywhere else.";
     };
 
     # Pinned via programs.ssh.knownHosts so the manual `ssh-keyscan` step is
@@ -61,7 +63,9 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    users.users.${user.username}.openssh.authorizedKeys.keys = [ cfg.authorizedKey ];
+    users.users.${user.username}.openssh.authorizedKeys.keys = [
+      "from=\"127.0.0.1,::1\" ${cfg.authorizedKey}"
+    ];
 
     programs.ssh.knownHosts."localhost" = {
       hostNames = [
