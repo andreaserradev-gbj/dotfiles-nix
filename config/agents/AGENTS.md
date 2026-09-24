@@ -91,6 +91,8 @@ is installed read-only, so edit it there, never in place.
 - Contribute to existing PRs rather than proposing competing alternatives, and
   frame improvements as additions, not replacements. Keep PR comments focused:
   one idea with data, one open question. No laundry lists of prescriptions.
+- PR bodies: read `skill://pr` first, and use its sections — Summary (diagram,
+  diff or tree), Evidence (before → after), Merge Danger (door, blast radius).
 - Before calling the working tree dirty or proposing a commit, verify the changed
   paths are tracked. `git status --porcelain` excludes gitignored paths; use
   `git check-ignore <path>` if uncertain. PRDs in `.dev/`, downloaded artifacts,
