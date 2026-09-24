@@ -4,49 +4,28 @@
   fetchurl,
   system,
 }:
-# omp (oh-my-pi) from upstream's prebuilt release binaries instead of the
-# flake's from-source build. WHY THIS EXISTS: the from-source build takes
-# ~31 min on a fast CI runner (no binary cache anywhere carries it — see
-# doc/omp.md), the full cycle exceeds an hour locally, and it re-triggers on
-# EVERY nfu that moves nixpkgs-unstable (the omp flake input follows that
-# tree). The release binaries are what upstream's own install script and
-# Homebrew ship; verified live on NixOS at v18.2.8: `omp --version`, a live
-# model call through the local ollama daemon, and `omp completions zsh` all
-# work with the stock /lib64 loader — the binary needs NOTHING beyond
-# glibc's own libraries (NEEDED: libc/pthread/dl/m).
+# omp (oh-my-pi) from upstream's prebuilt release binaries instead of the flake's
+# from-source build: that build takes ~31 min on a fast CI runner, no binary cache
+# anywhere carries it, and it re-triggers on EVERY `nfu` that moves
+# nixpkgs-unstable (the omp flake input follows that tree). The full adoption
+# record and the release-binary verification are in doc/omp.md.
 #
-# LOAD-BEARING: do NOT add autoPatchelfHook (or strip/patchelf of any kind).
-# omp is a Bun standalone executable — it locates its embedded JS payload
-# via an absolute trailer ("---- Bun! ----") near the end of the file.
-# autoPatchelfHook rewrites the interpreter string and shifts the section
-# header table (+144 bytes at v18.2.7), which invalidates those absolute
-# offsets: the binary silently degrades to a plain `bun` runtime
-# (`omp --version` prints "Bun v1.4.2", completions say "#compdef bun").
-# Verified experimentally 2026-09-21. The stock loader path works because
-# /lib64/ld-linux-x86-64.so.2 is provided by NixOS's nix-ld on dev hosts
-# (modules/nixos/dev.nix) — this derivation does NOT make the binary work
-# on a stock NixOS without nix-ld.
+# LOAD-BEARING: do NOT add autoPatchelfHook (or strip/patchelf of any kind). omp
+# is a Bun standalone executable that locates its embedded JS payload via an
+# absolute trailer ("---- Bun! ----") near the end of the file; autoPatchelfHook
+# rewrites the interpreter string, shifts the section header table, and
+# invalidates those offsets — the binary then silently degrades to a plain `bun`
+# runtime. The stock /lib64 loader works only because NixOS's nix-ld provides it
+# (modules/nixos/dev.nix); this derivation does not make the binary run on a
+# NixOS without nix-ld. The glibc (not musl) asset is used: musl would add
+# libstdc++/libgcc NEEDEDs that stock NixOS does not ship.
 #
-# TRADEOFFS (accepted, documented in doc/omp.md):
-# - Trust boundary widens from "omp's flake build recipe" to "upstream's
-#   release CI" — the hash pins the exact bytes (fixed-output derivation),
-#   but nobody re-derives them. Mitigations: MIT-licensed upstream,
-#   tag-pinned, SHA256 enforced by FOD; the from-source fallback is one
-#   attribute away (see omp.nix).
-# - Not a Nix build: no grafts against our nixpkgs, no per-host rebuild of
-#   the binary itself; the ONLY store output is the unpacked binary.
-# - The glibc (not musl) variant is used: musl would add libstdc++/libgcc
-#   NEEDEDs that stock NixOS does not ship, per upstream's own Alpine note.
-#
-# Update procedure: run `nfb` (scripts/nfb.sh) — it bumps this tool's version
-# and both hashes in modules/home/tool-pins.json and re-locks the matching
-# flake input in one step, so the two can never disagree (omp.nix's settings
-# are written for a specific compiled-in CURRENT_SETUP_VERSION, which is why
-# the pin and the module must move together). No compile.
+# Trust trade-off: the hash pins the exact bytes (fixed-output derivation), but
+# nobody re-derives them; the from-source fallback is one attribute away
+# (omp.nix). `nfb` (scripts/nfb.sh) bumps version + hashes in tool-pins.json and
+# re-locks the matching flake input, so pin and module cannot disagree. Full
+# trade-offs: doc/omp.md.
 let
-  # Version + both hashes come from modules/home/tool-pins.json — the same table
-  # flake.nix builds this tool's `?ref=` from, so the pin and the binary cannot
-  # drift apart. Written only by `nfb` (scripts/nfb.sh).
   pins = (builtins.fromJSON (builtins.readFile ./tool-pins.json)).omp;
   version = pins.version;
   srcs = {
@@ -70,9 +49,8 @@ stdenvNoCC.mkDerivation {
     inherit (src) hash;
   };
 
-  # No unpack/build phases: fetchurl yields the bare ELF; install copies it
-  # byte-for-byte (install, not cp, to keep 755 + no stray modes). Nothing
-  # may rewrite the ELF — see the LOAD-BEARING note above.
+  # fetchurl yields the bare ELF and install copies it byte-for-byte; nothing may
+  # rewrite it (LOAD-BEARING above).
   dontUnpack = true;
   dontConfigure = true;
   dontBuild = true;
