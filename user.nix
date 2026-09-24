@@ -1,37 +1,25 @@
-# Personal identity, keyed by hostname — the ONE file to edit when forking
-# this config or adding a host. `flake.nix` resolves the per-host attrset via
-# `specialArgs = { user = users.${hostname}; ... }` and threads it through
-# both NixOS and Home Manager.
+# Personal identity, keyed by hostname — the ONE file to edit when forking this
+# config or adding a host. `flake.nix` resolves the per-host attrset via
+# `specialArgs = { user = users.${hostname}; ... }` for both NixOS and HM.
 let
-  # The flake every host updates ITSELF from: `modules/home/maintenance.nix`
-  # builds the `nrb` alias out of this. It lives here rather than in the
-  # module because a fork that edited only `user.nix` would otherwise keep
-  # pulling the upstream repo — on the unattended laptop, silently and
-  # forever. `bootstrap.sh` still spells the URL out; that one runs before
-  # the clone exists, so it cannot read this file and is the single
-  # unavoidable literal.
+  # The flake every host updates ITSELF from (`nrb`, modules/home/maintenance.nix);
+  # it lives here so a fork that edited only this file stops pulling upstream.
+  # `bootstrap.sh` spells the URL out too — it runs before the clone exists.
   repo = "github:andreaserradev-gbj/dotfiles-nix";
 
-  # Both dev hosts are the same person. The file is keyed by HOSTNAME only
-  # because flake.nix looks the attrset up as `users.${hostname}`, so the
-  # person is named once here and assigned to hosts below — otherwise an
-  # email change is one edit per machine and each new host copies seven more
-  # lines of the same identity.
+  # flake.nix looks the attrset up as `users.${hostname}`, so both dev hosts
+  # share one identity rather than duplicating it per machine.
   owner = rec {
     username = "andrea";
     fullName = "Andrea Serra";
     email = "andreaserradev-gbj@users.noreply.github.com";
     timeZone = "Europe/Rome";
 
-    # No `sshKey`: the work MacBook's key was revoked here during the 2026-09
-    # handover and deleted from GitHub at the same time. A DELIBERATE absence,
-    # not an oversight — `modules/nixos/dev.nix` treats the field as optional.
-    # Consequence: dev hosts run sshd with an empty authorized-keys list, so
-    # geekom is reachable only from its own console until a key is enrolled.
-    # To enrol a machine: add `sshKey = "<its public key>";` back here, rebuild,
-    # push. Generate the keypair ON that machine — the private half must never
-    # travel (same rule as doc/bare-metal-geekom.md).
-    homeDirectory = "/home/${username}"; # rec lets this reference username
+    # No `sshKey` — a DELIBERATE absence, not an oversight: dev.nix treats the
+    # field as optional, so nothing breaks without it. Consequence: geekom's sshd
+    # has an empty authorized-keys list until a key is enrolled by adding
+    # `sshKey = "<its public key>";` here, generated ON that machine.
+    homeDirectory = "/home/${username}"; # rec: this interpolates username
     inherit repo; # `inherit` inside `rec` reads the enclosing let, not the set
   };
 in
@@ -39,22 +27,11 @@ in
   nixos = owner;
   geekom = owner;
 
-  # Non-technical user on the hplaptop host.
-  #
-  # No `sshKey`: sshd is off on hplaptop (gated behind `local.dev.enable`, which
-  # is false here), so nothing consumes it. No `email`: the only consumer was
-  # `modules/home/git.nix` (dev-gated, not imported on hplaptop), and Elisa's
-  # email is configured directly in Brave with her Google account — no native
-  # mail client. Adding a future non-dev HM module that consumes either field
-  # on hplaptop would need both added back here.
-  #
-  # `keyboardLayout` is OPTIONAL — the other hosts omit it and keep the
-  # platform default ("us"). When present it drives the console keymap, the
-  # XKB/GDM layout and GNOME's input sources (see common.nix and desktop.nix).
-  #
-  # `locale` is OPTIONAL the same way. When present it sets the whole system
-  # locale (messages, formats, measurements — see common.nix). Absent = the
-  # nixpkgs default ("en_US.UTF-8"), byte-identical behavior for existing hosts.
+  # Non-technical user on the hplaptop host. No `sshKey` (sshd is off there —
+  # gated behind `local.dev.enable`) and no `email` (its only consumer, git.nix,
+  # is dev-gated too). `keyboardLayout` and `locale` are OPTIONAL: present, they
+  # drive the console keymap, XKB/GDM layout, GNOME input sources and the system
+  # locale; absent means the platform default, as on the dev hosts.
   hplaptop = rec {
     username = "elisa";
     fullName = "Elisa Davi";
