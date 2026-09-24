@@ -20,7 +20,7 @@
             extraArgs = [
               "-n"
               "BOOT"
-            ]; # FAT label -> by-label mount
+            ];
           };
         };
         root = {
@@ -32,7 +32,7 @@
             extraArgs = [
               "-L"
               "nixos"
-            ]; # ext4 label -> by-label mount
+            ]; # ext4 label -> by-label mount; must match hardware-configuration.nix
           };
         };
       };
