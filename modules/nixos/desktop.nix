@@ -1,9 +1,7 @@
-# The desktop seam. Imported by EVERY host through commonModules, but wholly
-# inert unless the host sets `local.desktop.enable`. The VM leaves it off: it
+# The desktop seam: imported by every host through commonModules, but wholly
+# inert unless the host sets `local.desktop.enable`. The VM leaves it off — it
 # runs a cage+foot kiosk on a software renderer and must not grow a GDM.
-#
-# `local.*` is this repo's own option namespace — nothing upstream owns it, so
-# there is no collision risk as more seams (hyprland, gaming, …) get added.
+# `local.*` is this repo's own option namespace; nothing upstream owns it.
 {
   config,
   lib,
@@ -19,14 +17,10 @@ in
   options.local.desktop = {
     enable = lib.mkEnableOption "the GNOME desktop stack (GDM, GNOME, pipewire, Bluetooth, printing, scanning, Brave, PDF tools)";
 
-    # `"full"` = PaperWM + Catppuccin theming (the developer setup on geekom);
-    # `"vanilla"` = plain GNOME (Elisa's hplaptop — no PaperWM, no Catppuccin).
-    # Default `"full"` is geekom's existing behaviour. It was picked so that
-    # introducing this option did not move geekom's drvPath; hash stability is
-    # no longer a goal in itself (see home.nix), but the default stands on its
-    # own merit. The HM half (modules/home/desktop.nix,
-    # modules/home/gtk.nix) reads `osConfig.local.desktop.variant` and gates the
-    # PaperWM/Catppuccin dconf + GTK config behind `variant == "full"`.
+    # `full` = PaperWM + Catppuccin theming (geekom); `vanilla` = plain GNOME
+    # (hplaptop). The HM half (modules/home/desktop.nix, modules/home/gtk.nix)
+    # reads this and gates the PaperWM/Catppuccin dconf + GTK config on
+    # `variant == "full"`.
     variant = lib.mkOption {
       type = lib.types.enum [
         "full"
@@ -40,35 +34,25 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    # GNOME's session under GDM is Wayland by default; this is what supplies
-    # XWayland, so X11-only applications still run.
+    # Supplies XWayland, so X11-only applications still run on GNOME's Wayland
+    # session.
     services.xserver.enable = true;
 
-    # Graphical keyboard layout — same per-host field as the console keymap
-    # (common.nix), so TTY and GUI can never disagree. This option feeds both
-    # GDM's greeter and the XKB defaults for the session. Optional field:
-    # hosts without it keep the "us" default. GNOME's per-user input sources
-    # are set declaratively in the HM half (modules/home/desktop.nix).
+    # Same per-host field as the console keymap (common.nix), so TTY and GUI can
+    # never disagree. Feeds GDM's greeter and the session's XKB defaults; GNOME's
+    # per-user input sources are declarative in modules/home/desktop.nix.
     services.xserver.xkb.layout = user.keyboardLayout or "us";
 
     services.displayManager.gdm.enable = true;
     services.desktopManager.gnome.enable = true;
 
-    # GDM theming is deliberately NOT applied. The greeter runs a GNOME Shell
-    # instance under the `gdm` user, and the NixOS gdm module exposes two
-    # hooks (`extraPackages` for XDG_DATA_DIRS, `programs.dconf.profiles.gdm`
-    # for the greeter's dconf DB) — but the one piece worth styling (the
-    # cursor) is blocked by the same upstream packaging issue documented in
-    # modules/home/gtk.nix: the catppuccin-cursors directory name does not
-    # match the `Name=` field GNOME resolves by, and the index.theme lacks
-    # `Inherits=hicolor`. Rather than ship a broken cursor on the login
-    # screen, GDM stays on its default Adwaita cursor. The GTK theme,
-    # wallpaper and shell theme are skipped for the reasons already
-    # documented (login screen visible ~2s per boot, greeter failure = black
-    # screen = TTY recovery).
+    # GDM theming deliberately NOT applied: the one piece worth styling (the
+    # cursor) is blocked by the packaging issue in modules/home/gtk.nix, and the
+    # rest is not worth the regret-risk — the login screen is up for ~2s per
+    # boot, and a failed greeter means a black screen recovered via TTY.
 
-    # Audio: pipewire, with the pulseaudio server it replaces switched off
-    # explicitly so the two can never both be enabled.
+    # pipewire, with the pulseaudio server it replaces switched off explicitly
+    # so the two can never both be enabled.
     services.pulseaudio.enable = false;
     security.rtkit.enable = true;
     services.pipewire = {
@@ -78,160 +62,90 @@ in
       pulse.enable = true;
     };
 
-    # Bluetooth, EXPLICITLY — and this line is not redundant.
+    # Bluetooth, EXPLICITLY — and this line is not redundant. GNOME already sets
+    # `hardware.bluetooth.enable = mkDefault true`, so with this line deleted
+    # Bluetooth would appear to work, but as a SIDE EFFECT of GNOME being
+    # installed: the planned Hyprland swap removes GNOME and would silently take
+    # it along, on a machine whose keyboard may be Bluetooth. An explicit `true`
+    # overrides a `mkDefault true` with no conflict.
     #
-    # GNOME already sets `hardware.bluetooth.enable = mkDefault true` and
-    # installs gnome-bluetooth, so Bluetooth would appear to work with this
-    # line deleted. But it would be working as a SIDE EFFECT of GNOME being
-    # installed. The planned Hyprland swap removes GNOME and would silently
-    # take Bluetooth with it — on a machine whose keyboard may be Bluetooth.
-    # An explicit `true` overrides a `mkDefault true` with no conflict.
-    #
-    # NOT set here on purpose: `powerOnBoot` (already true by default), and
-    # `services.blueman.enable` — GNOME owns the Bluetooth frontend; blueman
-    # is the Hyprland-era REPLACEMENT for it, not something to run alongside.
+    # NOT set on purpose: `powerOnBoot` (already true by default), and
+    # `services.blueman.enable` — GNOME owns the Bluetooth frontend; blueman is
+    # the Hyprland-era replacement for it, not a companion.
     hardware.bluetooth.enable = true;
 
     # Printing, plus the mDNS that finds the printer. Same shape as Bluetooth
-    # above, and for the same reason.
-    #
-    # Measured before this was written: the VM evaluates `services.avahi.enable
-    # = false` and geekom evaluates `true`, with no avahi anywhere in this repo.
-    # GNOME turns it on. Swap GNOME for Hyprland and printer discovery vanishes
-    # with it — silently, because cupsd would still be running and the printer
-    # would simply stop appearing. Hence the explicit `true`.
-    #
-    # `nssmdns4` is off by default and is what resolves `.local` names through
-    # NSS, so a stored `ipp://<host>.local` queue keeps working. Avahi's
-    # `openFirewall` already defaults to true, so UDP 5353 needs no line here.
-    #
-    # NO DRIVERS ON PURPOSE. The target is an HP ENVY 4500, which the Mac holds
-    # as `dnssd://HP ENVY 4500 series [B1C0AA]._ipp._tcp.local.` — an `_ipp._tcp`
-    # record, so it speaks IPP directly and CUPS can drive it with no PPD.
-    # `hplip` is the fallback if that turns out to be false, not the starting
-    # point: it is a large stack to add before driverless has been disproved.
+    # above, for the same reason: GNOME turns avahi on, so printer discovery
+    # would vanish with the Hyprland swap while cupsd kept running. `nssmdns4`
+    # resolves `.local` names through NSS, so a stored `ipp://<host>.local`
+    # queue keeps working. NO DRIVERS ON PURPOSE: the target advertises
+    # `_ipp._tcp`, so CUPS drives it with no PPD; `hplip` is the fallback if
+    # that turns out to be false, not the starting point.
     services.printing.enable = true;
     services.avahi = {
       enable = true;
       nssmdns4 = true;
     };
 
-    # Scanning, driverless over the same mDNS the printer was found on.
-    # Measured before this was written: the device advertises `_uscan._tcp` on
-    # port 8080 with `rs=/eSCL`, and `GET /eSCL/ScannerCapabilities` returns
-    # eSCL 2.1 XML. Platen only, no feeder, so no duplex option will appear.
+    # Scanning, driverless over the same mDNS the printer was found on; the
+    # device advertises `_uscan._tcp` with eSCL, which answered on the first try.
     #
     # THREE THINGS DELIBERATELY NOT SET, each the obvious-looking move:
-    #   - the `scanner` group. eSCL is HTTP to a network address, so there is
-    #     no device node and udev permissions change nothing. That group is
-    #     for USB scanners.
-    #   - `hardware.sane.openFirewall`. It opens ports for `saned`, which
-    #     shares a LOCAL scanner outwards. This host is the client.
-    #   - `hplip`. The device also advertises `_scanner._tcp`, HP's own scan
-    #     protocol behind the `hpaio` backend. That is the heavier route and
-    #     eSCL answered on the first try.
+    #   - the `scanner` group: eSCL is HTTP to a network address, so there is no
+    #     device node and udev permissions change nothing.
+    #   - `hardware.sane.openFirewall`: it opens ports for `saned`, which shares
+    #     a LOCAL scanner outwards. This host is the client.
+    #   - `hplip`: the device also advertises `_scanner._tcp`, HP's own heavier
+    #     route behind the `hpaio` backend.
     #
-    # No frontend is added either: GNOME already installs simple-scan
-    # ("Document Scanner"). Unlike the avahi case above, that side effect is a
-    # safe one to inherit — losing it at the Hyprland swap means no scanner
-    # GUI, which is obvious, rather than a scanner that silently stops being
-    # found while the daemon keeps running.
+    # No frontend is added either: GNOME installs simple-scan ("Document
+    # Scanner"), and losing that at the Hyprland swap is obvious — no scanner
+    # GUI — rather than a scanner that silently stops being found.
     hardware.sane.enable = true;
     hardware.sane.extraBackends = [ pkgs.sane-airscan ];
 
-    # sane-backends carries its OWN `escl` backend, so before this line
-    # `scanimage -L` listed one scanner twice: `airscan:e0:HP ENVY 4500 series
-    # [B1C0AA]`, re-discovered by name, and `escl:http://192.168.68.52:8080`,
-    # a literal address baked in at discovery time.
-    #
-    # The printer now has a DHCP reservation, so this is not fixing a live
-    # break — it removes a choice that has no right answer visible in a GUI.
-    # Only the name-based entry survives a router replacement or a move to a
-    # different network, and a frontend that remembered the wrong one would
-    # fail much later with nothing pointing at the cause.
-    #
-    # The cost is real: this is the fallback if sane-airscan ever regresses.
-    # Re-enable by deleting this line, not by adding a different backend.
+    # `sane-backends` carries its OWN `escl` backend, which listed the printer
+    # twice: by name, and by a literal address baked in at discovery time. Only
+    # the name-based entry survives a router replacement or a move to another
+    # network, and a frontend that remembered the wrong one would fail much later
+    # with nothing pointing at the cause. The cost is real: this is the fallback
+    # if sane-airscan ever regresses — re-enable by deleting this line.
     hardware.sane.disabledDefaultBackends = [ "escl" ];
 
     # Brave has no NixOS module (unlike programs.firefox), so it goes in as a
-    # plain package. It is MPL-2.0 with meta.unfree = false, so it needs NO
-    # allowUnfreePredicate entry in common.nix and none should be added.
+    # plain package. MPL-2.0 with meta.unfree = false: no allowUnfreePredicate
+    # entry in common.nix, and none should be added. No version is named on
+    # purpose — a stale literal reads as a verified fact, and eval is the check.
     #
-    # No version is named here on purpose. It moved on the first lock bump
-    # after this comment was written, and a stale literal reads as a verified
-    # fact. Nothing is lost: evaluation checks the claim that matters, so if a
-    # future bump makes Brave unfree, eval will say so.
-    #
-    # PDF work: three tools because it is three unrelated jobs, and no single
-    # Linux application covers them the way Acrobat does.
+    # PDF work: three tools for three unrelated jobs.
     #   xournalpp   — annotate, and stamp a signature image onto a page
     #   pdfarranger — reorder, merge, split, rotate, delete pages
-    #   imagemagick — `magick sig.png -fuzz 20% -transparent white out.png`,
-    #                 which is what makes a scanned signature usable on top of
-    #                 anything that is not plain white paper
+    #   imagemagick — makes a scanned signature usable on anything that is not
+    #                 plain white paper: `magick sig.png -fuzz 20% -transparent white out.png`
     #
     # NOT added: libreoffice. Draw is the only route on Linux to editing text
-    # already inside a PDF, and it reimports the page as loose objects, so the
-    # layout drifts. Over a gigabyte for the one PDF job it does badly. Add it
-    # if an office suite is wanted, not as a PDF editor.
-    #
-    # Nothing here signs a PDF in the cryptographic sense. A stamped image is a
-    # picture: no certificate, no tamper evidence, and liftable by anyone with
-    # the file. PAdES/CAdES would need a different tool and a real certificate.
+    # inside a PDF, and it reimports the page as loose objects, drifting the
+    # layout — over a gigabyte for the one PDF job it does badly.
     environment.systemPackages = [
       pkgs.brave
       pkgs.xournalpp
       pkgs.pdfarranger
       pkgs.imagemagick
     ]
-    # Dash to Dock — auto-hide bottom dock on both desktop hosts. NOT Dash to
-    # Panel: the incompatible list below names Dash to *Panel* (a different
-    # extension that replaces the top bar), while Dash to Dock is not on it —
-    # verified live on geekom with PaperWM (trial in
-    # .dev/gnome-dock-gdm-wallpaper, phase 0). `dock-fixed=false` (set in the
-    # HM half's dconf chunk) reserves no screen space, so PaperWM's tiling
-    # area is untouched: tiled windows reach the bottom edge and the dock
-    # slides over them on bottom-edge hover.
-    #
-    # Gated on `cfg.enable` alone, NOT variant-gated — both variants want the
-    # dock; only the PaperWM package below is a full-variant extra.
-    #
-    # GNOME-version coupling, same shape as PaperWM's note below: nixpkgs
-    # gates the extension on its `metadata.json` `shell-version` list.
-    # Verified on this pin: Dash to Dock v105 lists shells 45-50, so it loads
-    # on GNOME 50.4; a GNOME 51 bump needs a matching Dash to Dock release
-    # first, and eval will say so.
+    # Dash to Dock — auto-hide bottom dock, on both variants. NOT Dash to
+    # *Panel*: that is the different, incompatible extension PaperWM's list
+    # names. nixpkgs gates the extension on its `shell-version` metadata, so a
+    # GNOME bump fails at eval until a matching release lands.
     ++ [ pkgs.gnomeExtensions.dash-to-dock ]
-    # PaperWM — scrollable tiling GNOME Shell extension. Lives here and not
-    # in the HM half because GNOME Shell extensions are system-wide packages
-    # loaded from /run/current-system/share/gnome-shell/extensions; Home
-    # Manager has no path that reaches it. The ENABLE state, by contrast, is
-    # per-user dconf and so belongs in the HM half (modules/home/desktop.nix).
-    #
-    # Gated on `variant == "full"`: a `vanilla` host (hplaptop) wants plain
-    # GNOME with no PaperWM package in the system profile. Default `"full"`
-    # keeps geekom's closure identical.
-    #
-    # GNOME 50.4 + PaperWM v148 on this flake pin (nixos-26.05); PaperWM's
-    # upstream `release` branch advertises support for GNOME 45-50, so this
-    # is on the last supported GNOME rather than ahead of it. A GNOME 51 bump
-    # in nixpkgs will need a matching PaperWM release before `nixos-rebuild`
-    # will evaluate cleanly — the extension package's `shell-version`
-    # metadata gates this and nixpkgs carries it.
-    #
-    # PaperWM auto-disables three incompatible GNOME settings at runtime
-    # (`workspaces-only-on-primary`, `edge-tiling`, `attach-modal-dialogs`)
-    # and restores them when disabled, so there is nothing to set here for
-    # those. The known-incompatible extensions (DING, Dash to Panel, Rounded
-    # Window Corners, Space Bar) are not installed by this repo — Dash to
-    # Dock above is deliberately installed: the list names Dash to *Panel*,
-    # a different extension. The live PaperWM + Dash to Dock combo is
-    # verified on geekom (phase-0 trial, .dev/gnome-dock-gdm-wallpaper).
+    # PaperWM — scrollable tiling. Here and not in the HM half because GNOME
+    # Shell extensions are system-wide packages loaded from the system profile,
+    # while the ENABLE state is per-user dconf (modules/home/desktop.nix). Gated
+    # on `variant == "full"`; PaperWM auto-disables the three incompatible
+    # settings itself, so nothing is set for those here.
     ++ lib.optionals (cfg.variant == "full") [ pkgs.gnomeExtensions.paperwm ]
-    # LibreOffice — gated on its own sub-option. Default `false` preserves
-    # existing behavior (geekom does not pull in the ~1GB closure). Only
-    # hplaptop enables it: Elisa needs Word/Excel compatibility for HR work.
+    # LibreOffice, its own sub-option and default false: geekom does not pull the
+    # ~1GB closure. Only hplaptop enables it — Word/Excel compatibility for HR
+    # work.
     ++ lib.optionals cfg.libreoffice.enable [ pkgs.libreoffice ];
   };
 }
