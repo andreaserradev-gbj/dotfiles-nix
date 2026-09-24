@@ -84,10 +84,9 @@ A future namespace for another person (e.g. `secrets/elisa/`) would get its
 own `path_regex` + `key_groups` entry and use exactly this same two-layer
 pattern. It is deliberately not created until a real need exists.
 
-> **The dormant VM is not a recipient.** The key that used to sit in
-> `.sops.yaml` is gone with the machine, and a recreated VM generates a fresh
-> host key, so it must be added back before that VM can read
-> `secrets/andrea/`:
+> **The dormant VM is not a recipient.** `.sops.yaml` lists no `nixos` key, so
+> the VM cannot read `secrets/andrea/` until it is added back — and a recreated
+> VM generates a fresh host key, so that step is required, not optional:
 >
 > ```sh
 > ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub   # on the new VM: get its host pubkey
