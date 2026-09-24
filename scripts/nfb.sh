@@ -1,34 +1,14 @@
 #!/usr/bin/env bash
 # nfb.sh — bump the pinned upstream tool tags (omp, herdr) to their latest
-# release: version + both per-arch hashes in modules/home/tool-pins.json, the
-# matching `?ref=` in flake.nix for the tools that HAVE a flake input (omp — see
-# `flake_input` below), herdr's two vendored agent assets, then re-lock just
-# those inputs. It replaces the hand checklists that used to live in doc/omp.md
-# and doc/herdr.md ("Update checklist (per … tag bump)").
+# release: modules/home/tool-pins.json (version + both per-arch hashes), the
+# matching `?ref=` in flake.nix for the tools that have a flake input, herdr's two
+# vendored agent assets, then re-lock just those inputs. TTY-interactive by design
+# — the git diff is the review surface — and with no TTY it reports and writes
+# nothing. It never runs the full `nix flake update`: that stays `nfu`'s job.
 #
-# WHY IT PROMPTS: a bump is a deliberate act with a review surface — the git
-# diff is where the new hashes and the re-vendored asset bytes get looked at —
-# so this is TTY-interactive by design. With no TTY it reports and writes
-# nothing (that is the only dry-run mode; there is no --check flag). It never
-# runs the full `nix flake update`: that stays `nfu`'s job.
-#
-# WHY THE HASHES COME FROM THE API: GitHub's releases API reports a `digest` per
-# asset, and for these two projects that digest IS the SHA256 this repo pins as
-# an SRI hash (verified 2026-09-23: herdr v0.9.1's herdr-linux-x86_64 digest
-# `2a02fed1…` converts to the committed `sha256-KgL+0WvrZR7wBuHUPwSPZSyk3Fit…`).
-# So a bump can hash without downloading 273 MB. The HOST's own arch is still
-# downloaded and compared against that digest — that verifies it against the
-# real bytes, and warms the store with the file the pending build would fetch
-# anyway. An asset with no digest (uploads predating that API field) is
-# downloaded to be hashed.
-#
-# WHY THE `?ref=` IS REWRITTEN HERE instead of derived in Nix: Nix's flake
-# parser requires a LITERAL input URL — a let-bound or builtins-derived one
-# fails with "must be an attribute set" / "expected a string but got a thunk"
-# (verified 2026-09-23, both shapes). So modules/home/tool-pins.json cannot feed
-# `inputs.*.url`; this script writing both sites in one run is what keeps the
-# pin table and the input ref in step — for the tools listed in `flake_input`,
-# the ones that still have an input.
+# The `?ref=` must stay a LITERAL in flake.nix, which is why this script rewrites
+# it instead of Nix deriving it from tool-pins.json (owner of that rule: the omp
+# input in flake.nix).
 #
 # Exit codes: 0 ran to completion (applied, declined, or nothing new);
 #             1 a check or an apply failed, or a dependency is missing;
@@ -92,16 +72,16 @@ declare -A asset=(
   [herdr:x86_64-linux]=herdr-linux-x86_64
   [herdr:aarch64-linux]=herdr-linux-aarch64
 )
-# The subset of the tools that also have a flake input whose `?ref=` this script
-# owns. herdr is absent by design: its flake input was removed (nothing bound it
-# — the package is the prebuilt FOD), so its pin lives only in tool-pins.json and
+# The subset of tools that also have a flake input whose `?ref=` this script owns.
+# herdr is absent by design: its input was removed (nothing bound it — the package
+# is the prebuilt FOD), so its pin lives only in tool-pins.json and
 # rewrite_ref/relock have nothing to touch for it.
 declare -A flake_input=([omp]=1)
 systems=(x86_64-linux aarch64-linux)
 
-# herdr's vendored agent assets, in lockstep with the binary: upstream path at
-# the tag -> this repo's copy -> the HERDR_INTEGRATION_ID that file must declare
-# (the guard that catches an upstream path/format change before it is vendored).
+# herdr's vendored agent assets, in lockstep with the binary: upstream path at the
+# tag -> this repo's copy -> the HERDR_INTEGRATION_ID that file must declare (the
+# guard that catches an upstream path/format change before it is vendored).
 herdr_asset_up=(src/integration/assets/opencode/herdr-agent-state.js src/integration/assets/omp/herdr-agent-state.ts)
 herdr_asset_dest=(config/opencode/plugins/herdr-agent-state.js config/omp/herdr-omp-agent-state.ts)
 herdr_asset_id=(opencode omp)
@@ -123,9 +103,9 @@ fail() {
 
 # rewrite_ref TOOL TAG — point the one input URL for that tool's repo at TAG.
 # Skipped for a tool with no flake input (herdr). Anchored on the repo slug
-# (unique in flake.nix) and asserted afterwards: a silent no-match would leave
-# the pin table and the input ref disagreeing, which is the exact failure this
-# command exists to prevent.
+# (unique in flake.nix) and asserted afterwards: a silent no-match would leave the
+# pin table and the input ref disagreeing, which is the failure this exists to
+# prevent.
 rewrite_ref() {
   local tool="$1" tag="$2" n
   [ -n "${flake_input[$tool]:-}" ] || return 0
@@ -138,11 +118,10 @@ rewrite_ref() {
 }
 
 # relock TOOL TAG — re-resolve just that input, and only when the lock does not
-# already name TAG (so a routine run is silent, and a run interrupted between
-# the pin write and the lock heals itself on the next invocation). Skipped for a
-# tool with no flake input (herdr). Staging first is load-bearing: flakes read
-# the git INDEX, so the new pin table and `?ref=` must be added before
-# `nix flake update` can see them.
+# already name TAG (so a routine run is silent, and a run interrupted between the
+# pin write and the lock heals itself next time). Skipped for a tool with no flake
+# input (herdr). Staging first is load-bearing: flakes read the git INDEX, so the
+# new pin table and `?ref=` must be added before `nix flake update` sees them.
 relock() {
   local tool="$1" tag="$2" locked
   [ -n "${flake_input[$tool]:-}" ] || return 0
