@@ -16,14 +16,12 @@ keys:
   - &andrea age10p2fkelpq7fdftas46spr9kduzz3qnjsc2fvlvqt3f3l0q4gc9fq74d7w4
   # geekom host key (ssh-to-age of /etc/ssh/ssh_host_ed25519_key.pub)
   - &geekom age137fqs8tl3uddh26gpa3rtdnxv5v059cnkzp2tmh4e22674k03yaqc8h2m9
-  # nixos VM host key. UTM VMs can be wiped: a reinstall rotates the host
-  # key, which silently locks the VM out until `sops updatekeys` rekeys the
-  # file (documented in doc/secrets.md). Accepted tradeoff — geekom alone
-  # would work but makes the VM dependent on geekom being the decryptor.
-  - &nixos age145l70p0jq0clderhywygecr9dqlnahxdq5casv6rdlamq0vz3fkshhth69
+  # nixos VM host key: DELIBERATELY ABSENT. The VM is dormant (README's host
+  # list), so no machine holds that key, and a reinstall generates a fresh
+  # one — doc/secrets.md covers adding the new key to this list.
 
 creation_rules:
-  # Andrea's secrets: encrypted to all three keys.
+  # Andrea's secrets: encrypted to Andrea's personal key and geekom's.
   #
   # SHAMIR TRAP: inside a key_groups entry, `age:` must NOT be preceded by
   # `-`. A leading `-` starts a SECOND group, and sops applies shamir secret
@@ -35,4 +33,3 @@ creation_rules:
     - age:
       - *andrea
       - *geekom
-      - *nixos

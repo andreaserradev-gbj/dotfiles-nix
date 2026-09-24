@@ -267,8 +267,8 @@ trial period, per [adopting-tools.md](adopting-tools.md) "Check for overlap".
   x86_64-linux and aarch64-linux; **no homeManagerModules** (hence the
   hand-written module); deps: zig 0.15/0.16 + rust, via oxalica rust-overlay.
 - geekom x86_64 run verified (HEAD and pinned tag; rev b99002a).
-- VM runtime check skipped — the VM is no longer installed on the Mac; the
-  flake still evaluates the `nixos` host harmlessly.
+- VM runtime check skipped — the VM is dormant (see the README's host list);
+  the flake still evaluates the `nixos` host.
 - `herdr config check` passed on the scratch config (with a negative control:
   a deliberately broken file fails loudly).
 - Keymap live-verified: alt+`hjkl` focus, `alt+n` split, `alt+f` zoom,

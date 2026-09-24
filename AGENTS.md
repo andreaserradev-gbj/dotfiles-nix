@@ -1,6 +1,7 @@
 # AGENTS.md — orientation for AI agents working in this repo
 
-One flake, three hosts (`nixos` = aarch64 UTM VM, `geekom` and `hplaptop` =
+One flake, three hosts (`nixos` = aarch64 UTM VM, **dormant** — config kept
+evaluating; recreate with `doc/install-vm.md`; `geekom` and `hplaptop` =
 x86_64), two layers (system + Home Manager) built by one `nixos-rebuild`.
 Start from the [README](README.md) for the model and the
 [documentation index](README.md#documentation-index) for task-specific depth.
