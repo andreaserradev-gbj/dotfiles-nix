@@ -21,10 +21,9 @@
 # CLI action, not a keybinding (documented gap, doc/herdr.md).
 onboarding = false
 
-# The only phone-home knob. strace-verified during the trial: false → zero
-# AF_INET connects. The binary itself cannot self-update under Nix (store
-# path is read-only); version bumps are flake-side (?ref=vX.Y.Z + nix flake
-# lock — see doc/herdr.md).
+# The only phone-home knob. strace-verified: false → zero AF_INET connects.
+# The binary itself cannot self-update under Nix (the store path is read-only);
+# version bumps are the tool-pins.json entry, bumped by nfb (doc/herdr.md).
 [update]
 version_check = false
 
