@@ -87,10 +87,12 @@ in
     # never pulls in the sops binary). Belt to .sops.yaml's braces: a secret
     # nobody declares is never shipped to a machine.
     #
-    # defaultSopsFile as a STORE PATH (the repo file captured by the flake) rather
-    # than an absolute string is what makes sops-nix check at EVAL time that every
-    # declared key exists in the ciphertext, instead of failing at activation
-    # weeks later. Ciphertext in the store is inert — only the host's key opens it.
+    # defaultSopsFile as a store path (the repo file captured by the flake) is
+    # what sops-nix's eval-time check needs: `validateSopsFiles` (default on)
+    # throws when a declared sops file is missing or outside the store. It does
+    # NOT check the ciphertext's keys — a `sops.secrets.<NAME>` typo evaluates
+    # green and only fails at activation (doc/secrets.md). Ciphertext in the
+    # store is inert — only the host's key opens it.
     sops.defaultSopsFile = ../../secrets/andrea/secrets.yaml;
     # Explicit for self-documentation though sops-nix already defaults to these:
     # a reader should not have to know upstream defaults to know how the machine
