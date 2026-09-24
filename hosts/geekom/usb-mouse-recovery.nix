@@ -1,39 +1,16 @@
-# Auto-recovery for USB mice that fail enumeration at cold boot.
-#
-# WHY THIS EXISTS. The Razer Basilisk V3 intermittently misses the kernel's
-# ~4 s enumeration window at cold power-on — on ANY port (the front-panel
-# ports via the internal Genesys hub, `3-1.x`, AND the direct rear root port,
-# `3-2`; the port choice narrows nothing, see doc/troubleshooting.md). The
-# kernel then gives up with "unable to enumerate" and never retries: the mouse
-# stays dead until a replug. Observed 2026-09-08 (front, after ~11 h off) and
-# 2026-09-09 (rear, after ~5.5 h off); warm restarts and some cold boots
-# enumerate cleanly, so it is a coin flip per power-on, not port-dependent.
-#
-# THE FIX is to emulate the replug: unbind/rebind of the mouse's xHCI
-# controller. On this board each xHCI PCI function drives two root hubs, so
-# bouncing `c8:00.0` resets exactly buses 3+4 — the mouse's port plus the
-# front-panel hub chain, both empty of anything else at boot. The BT radio
-# (bus 1, `c6:00.4`) and the Corne keyboard (bus 7, `c8:00.4`) sit on
-# SEPARATE PCI functions and are untouched — verified 2026-09-09 via
-# readlink of /sys/bus/usb/devices/usbN. If unbind fails (controller wedged),
-# a module reload is the last resort.
-#
-# The service runs at boot, after a settle delay, and only acts when a mouse
-# is expected-but-absent — idempotent on the (majority) boots that enumerate
-# cleanly. It is a oneshot: nothing watches USB afterwards, so a failure later
-# in a session is still a manual replug (or `sudo systemctl start
-# usb-mouse-recovery`).
-
+# Auto-recovery for USB mice that fail enumeration at cold boot: bounce the
+# mouse's xHCI controller, emulating the replug. The Razer Basilisk V3 misses the
+# kernel's ~4 s retry window on ANY port and the kernel never retries; bouncing
+# `c8:00.0` resets buses 3+4 only (the mouse's port plus the front-panel hub
+# chain) — BT radio and Corne sit on separate PCI functions (doc/troubleshooting.md).
 {
   pkgs,
   ...
 }:
 
 let
-  # Vendor:product of the Razer Basilisk V3, and the xHCI controller whose
-  # root hub carries it (c8:00.0 → buses 3/4). Hardcoded literals, same
-  # pattern as loopback-rebuild's pinned keys: they are properties of this
-  # exact board + mouse, and an option layer would only obscure that.
+  # Vendor:product of the Razer Basilisk V3 and the xHCI controller whose root hub
+  # carries it (c8:00.0 → buses 3/4) — literals like loopback-rebuild's pinned keys.
   mouseId = "1532:0099";
   xhciPci = "0000:c8:00.0";
 
@@ -75,21 +52,20 @@ let
   '';
 in
 {
+  # Runs once at boot and only when the mouse is absent; nothing watches USB
+  # afterwards, so a failure later in the session is still a manual replug.
   systemd.services.usb-mouse-recovery = {
     description = "Bounce the xHCI controller when the USB mouse failed to enumerate at boot";
     wantedBy = [ "multi-user.target" ];
     after = [ "systemd-udevd.service" ];
     serviceConfig = {
       Type = "oneshot";
-      # Sleep first, THEN check: long enough that a slow-but-working
-      # enumeration has landed (the kernel itself gives up after ~4 s),
-      # short enough that recovery finishes before anyone reaches for the
-      # mouse. udev settle alone does not bound device enumeration — the
-      # kernel's own retry window does.
+      # Sleep first, then check: long enough for a slow-but-working enumeration to
+      # land, short enough to recover before anyone reaches for the mouse.
       ExecStartPre = "${pkgs.coreutils}/bin/sleep 8";
       ExecStart = "${recoveryScript}";
-      # The bind/unbind paths are sysfs writes owned by root; no hardening
-      # sandbox can allow those, so this runs unsandboxed on purpose.
+      # The sysfs bind/unbind paths are root-owned writes no hardening sandbox can
+      # allow, so this runs unsandboxed on purpose.
       PrivateDevices = false;
       ProtectProc = "no";
     };
