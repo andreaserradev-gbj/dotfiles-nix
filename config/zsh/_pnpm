@@ -6,7 +6,7 @@
 # and buries them. This is that dispatcher with the flags filtered out. They
 # come back as soon as the word being completed starts with a dash.
 #
-# Lives in config/zsh/ rather than inline in modules/shell.nix so it stays
+# Lives in config/zsh/ rather than inline in modules/home/shell.nix so it stays
 # lintable zsh instead of nix-escaped text; shell.nix installs it into fpath.
 
 local -a reply
