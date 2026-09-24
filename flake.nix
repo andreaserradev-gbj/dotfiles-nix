@@ -68,7 +68,7 @@
     # consumed by modules/home/omp.nix, gated on osConfig.local.dev.enable;
     # hplaptop (dev off) never evaluates it.
     omp = {
-      url = "github:can1357/oh-my-pi?ref=v18.2.11";
+      url = "github:can1357/oh-my-pi?ref=v18.3.0";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
       inputs.nixpkgs-darwin-x64.follows = "nixpkgs";
     };
