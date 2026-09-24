@@ -7,7 +7,7 @@
 # The `-s --` is load-bearing: without it bash reads <host> as a script
 # filename and exits 127 without installing anything.
 #
-# <host> defaults to `nixos`, the aarch64 UTM dev VM.
+# <host> is required and must be one of `nixos`, `geekom`, `hplaptop`.
 set -euo pipefail
 export NIX_CONFIG="experimental-features = nix-command flakes"
 
@@ -29,15 +29,14 @@ REPO="andreaserradev-gbj/dotfiles-nix"
 #   git ls-remote --tags https://github.com/nix-community/disko
 DISKO_REF="de5708739256238fb912c62f03988815db89ec9a" # v1.13.0
 
-if [ "$#" -gt 1 ]; then
-  echo "!! Too many arguments. Usage: bootstrap.sh [host]" >&2
+# The host is REQUIRED, never defaulted: this script wipes the disks the host's
+# layout declares, and a wrong guess costs a machine.
+if [ "$#" -ne 1 ]; then
+  echo "!! Usage: bootstrap.sh <host>" >&2
   exit 1
 fi
 
-# ${1-nixos}, NOT ${1:-nixos}: the default must apply only when the argument is
-# genuinely absent. Under :- an explicit empty string — `bash -s -- "$TARGET"`
-# with TARGET unset — would silently install the VM instead of failing.
-HOST="${1-nixos}"
+HOST="$1"
 
 # Host flake-attr -> host directory, and the unknown-host guard, in one place.
 #
@@ -78,8 +77,7 @@ curl -fsSL "$DISKO_CFG" -o "$tmp/disk-config.nix"
 #
 # EVERY `device =` match, not `head -1`. --yes-wipe-all-disks wipes every disk
 # the layout declares; showing only the first would have the operator confirm
-# one disk and lose several. A multi-disk layout is therefore surfaced
-# explicitly and confirmed disk by disk below.
+# one disk and lose several.
 DEVICES="$(sed -n 's/^[[:space:]]*device[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$tmp/disk-config.nix")"
 if [ -z "$DEVICES" ]; then
   echo "!! No device path found in $DISKO_CFG" >&2
@@ -114,22 +112,6 @@ echo ""
 if ! { : < /dev/tty; } 2>/dev/null; then
   echo "!! No terminal to confirm on; refusing to wipe unattended." >&2
   exit 1
-fi
-# Multi-disk layouts get a per-disk acknowledgement before the single host-name
-# confirmation. Every host in this flake is single-disk today, so this path is
-# unreachable until someone writes a layout that is not — at which point the
-# extra friction is the point, not an annoyance.
-if [ "$DEVICE_COUNT" -gt 1 ]; then
-  echo "!! This layout declares $DEVICE_COUNT disks. ALL of them will be wiped." >&2
-  while IFS= read -r dev; do
-    read -r -p ">>> [2/4] Confirm wipe of $dev — type 'yes': " ack < /dev/tty
-    if [ "$ack" != "yes" ]; then
-      echo "Aborted — nothing was touched." >&2
-      exit 1
-    fi
-  done <<EOF
-$DEVICES
-EOF
 fi
 read -r -p ">>> [2/4] Type the host name to proceed ($HOST): " reply < /dev/tty
 if [ "$reply" != "$HOST" ]; then

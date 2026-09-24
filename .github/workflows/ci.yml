@@ -24,9 +24,10 @@
 #    landing on `main`, before the next unattended `nrb` picks it up —
 #    it does not retroactively remove one, and an `nrb` that races the
 #    build can still install it. The aarch64 VM is deliberately NOT
-#    built: it is local-first (rebuilt interactively with check-hosts.sh
-#    in front), and emulating a GNOME toplevel under QEMU would cost ~1h
-#    of CI per push for no risk reduction.
+#    built: it is dormant (README's host list) — the `evaluate` job
+#    above still covers it, so bit-rot surfaces, and no machine
+#    installs it. Building the cage + foot kiosk under QEMU emulation
+#    would cost ~1h of CI per push for no risk reduction.
 #
 # 3. gate — the single required status check. It always runs and simply
 #    aggregates the jobs above. Requiring the matrix jobs directly would

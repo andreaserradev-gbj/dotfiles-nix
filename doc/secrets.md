@@ -66,7 +66,7 @@ variable is simply empty and opencode degrades to context7's anonymous
 | host        | can decrypt `secrets/andrea/` | declares/mounts secrets | why                                        |
 | ----------- | ----------------------------- | ----------------------- | ------------------------------------------ |
 | geekom      | yes (own host key)            | yes (dev gate on)       | Andrea's machine                            |
-| nixos (VM)  | yes (own host key)            | yes (dev gate on)       | Andrea's machine; see the reinstall note    |
+| nixos (VM)  | **no** — not a recipient (see the reinstall note) | yes, once installed | dormant; re-add its key after a reinstall |
 | **hplaptop**| **no** — host key is not a recipient | **no** — dev gate off | Elisa's machine; non-technical user       |
 
 The boundary is enforced at **two independent layers**:
@@ -84,20 +84,17 @@ A future namespace for another person (e.g. `secrets/elisa/`) would get its
 own `path_regex` + `key_groups` entry and use exactly this same two-layer
 pattern. It is deliberately not created until a real need exists.
 
-> **VM reinstalls rotate the host key.** A wiped or recreated VM generates a
-> new SSH host key and is silently locked out of `secrets/andrea/` — the
-> data key wrapped for the old key can't be opened. Fix is one command on a
-> machine with the personal key, then rebuild:
+> **The dormant VM is not a recipient.** The key that used to sit in
+> `.sops.yaml` is gone with the machine, and a recreated VM generates a fresh
+> host key, so it must be added back before that VM can read
+> `secrets/andrea/`:
 >
 > ```sh
-> ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub   # on the VM: get new host pubkey
-> # → paste the new age1… under keys: &nixos in .sops.yaml
+> ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub   # on the new VM: get its host pubkey
+> # → paste the new age1… into the keys: list in .sops.yaml
 > sops updatekeys secrets/andrea/secrets.yaml      # re-wrap the data key to all recipients
 > git add .sops.yaml secrets/andrea/secrets.yaml && git commit
 > ```
->
-> This is the accepted tradeoff for including the VM as a recipient at all:
-> without it, the VM could only decrypt when geekom was reachable.
 
 ## Workflow: adding, editing, rotating
 

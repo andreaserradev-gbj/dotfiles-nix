@@ -207,9 +207,9 @@ while `main` is red, `verified` stops advancing and the laptop quietly stops
 receiving updates. It is no longer the thing standing between a broken commit
 and the machine.
 
-The aarch64 VM is **not** in the build matrix: it is local-first (rebuilding it
-is interactive, with `check-hosts.sh` in front), and emulating a GNOME toplevel
-under QEMU would cost ~1h of CI per push for no risk reduction. If the build
+The aarch64 VM is **not** in the build matrix: it is dormant (README's host
+list) and only `evaluate` covers it — `ci.yml` carries the reason next to the
+candidate list. If the build
 jobs ever start *compiling* instead of substituting, look for drift (an input
 off the stable channel), not for disk space — the 60-minute job timeout
 bounds what that drift scenario can burn.

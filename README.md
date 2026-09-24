@@ -30,7 +30,7 @@ remember or mistype.
 
 | attr       | directory           | architecture    | machine                 | console                      |
 | ---------- | ------------------- | --------------- | ----------------------- | ---------------------------- |
-| `nixos`    | `hosts/vm/`         | `aarch64-linux` | UTM VM on Apple Silicon | cage + foot kiosk, autologin |
+| `nixos`    | `hosts/vm/`         | `aarch64-linux` | UTM VM on Apple Silicon, **dormant** | cage + foot kiosk, autologin |
 | `geekom`   | `hosts/geekom/`     | `x86_64-linux`  | GEEKOM A9 Max mini PC   | GNOME on GDM                 |
 | `hplaptop` | `hosts/hplaptop/`   | `x86_64-linux`  | HP laptop (Intel i5)    | vanilla GNOME on GDM         |
 
@@ -39,6 +39,9 @@ remember or mistype.
 > resolves against — while its directory is `hosts/vm/`. `bootstrap.sh` carries
 > an explicit attr→directory mapping for exactly this reason: deriving
 > `hosts/$HOST/` directly would fetch a 404 for the VM alone.
+>
+> **`nixos` is dormant** — aarch64 UTM VM, config kept evaluating; recreate it
+> with [doc/install-vm.md](doc/install-vm.md).
 
 ## The model
 
