@@ -104,7 +104,7 @@ repo's devShell — `sops`, `ssh-to-age` and `age` are already in it, so no
 ad-hoc `nix shell` is needed:
 
 ```sh
-nixcfg                # cd ~/dotfiles-nix; direnv loads the devShell
+nixcfg                # alias: cd into the repo (doc/workflow.md)
 sops secrets/andrea/secrets.yaml   # opens $EDITOR on the DECRYPTED file
 ```
 
@@ -116,10 +116,10 @@ Rules that have bitten once already:
   fails (or an editor writing a scratch placeholder) leaves plaintext on
   disk — delete and retry. sops writes ciphertext only after the editor
   exits; the `/tmp/sopsNNN` file it shows is scratch, never the target.
-- **`git add` the ciphertext before any `--flake` command.** sops-nix
-  validates at *evaluation* time that every declared key exists in the
-  ciphertext — an untracked file fails the build with a misleading
-  "path does not exist" (see [doc/workflow.md](workflow.md)).
+- **An unstaged ciphertext file breaks evaluation.** sops-nix validates at
+  *evaluation* time that every declared key exists in the ciphertext, so an
+  untracked `secrets.yaml` fails the build with a misleading "path does not
+  exist" (the `git add` rule itself: [AGENTS.md](../AGENTS.md)).
 - **Adding a new secret key** is the same `sops` edit, plus one
   `sops.secrets.<NAME>` entry in `modules/nixos/dev.nix` (and an export or
   consumer wherever it is read).

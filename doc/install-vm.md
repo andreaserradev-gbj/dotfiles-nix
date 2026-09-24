@@ -16,12 +16,10 @@ Real hardware has its own walkthroughs — firmware, boot order, wifi carry-over
 Bluetooth — under [doc/bare-metal-geekom.md](bare-metal-geekom.md) and
 [doc/bare-metal-hplaptop.md](bare-metal-hplaptop.md).
 
-> **Forking?** Everything personal lives in one file, [`user.nix`](../user.nix):
-> `username`, `fullName`, `email`, `timeZone`, and `sshKey` (optional — see the
-> callout in section 3). Edit it in your fork
-> and commit _before_ installing — `bootstrap.sh` pulls the config from git, so the
-> machine is built with whatever identity your pushed `user.nix` carries. Point the
-> bootstrap/install URLs below at your fork.
+> **Forking?** Point the bootstrap/install URLs below at your fork; the one file to
+> edit is [`user.nix`](../user.nix), and it must be committed _before_ installing
+> because `bootstrap.sh` pulls the config from git — see the
+> [README's fork callout](../README.md) for what it holds.
 
 ## 1. Create the UTM VM
 
@@ -33,11 +31,9 @@ Bluetooth — under [doc/bare-metal-geekom.md](bare-metal-geekom.md) and
 - **UEFI boot enabled** (the aarch64 systemd-boot install depends on it).
 - **Shared Network** — gives the guest a host-visible NAT IP (`192.168.64.x`), so
   you SSH to it by IP with no port-forward.
-- **Console resolution** — QEMU's virtio-gpu advertises `1280x800` as its
-  preferred mode and the cage console always follows the host's preferred mode,
-  so without this the local console renders at 1280 wide. Add two entries under
-  VM Settings → QEMU → Arguments:
-  `-global virtio-gpu-pci.xres=1680` and `-global virtio-gpu-pci.yres=1050`.
+- **Console resolution** — add two entries under VM Settings → QEMU → Arguments:
+  `-global virtio-gpu-pci.xres=1680` and `-global virtio-gpu-pci.yres=1050`
+  (cage takes the host's preferred mode — [doc/vm-console.md](vm-console.md)).
   Takes effect on the next full VM start (a guest reboot is not enough).
 
 Boot the ISO to the installer's root shell and confirm networking (`ping nixos.org`).
@@ -101,8 +97,8 @@ When it finishes:
 1. In UTM, detach the ISO (Drive → eject).
 2. `reboot`.
 
-The VM boots straight into the cage+foot console (autologin). Log in from the Mac
-over SSH with your key — next.
+The VM boots straight into its local console — [doc/vm-console.md](vm-console.md).
+Log in from the Mac over SSH with your key — next.
 
 ## 3. SSH from the Mac
 
@@ -163,9 +159,9 @@ is the _only_ way in over the network — there is no password fallback.
 
     Then just `ssh nixos`.
 
-> **Key-only lockout caveat.** With password auth off, a missing or wrong key means
-> no SSH access at all — recover from the local cage+foot console (autologin), fix
-> `user.nix`, and rebuild. Get the key right in `user.nix` before installing.
+> **Key-only lockout caveat.** A missing or wrong key means no SSH access at all —
+> recover from the local console ([doc/vm-console.md](vm-console.md)), fix `user.nix`,
+> and rebuild.
 
 ## Manual install (fallback / reference)
 
@@ -191,9 +187,7 @@ mkdir -p /mnt/boot && mount /dev/disk/by-label/BOOT /mnt/boot
 > **The root label is per host.** The VM's root is labelled `nixos`, `geekom`'s
 > is labelled `geekom`; the ESP is `BOOT` on both. Each host's
 > `disk-config.nix` and `hardware-configuration.nix` have to agree on the pair,
-> and both files carry a comment saying so. Note the VM's root label happens to
-> match its flake attr while its directory is `hosts/vm` — three names, two of
-> which coincide.
+> and both files carry a comment saying so.
 
 **Install straight from the flake** — no `nixos-generate-config`, since the
 committed config already carries the by-label mounts, the EFI fix
@@ -207,23 +201,19 @@ nixos-install --flake github:andreaserradev-gbj/dotfiles-nix#<host>   # any host
 reboot               # detach the install medium first
 ```
 
-> **The attr is required here, unlike a daily rebuild.** A running system knows
-> its own `networking.hostName`, so `nixos-rebuild switch --flake .` resolves the
-> host on its own. The live ISO calls itself `nixos` whatever you are installing,
-> so any hostname-derived fallback resolves to the VM. Today that fails loudly on
-> x86_64 hardware — wrong architecture — but it would quietly pick the wrong
-> machine the moment a second x86_64 host exists. Name the host explicitly at
-> install time, every time.
+> **The attr is required here, unlike a daily rebuild** — a running system resolves
+> its own host ([README](../README.md)). The live ISO calls itself `nixos` whatever
+> you are installing, so any hostname-derived fallback resolves to the VM. Today
+> that fails loudly on x86_64 hardware — wrong architecture — but it would quietly
+> pick the wrong machine the moment a second x86_64 host exists. Name the host
+> explicitly at install time, every time.
 
 > If a fresh VM's disk layout ever differs from the committed template, re-run
 > `nixos-generate-config`, re-apply the two by-label mount edits, and commit.
 
-**Stale running shell after a rebuild.** The daily `nixos-rebuild switch` relocates
-user binaries (Home Manager `useUserPackages` moves them to
-`/etc/profiles/per-user/andrea/bin`), so the shell you ran it in keeps stale `PATH`
-entries — you'll see `no such file … /.nix-profile/bin/…`. Open a fresh login shell
-(or `ssh` in again). Expected, not a failure. (A fresh install reboots anyway, so
-this only bites on daily switches.)
+**Stale running shell after a rebuild** — expected, not a failure
+([doc/troubleshooting.md](troubleshooting.md)). It only bites on daily switches: a
+fresh install reboots anyway.
 
 ## Shortcut: save a UTM template
 

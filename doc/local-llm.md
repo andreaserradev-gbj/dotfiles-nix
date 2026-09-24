@@ -149,11 +149,11 @@ Tags live in `/var/lib/ollama/models/manifests/…` as local manifests naming
 content-addressed blobs; the registry is consulted only at `ollama pull`
 time, never at load. A tag the registry does not have must therefore be
 created locally with `ollama create` and cannot be reproduced by the flake.
-This is the same imperative store as `ollama signin` (doc/secrets.md) —
-deliberately outside Nix's reach. The client-side half (the opencode model
-entry) IS declarative, in modules/home/opencode.nix; the daemon-side half
-(the tag) is not. The failure mode is loud, not silent: a missing tag errors
-on first use, and the recovery is the recipe below.
+The daemon-side half is the same Tier-2 imperative store as `ollama signin` —
+see [doc/secrets.md](secrets.md). The client-side half (the opencode model entry)
+IS declarative, in modules/home/opencode.nix; the tag is not. The failure mode is
+loud, not silent: a missing tag errors on first use, and the recovery is the
+recipe below.
 
 One derived tag exists today:
 
@@ -210,6 +210,7 @@ Before adopting any new local model on geekom:
 5. **MTP check**: if the GGUF ships `draft_num_predict`, A/B it (0 vs shipped
    value vs 2×) with the decode one-liner before trusting the default.
 6. **Only then** touch env vars in `hosts/geekom/default.nix` (geekom-only
-   blast radius) and the model entry in `modules/home/opencode.nix` (shared —
-   verify both hosts' drvPath deltas).
+   blast radius) and the model entry in `modules/home/opencode.nix` — then run
+   `./scripts/check-hosts.sh` and explain both hosts' `drvPath` deltas
+   ([doc/workflow.md](workflow.md)).
 7. **Record** the measured row in the table above and date it.

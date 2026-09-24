@@ -10,7 +10,7 @@ project is one command away:
 cd ~/code/my-project
 nfi                   # alias: nix flake init -t ~/dotfiles-nix#devshell
 $EDITOR flake.nix     # add tools to `packages`, e.g. [ nodejs_24 ]
-git add flake.nix     # flakes only see tracked files — stage before evaluating
+git add flake.nix     # required before evaluating — flakes only see tracked files
 direnv allow          # one-time trust; the shell now auto-loads on cd
 ```
 
@@ -20,13 +20,11 @@ so dev shells reuse store paths already on disk instead of re-downloading a
 second nixpkgs.
 
 > **Documented exceptions to "no global installs":** `nodejs`, `uv` and
-> `python3` are on every dev host's *system* profile — as agent runtimes, not
-> project toolchains. Agent workflows execute from `~/.agents/skills` and
-> one-off agent scripting happens outside any project, where no devshell can
-> supply an interpreter. None of this replaces a devshell for project code:
-> global `pip install` fails by design on NixOS, and a project needing a
-> flake-pinned Python uses `templates/python-devshell/` (`nfp`),
-> which shadows this system interpreter with its own.
+> `python3` sit on every dev host's *system* profile as agent runtimes, not
+> project toolchains — the reasoning is the comment in `modules/nixos/dev.nix`.
+> None of this replaces a devshell for project code: global `pip install` fails
+> by design on NixOS, and a project needing a flake-pinned Python uses
+> `templates/python-devshell/` (`nfp`), which shadows the system interpreter.
 
 > Commit the generated `flake.lock` too: it pins the exact nixpkgs revision, so
 > the shell is reproducible for anyone who builds the project.
@@ -45,11 +43,10 @@ ssh -L 5173:[::1]:5173 nixos    # then open http://localhost:5173
 
 ## Gotchas
 
-- **Flakes ignore untracked files.** A new `flake.nix` is invisible to
-  evaluation until it's `git add`ed — the error reads "path does not exist,"
-  not "you forgot to stage." Modern Nix auto-marks untracked files as
-  intent-to-add as a safety net, but that stages an _empty_ placeholder, so a
-  real `git add` is still required to commit content.
+- **Flakes ignore untracked files.** Stage the new `flake.nix` before
+  evaluating ([doc/workflow.md](workflow.md)); modern Nix auto-marks untracked
+  files as intent-to-add, but that stages an _empty_ placeholder, so a real
+  `git add` is still required.
 - **`direnv allow` is one-time per project.** direnv never runs an `.envrc` it
   hasn't been told to trust, and only re-prompts when the file changes — a
   security boundary, since an `.envrc` runs arbitrary shell.

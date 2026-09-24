@@ -1,282 +1,155 @@
 # omp (oh-my-pi) — the second coding agent
 
-omp ([github:can1357/oh-my-pi](https://github.com/can1357/oh-my-pi), v18.2.10)
-is a coding agent — a fork of Mario Zechner's Pi with an expanded tool surface
-(LSP wired in, DAP debugging, subagents, web search). It was adopted on
-2026-09-21 as a **coexisting** second harness alongside
-[opencode](../modules/home/opencode.nix), following the
-[adoption ladder](adopting-tools.md). Both are installed on dev hosts; which
-one is *primary* is deliberately not decided by this document — a benchmark
-harness (`~/code/agent-bench`, own PRD) is measuring both on the same models,
-and its results, not this doc, will drive any primary-harness switch.
+omp ([github:can1357/oh-my-pi](https://github.com/can1357/oh-my-pi)) is a coding
+agent — a fork of Mario Zechner's Pi with an expanded tool surface (LSP wired in,
+DAP debugging, subagents, web search). It was adopted through the
+[adoption ladder](adopting-tools.md) as a **coexisting** second harness alongside
+[opencode](../modules/home/opencode.nix), and is dev-gated like herdr.
 
-## Why this shape
-
-- **Upstream flake, tag-pinned** (`?ref=v18.2.10` in [flake.nix](../flake.nix)).
-  omp is not in nixpkgs (searched 2026-09-21), so the package comes from its
-  upstream flake — the "upstream flake" row of the
-  [triage ladder](adopting-tools.md). An unpinned `github:` input would move
-  on every `nfu`; the pin is bumped by `nfb` (see the checklist at the bottom),
-  which writes the version + both hashes in
-  [modules/home/tool-pins.json](../modules/home/tool-pins.json) and this
-  `?ref=` in the same run. The `?ref=` itself must stay a literal Nix string:
-  Nix's flake parser rejects a computed input URL (`let`-bound or builtins-
-  derived — verified 2026-09-23), so the pin file cannot feed `inputs.*.url`.
-- **`omp.inputs.nixpkgs.follows = "nixpkgs-unstable"`** — a tool flake carries
-  its own nixpkgs into `flake.lock` (the "second nixpkgs" cost documented in
-  [adopting-tools.md](adopting-tools.md)) unless its input follows ours. omp's
-  lock is cut against nixos-unstable, so the follow is exact.
-  Additionally `omp.inputs.nixpkgs-darwin-x64.follows = "nixpkgs"`: that
-  input only matters for x86_64-darwin (omp keeps Intel-mac support on the
-  last stable darwin tree), no host here is one, and following it raw would
-  add a **third** nixpkgs tree to the lock for zero benefit.
-- **Lockfile cost, accepted and named**: omp's inputs add `bun2nix`,
-  `nix-bun` and `oxalica/rust-overlay` — the from-source fallback's Rust core
-  (~80k lines of natives) and bun runtime. **No cache carries omp itself**
-  (verified 2026-09-22 at v18.2.8: `nix path-info --store
-  https://nix-community.cachix.org` reports the prebuilt store path "not
-  valid" — `nix-community.cachix.org/nar/*.narinfo` 404s for it; omp's own
-  `nix.yml` CI evaluates but never builds/publishes), which is what the
-  prebuilt switch below is for.
-- **The binary is upstream's prebuilt release, not a source build**
-  ([omp-prebuilt.nix](../modules/home/omp-prebuilt.nix), wired via
-  `programs.omp.package` in [omp.nix](../modules/home/omp.nix)). The
-  from-source build cost was measured on the first PR: **31 min on a fast
-  CI runner**; the full build cycle exceeds an hour locally, and it would
-  re-trigger on EVERY `nfu` that moves `nixpkgs-unstable` (the omp flake
-  input follows that tree) — an unbounded recurring cost. The prebuilt
-  derivation is a fixed-output fetch of the release binary (the same one
-  upstream's install script and Homebrew ship), SHA256-pinned, MIT, and
-  verified **byte-identical** in the store, live against the local daemon.
-  - It depends on nix-ld (dev-gated) for its `/lib64` loader — stock NixOS
-    without the dev seam would not run it (irrelevant here: the module is
-    dev-gated anyway).
-  - **It must never be ELF-patched** (`autoPatchelfHook`, `strip`,
-    `patchelf`): omp is a Bun standalone executable that locates its
-    embedded payload via absolute trailer offsets — patching shifts the
-    section table (+144 bytes at v18.2.7) and silently degrades the binary
-    into a plain `bun` runtime (`omp --version` → `Bun v1.4.2`). Verified
-    experimentally; the derivation sets `dontStrip`/`dontPatchELF` and
-    documents this.
-  - Tradeoff, accepted and named: the trust boundary widens from "omp's
-    build recipe" to "upstream's release CI" (hash-pinned, nobody
-    re-derives). Fallback to the from-source build is one line:
-    `package = omp.packages.${pkgs.stdenv.hostPlatform.system}.default;`
-  - Consequence for CI: **an omp tag bump no longer compiles anything** —
-    a bump writes the version + both hashes in
-    [tool-pins.json](../modules/home/tool-pins.json) and the `?ref=` in
-    flake.nix (one `nfb` run keeps them in step), and CI substitutes a
-    ~244 MB binary.
-    `nfu` moves of `nixpkgs-unstable` no longer touch omp's binary either
-    (the flake input is still locked for the HM module + version pin of
-    record). The 31-minute CI compile class is gone entirely.
-- **No substituter is trusted for it** ([common.nix](../modules/nixos/common.nix)):
-  omp's flake advertises nix-community's cache via `nixConfig`, but that is
-  only a prompt, so nothing substitutes from it here. Declaring
-  `nix.settings.substituters`/`trusted-public-keys` at machine level would make
-  it unconditional, and that trust covers EVERY store path on every host
-  (hplaptop included) — too much for a cache nothing here consumes, since the
-  binary is a fixed-output fetch. Consequence: a from-source fallback builds
-  its toolchain deps locally instead of substituting.
-- **Dev-gated home layer.** [modules/home/omp.nix](../modules/home/omp.nix)
-  wraps its whole body in `lib.mkIf osConfig.local.dev.enable`, exactly like
-  [herdr.nix](herdr.md) and [opencode.nix](../modules/home/opencode.nix).
-  hplaptop (dev off) evaluates it to the empty config. The flake input is
-  threaded via `home-manager.extraSpecialArgs` — the threading shape of
-  [adopting-tools.md](adopting-tools.md) step 2, needed when the package comes
-  from a flake input; the **input**, not the package —
-  omp's own `homeManagerModules.default` defaults `programs.omp.package` to
-  its flake's own build.
-
-## The one-module-per-role question
-
-[adopting-tools.md](adopting-tools.md) flags "a second coding agent" as an
-overlap to justify. The resolution: **both stay, coexisting**, because they
-are being *measured* against each other (agent-bench harness, same tasks ×
-same models) and because the roles differ in practice today — opencode as the
-known-good daily driver, omp as the challenger with the wired-in IDE surface
-(LSP/DAP, subagents). omp's opencode-compat provider is deliberately left
-OFF (no `enabledProviders`): enabling it would also load opencode's herdr
-plugin into omp (written against opencode's plugin API — unverified there)
-and feed opencode-only settings keys into omp's strict config merge. The
-result is duplicated MCP config instead — see the drift warning below.
+Which agent is *primary* is deliberately not decided here: a benchmark harness
+(`~/code/agent-bench`, own PRD; same tasks × same models) will drive any switch,
+and it should invoke the installed, pinned binary — never `nix run …main`, which
+would let a release change the harness under recorded results.
 
 ## Ownership: Nix-managed vs manual/stateful
 
+[modules/home/omp.nix](../modules/home/omp.nix) wraps its whole body in
+`lib.mkIf osConfig.local.dev.enable`; `hplaptop` (dev off) evaluates it to the
+empty config. The flake input is threaded via `home-manager.extraSpecialArgs` —
+the threading shape [adopting-tools.md](adopting-tools.md) step 2 requires when
+the *package* comes from a flake input (herdr, a locally built FOD, needs none).
+
 | artifact | owned by | how it gets there |
 |---|---|---|
-| omp binary | Nix | `omp` flake input → `programs.omp.enable` (upstream HM module), dev-gated |
+| omp binary | Nix | `omp` flake input (tag-pinned, `programs.omp.package` → [omp-prebuilt.nix](../modules/home/omp-prebuilt.nix)); version + both hashes from the `omp` entry in [tool-pins.json](../modules/home/tool-pins.json) |
 | `~/.omp/agent/config.yml` | **Nix-declared, writable copy** | upstream HM module: `programs.omp.settings`; re-imposed on every `home-manager switch` |
 | `~/.omp/agent/mcp.json` | Nix | `home.file` in [omp.nix](../modules/home/omp.nix), store symlink |
-| `~/.omp/agent/AGENTS.md` (global agent rules) | Nix | `home.file` in [omp.nix](../modules/home/omp.nix), store symlink — the same asset opencode loads as its global rules (`~/.config/opencode/AGENTS.md`, [opencode.nix](../modules/home/opencode.nix)) |
+| `~/.omp/agent/AGENTS.md` (global agent rules) | Nix | `home.file` in omp.nix, store symlink — the same asset opencode loads as its global rules ([opencode.nix](../modules/home/opencode.nix)) |
 | herdr extension (`~/.omp/agent/extensions/herdr-omp-agent-state.ts`) | Nix | vendored asset, deployed by [herdr.nix](../modules/home/herdr.nix) — see [herdr.md](herdr.md) |
-| zsh completions | Nix | cached generator in omp.nix `initExtra` (regenerates when the omp binary is newer than the cache) |
-| **ollama.com API key** | **manual, per host** | first-run wizard or `/login ollama-cloud` → stored in `~/.omp/agent/agent.db` |
+| zsh completions | Nix | cached generator in omp.nix (regenerates when the binary is newer than the cache) |
+| **ollama.com API key** | **manual, per host** | first-run wizard or `/login ollama-cloud` → `~/.omp/agent/agent.db` |
 | sessions, logs, caches | stateful | `~/.omp/agent/{sessions,logs,cache}` — Nix-ignorable |
 
-The config.yml split deserves spelling out: **omp rewrites its own
-config.yml at runtime** (`/settings`, `/model` role persistence, onboarding
-completion — flock + atomic rewrite), and the upstream module handles that by
-deploying a *writable copy* and re-imposing the declared settings on every
-switch. Runtime edits survive until the next switch, then lose to the
-declaration. That is why the routing knobs omp would otherwise write at
-runtime are **declared** in `programs.omp.settings` instead:
+## What Nix declares
 
-- `modelRoles.default = "ollama/deepseek-v4.1-flash:cloud:high"` — the same
-  model opencode's `model` names (one edit per file to switch), plus omp's
-  `provider/model:level` thinking-level suffix: `:high` is what the runtime
-  pick carried and is declared so the next switch re-imposes it rather than
-  dropping to the model's default tier. opencode's schema has no equivalent
-  suffix. No `models.yml` at all: omp discovers ollama implicitly (native
-  `/api/tags` + `/api/show`), so per-tag
-  context windows and capabilities come from the daemon — the
-  stale-`limit`-comments maintenance class in
-  [opencode.nix](../modules/home/opencode.nix) cannot recur here.
-- `modelRoles.web = "web/ollama"` — omp's `web_search` walks dedicated
-  search providers, never an LLM; without this it falls to the keyless
-  chain (duckduckgo/startpage HTTP scrapes, then browser-backed
-  google/ecosia/mojeek that need a Chromium daemon — absent on these hosts).
-  `web/ollama` is omp's native provider for
-  `ollama.com/api/web_search` — the same backend opencode reaches
-  transparently through the signed-in daemon's cloud models. Searches cost
-  ollama.com API quota (free tier), not scrape bandwidth.
-- `setupVersion = 2` + `"startup.setupWizard" = false` — onboarding
-  suppression. The first is what the wizard writes (marking complete); the
-  second blanks all onboarding scenes even if a future omp release bumps
-  `CURRENT_SETUP_VERSION` — no surprise wizard after a tag bump. Both traced
-  in omp's source (main.ts cold-launch gate, selectSetupScenes), not guessed.
+**omp rewrites its own `config.yml` at runtime** (`/settings`, `/model` role
+persistence, onboarding completion — flock + atomic rewrite), so the upstream
+module deploys a *writable copy* and re-imposes the declared `programs.omp.settings`
+on every switch: a runtime edit survives until the next `home-manager switch`,
+then loses to the declaration. **Anything not declared in
+[omp.nix](../modules/home/omp.nix) is silently lost at the next rebuild** — extend
+that block rather than re-picking at runtime. The declared keys and their reasons
+are commented there; two consequences worth stating here:
 
-### The per-host API key (manual step, like `ollama signin`)
+- No `models.yml`: omp discovers ollama implicitly (`/api/tags` + `/api/show`), so
+  per-tag context windows and capabilities come from the daemon — the
+  stale-`limit` maintenance class in [opencode.nix](../modules/home/opencode.nix)
+  cannot recur here.
+- Nix ownership is safe by upstream guard, not by an absent updater:
+  `resolveUpdateMethod` classifies any `/nix/store` path as `"nix"` and `omp
+  update` then exits with "This installation is managed by Nix and cannot update
+  itself."
 
-The ollama.com credential is **not** declarable — it is the account's API-key
-form (create at ollama.com/settings/keys, free tier), pasted once per dev
-host into omp's auth store (`agent.db`, SQLite, app-local). This mirrors the
-daemon's own `ollama signin` documented in
-[opencode.nix](../modules/home/opencode.nix): the cloud model itself is
-reached through the local daemon (keyless from the agent's perspective), but
-omp's *search* provider needs the key directly. `agent.db` is outside Nix's
-reach and survives rebuilds and GC — only the binary is transient. A fresh
-host needs: rebuild (binary + routing) → run `omp` → paste key when asked
-(or `/login` → ollama-cloud). The setup wizard is otherwise suppressed.
+## The per-host API key (manual, like `ollama signin`)
+
+The ollama.com credential is not declarable — it is the account's API-key form
+(create at ollama.com/settings/keys, free tier), pasted once per dev host into
+omp's auth store (`agent.db`, SQLite, app-local). This mirrors the daemon's own
+`ollama signin`: the cloud model is reached through the local daemon (keyless from
+the agent's perspective), but omp's *search* provider needs the key directly.
+`agent.db` is outside Nix's reach and survives rebuilds and GC. A fresh host needs:
+rebuild (binary + routing) → run `omp` → paste the key when asked (or `/login` →
+ollama-cloud); the wizard is otherwise suppressed.
 
 ## MCP: the two-file drift warning
 
-The two MCP servers (nixos, context7) are declared **twice**, in native
-shape per agent:
-
-- opencode: `mcp` key in [opencode.json](../modules/home/opencode.nix)
-  (`type: local/remote`, `{env:VAR}` interpolation)
-- omp: `mcpServers` in `~/.omp/agent/mcp.json` (Claude-style,
-  `${VAR}` interpolation, `home.file` store symlink)
-
-**An edit to either server must land in both files.** This duplication is
-the accepted cost of keeping omp's opencode-compat provider off (choice and
-reasons above); the files cross-reference each other. The context7 auth
-chain is identical in both: sops-nix puts the key in `/run/secrets`
-(dev hosts only), the guarded `shell.nix` export feeds the environment, and
-the empty-var fallback yields context7's anonymous mode instead of a broken
-request.
+The two MCP servers (nixos, context7) are declared **twice**, in native shape per
+agent: the `mcp` key in [opencode.json](../modules/home/opencode.nix)
+(`{env:VAR}` interpolation) and `mcpServers` in `~/.omp/agent/mcp.json`
+(Claude-style `${VAR}`, `home.file` store symlink). **An edit to either server must
+land in both files** — the accepted cost of keeping omp's opencode-compat provider
+off ([omp.nix](../modules/home/omp.nix) carries the reasons). The context7 auth
+chain is identical in both: sops-nix puts the key in `/run/secrets` (dev hosts
+only — [secrets.md](secrets.md)), the guarded
+[shell.nix](../modules/home/shell.nix) export feeds the environment, and the
+empty-var fallback yields context7's anonymous mode instead of a broken request.
 
 ## herdr integration
 
-Like the opencode plugin, the omp extension is vendored byte-for-byte from
-herdr's source tree and deployed by
-[herdr.nix](../modules/home/herdr.nix) — keeping both herdr↔agent couplings
-greppable in one place. The two assets carry **independent** version
-counters (v0.9.1: opencode plugin = 12, omp extension = 10); the tag-bump
-checklist in [herdr.md](herdr.md) covers both. Verify with
-`herdr integration status` (expect `omp: current`).
-
-## Operational notes
-
-- **Where settings live**: `~/.omp/agent/config.yml` (main, HM-owned as a
-  writable copy), `<cwd>/.omp/config.yml` (project overrides), `agent.db`
-  (auth/sessions/MCP OAuth), `mcp.json`, `models.yml` (absent here), logs
-  under `~/.omp/logs`. `omp config path` prints the active agent dir;
-  `PI_CODING_AGENT_DIR` relocates it (herdr's omp integration honors the
-  same variable).
-- **The updater refuses a Nix-managed binary** (source-verified at v18.2.8,
-  `packages/coding-agent/src/cli/update-cli.ts`): `resolveUpdateMethod`
-  classifies any path under `/nix/store` as `"nix"`, and `omp update` then
-  exits with "This installation is managed by Nix and cannot update itself."
-  So Nix ownership is safe by upstream guard, **not** by an absent updater —
-  the "no self-updater exists" claim that stood here until 2026-09-22 was
-  wrong and is corrected at this bump. The phone-home half *is* declarable and
-  is switched off: `"startup.checkUpdate" = false` in
-  [omp.nix](../modules/home/omp.nix). Its default (`true`) GETs the GitHub
-  releases API on every launch — `main.ts` `checkForNewVersion` →
-  `getLatestRelease`, 5 s timeout — to announce a version this install cannot
-  take. Same decision as herdr's `update.version_check = false` and
-  opencode's `autoupdate = false`; the tag pin in flake.nix is the version
-  story.
-- `nix run github:can1357/oh-my-pi` (the trial invocation) is **ephemeral** —
-  no GC root, swept by `ngca`; the installed binary from the module is the
-  permanent path.
-- The omp `browser` tool (Chromium automation) is currently unwired — its
-  browser daemon needs a Chromium executable override
-  (`PUPPETEER_EXECUTABLE_PATH`; the bundled Puppeteer download cannot work
-  on NixOS). Search does not need it (`modelRoles.web = "web/ollama"`).
-  Wiring Brave in is a trial item if omp ever becomes primary.
-- **Benchmark**: `~/code/agent-bench` (own repo, own PRD) runs both agents
-  headless on identical tasks. Its omp runner should invoke the installed,
-  pinned binary now that it exists — not `nix run …main` (unpinned), which
-  would let a release change the harness under recorded results.
+Like the opencode plugin, the omp extension is vendored byte-for-byte from herdr's
+source tree and deployed by [herdr.nix](../modules/home/herdr.nix) — keeping both
+herdr↔agent couplings greppable in one place. The two assets carry **independent**
+version counters, and the tag-bump checklist in [herdr.md](herdr.md) covers both.
+Verify with `herdr integration status` (expect `omp: current`).
 
 ## Update checklist (per omp tag bump)
 
-One command does the mechanical half: **`nfb`** (`scripts/nfb.sh`, alias in
-[shell.nix](../modules/home/shell.nix)). It checks upstream's latest release,
-asks before writing, then updates all three sites — the version + both hashes
-in [tool-pins.json](../modules/home/tool-pins.json), the `?ref=` in
-[flake.nix](../flake.nix), and the lock entry for the `omp` input — so the pin
-and the binary can no longer disagree. Hashes come from the release's own
-SHA256 digest, cross-checked against a download of this host's asset.
+**`nfb`** (`scripts/nfb.sh`, alias in [shell.nix](../modules/home/shell.nix)) does
+the mechanical half: it checks upstream's latest release, asks before writing, then
+updates the version + both hashes in
+[tool-pins.json](../modules/home/tool-pins.json), the `?ref=` in
+[flake.nix](../flake.nix) and the lock entry for the `omp` input — so the pin and
+the binary can no longer disagree. Hashes come from the release's own SHA256
+digest, cross-checked against a download of this host's asset. The `?ref=` must
+stay a literal Nix string (a computed input URL is rejected by the flake parser),
+which is why the pin file cannot feed `inputs.*.url` — see the comment on the input.
 
-1. `nfb`, answer `y` for omp (the version here and in `omp.nix`'s comment must
-   move with it — the HM module + settings are written for that version's
-   compiled-in `CURRENT_SETUP_VERSION`).
-2. `git diff` — [tool-pins.json](../modules/home/tool-pins.json) (three
-   fields) + flake.nix + flake.lock, nothing else.
-3. `git add` everything, `./scripts/check-hosts.sh`: expect `vm` + `geekom`
-   drvPaths to move, `hplaptop` byte-identical (dev-gated).
-4. **No compile happens** — CI substitutes the ~244 MB prebuilt (a FOD
-   failure here means the hash or URL is wrong, not a build issue).
-5. `nrp`, rebuild, then `omp --version` on the host to confirm the binary
-   moved with the pin.
-6. Version literals in this doc's prose stay a manual tail: update them in the
-   same commit if they moved.
-7. PR → CI → squash merge per [workflow.md](workflow.md).
+1. `nfb`, answer `y` for omp. The HM module and its settings are written for the
+   pinned version's compiled-in `CURRENT_SETUP_VERSION`, so the pin bump and the
+   settings move together.
+2. `git diff` — `tool-pins.json` (three fields) + `flake.nix` + `flake.lock`,
+   nothing else.
+3. `git add` everything, `./scripts/check-hosts.sh`: expect the dev hosts to move,
+   `hplaptop` byte-identical (dev-gated).
+4. **No compile happens** — CI substitutes the ~244 MB prebuilt, so a FOD failure
+   here means the hash or URL is wrong, not a build issue.
+5. `nrp`, rebuild, then `omp --version` on the host to confirm the binary moved
+   with the pin.
+6. PR → CI → squash merge per [workflow.md](workflow.md).
 
-## Trial record (Phase 0, 2026-09-21)
+## Gotchas
 
-- `nix run github:can1357/oh-my-pi` (unpinned main ≈ v18.2.7) on geekom:
-  built from source (no cache carries it — substituter warning observed and
-  root-caused, fixed in common.nix).
-- From-source cost measured at adoption: **31 min on the CI runner** —
-  motivating the prebuilt switch (above) the same day.
-- Prebuilt verification (2026-09-21): store binary byte-identical to the
-  release asset; `omp --version`, live model call via the local daemon, and
-  `omp completions zsh` all pass. The autoPatchelfHook variant was built
-  first, found silently degraded to `bun`, root-caused (Bun-standalone
-  trailer offsets), and fixed by removing all ELF patching.
-- First-run wizard observed, including the ollama-cloud sign-in step:
-  expected — omp's native search provider needs its own credential (see
-  above); key entered, web search verified working by the user.
-- Skills: `~/.agents/skills/` (18 skills, npx-managed) load by default —
-  omp treats `.agents/skills` as its canonical location; zero config.
-- Model discovery: implicit ollama provider resolves
-  `ollama/glm-5.3-flash:cloud` with daemon-reported limits.
-- Source-traced (not guessed): onboarding gates (main.ts, setup/wizard.ts,
-  settings-schema.ts), search provider chain (web/search/index.ts,
-  providers/ollama.ts, providers/registry), mcp.json discovery paths,
-  auth store location, HM module behavior (writable config.yml copy).
+- **Never ELF-patch the binary** (`autoPatchelfHook`, `strip`, `patchelf`): omp is
+  a Bun standalone executable that finds its embedded payload via absolute trailer
+  offsets, so patching shifts the section table and silently degrades the binary
+  into a plain `bun` runtime (`omp --version` → `Bun v1.4.2`). The derivation sets
+  `dontStrip`/`dontPatchELF` and documents this. It depends on nix-ld (dev-gated)
+  for its `/lib64` loader — stock NixOS without the dev seam would not run it.
+- **The binary is upstream's prebuilt release, not a source build**
+  ([omp-prebuilt.nix](../modules/home/omp-prebuilt.nix) says why): no cache carries
+  omp, the from-source build measured **31 min on a fast CI runner**, and it would
+  re-trigger on every `nfu` that moves `nixpkgs-unstable` — an unbounded recurring
+  cost. The trade, accepted and named: the trust boundary widens from omp's build
+  recipe to upstream's release CI (hash-pinned, nobody re-derives). Fallback is one
+  line — `package = omp.packages.${pkgs.stdenv.hostPlatform.system}.default;` — and
+  it builds its toolchain deps locally, because **no substituter is trusted for
+  it** ([common.nix](../modules/nixos/common.nix): omp advertises nix-community's
+  cache via `nixConfig`, but that is only a prompt, and machine-level trust would
+  cover every store path on every host for a cache nothing here consumes).
+- **Lockfile cost, accepted**: omp's inputs add `bun2nix`, `nix-bun` and
+  `oxalica/rust-overlay`. `omp.inputs.nixpkgs.follows = "nixpkgs-unstable"` keeps a
+  second nixpkgs out of the lock, and `omp.inputs.nixpkgs-darwin-x64.follows =
+  "nixpkgs"` avoids a third for a platform no host here is on.
+- **Where settings live**: `~/.omp/agent/config.yml` (main, HM-owned writable
+  copy), `<cwd>/.omp/config.yml` (project overrides), `agent.db`
+  (auth/sessions/MCP OAuth), `mcp.json`, logs under `~/.omp/logs`. `omp config
+  path` prints the active agent dir; `PI_CODING_AGENT_DIR` relocates it (herdr's
+  omp integration honors the same variable).
+- The omp `browser` tool (Chromium automation) is unwired — its browser daemon
+  needs `PUPPETEER_EXECUTABLE_PATH` pointed at a real Chromium, since the bundled
+  Puppeteer download cannot work on NixOS. Search does not need it. Wiring Brave in
+  is a trial item if omp ever becomes primary.
+- `nix run github:can1357/oh-my-pi` is **ephemeral** — no GC root, swept by
+  `ngca`; the installed binary from the module is the permanent path.
+- Skills: `~/.agents/skills/` loads by default — omp treats `.agents/skills` as
+  its canonical location, zero config.
 
 ## See also
 
-- [doc/herdr.md](herdr.md) — the herdr adoption (same flake pattern); owns
-  the omp extension asset
-- [modules/home/opencode.nix](../modules/home/opencode.nix) — the first
-  agent; holds the MCP block this module mirrors
+- [doc/herdr.md](herdr.md) — the herdr adoption (same flake pattern); owns the omp
+  extension asset
+- [modules/home/opencode.nix](../modules/home/opencode.nix) — the first agent;
+  holds the MCP block this module mirrors
 - [doc/adopting-tools.md](adopting-tools.md) — the ladder this followed
 - [doc/workflow.md](workflow.md) — rebuild aliases, release cycle
 - upstream docs: [omp.sh/docs](https://omp.sh/docs)

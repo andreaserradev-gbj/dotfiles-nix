@@ -146,15 +146,7 @@ on-site visits; Elisa just runs `nrb` and reboots when prompted.
 
 **The ref is `verified`, not `main`.** CI fast-forwards `verified` only after
 the build matrix passes, so this machine cannot fetch a commit that has not
-built — a red `main` simply leaves `verified` where it was and `nrb` installs
-nothing new. See [doc/workflow.md](workflow.md) for the pipeline.
-
-> **Transition note (one time).** The `nrb` currently installed on this laptop
-> still points at `main`; the alias text only changes once the system carrying
-> the new definition is installed. The handover is race-free because both refs
-> are equal at that moment: the next `nrb` pulls `main`, installs the
-> generation whose alias reads `verified`, and every `nrb` after that uses the
-> gated ref.
+built. See [doc/workflow.md](workflow.md) for the pipeline.
 
 `ngca` keeps a **14-day** rollback window rather than deleting every old
 generation: on this machine the boot menu is the only recovery path, and
