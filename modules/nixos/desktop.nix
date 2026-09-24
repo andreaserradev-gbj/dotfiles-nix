@@ -123,9 +123,11 @@ in
     #   imagemagick — makes a scanned signature usable on anything that is not
     #                 plain white paper: `magick sig.png -fuzz 20% -transparent white out.png`
     #
-    # NOT added: libreoffice. Draw is the only route on Linux to editing text
+    # No libreoffice here: Draw is the only route on Linux to editing text
     # inside a PDF, and it reimports the page as loose objects, drifting the
-    # layout — over a gigabyte for the one PDF job it does badly.
+    # layout — over a gigabyte for the one PDF job it does badly. The
+    # `local.desktop.libreoffice.enable` option exists for the host that needs
+    # it for office files (hplaptop).
     environment.systemPackages = [
       pkgs.brave
       pkgs.xournalpp
