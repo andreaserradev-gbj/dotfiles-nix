@@ -2,9 +2,10 @@
 # config or adding a host. `flake.nix` resolves the per-host attrset via
 # `specialArgs = { user = users.${hostname}; ... }` for both NixOS and HM.
 let
-  # The flake every host updates ITSELF from (`nrb`, modules/home/maintenance.nix);
-  # it lives here so a fork that edited only this file stops pulling upstream.
-  # `bootstrap.sh` spells the URL out too — it runs before the clone exists.
+  # The flake hplaptop updates itself from (her `nrb`, modules/home/maintenance.nix
+  # — the only consumer); it lives here so a fork that edited only this file stops
+  # pulling upstream. `bootstrap.sh` spells the URL out too — it runs before the
+  # clone exists.
   repo = "github:andreaserradev-gbj/dotfiles-nix";
 
   # flake.nix looks the attrset up as `users.${hostname}`, so both dev hosts
