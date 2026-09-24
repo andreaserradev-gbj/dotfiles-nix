@@ -7,35 +7,25 @@
 }:
 
 lib.mkIf osConfig.local.dev.enable {
-  # Neovim + LazyVim, ported as a verbatim managed-file lua tree.
-  #
-  # Style: managed-file, not native. LazyVim owns its own plugin manager
-  # (lazy.nvim bootstraps + clones plugins at runtime), so we copy the config
-  # tree verbatim instead of rewriting it as Nix.
-  #
-  # Editor installed via home.packages, NOT programs.neovim, on purpose:
-  # programs.neovim writes its own ~/.config/nvim/init.lua, which collides with
-  # the verbatim xdg.configFile."nvim" tree below (HM errors on the duplicate).
+  # Neovim + LazyVim, ported as a verbatim managed-file lua tree: lazy.nvim
+  # bootstraps and clones plugins at runtime, so the tree is copied as-is rather
+  # than rewritten as Nix. Editor via home.packages, NOT programs.neovim — that
+  # writes its own ~/.config/nvim/init.lua and collides with the tree below.
 
   home.packages = with pkgs; [
     neovim
 
-    # LazyVim runtime deps it expects on PATH (omanix's installCoreDependencies
-    # equivalent). git is already provided by the git module, so it's not repeated.
-    ripgrep # grep picker
-    fd # file picker
-    gcc # nvim-treesitter compiles parsers at runtime
-    tree-sitter # treesitter CLI
+    # LazyVim's runtime deps, expected on PATH; git comes from the git module.
+    ripgrep
+    fd
+    gcc # nvim-treesitter builds parsers at runtime
+    tree-sitter
 
-    # LSP servers — Nix-provided instead of Mason (Mason's prebuilt binaries
-    # assume an FHS layout and break on NixOS). Binary names match what
-    # nvim-lspconfig launches:
-    #   bashls -> bash-language-server
-    #   cssls / html / jsonls -> vscode-langservers-extracted
-    #   yamlls -> yaml-language-server
-    #   lua_ls -> lua-language-server
-    #   marksman -> marksman
-    #   vtsls -> vtsls  (TypeScript; bundles its own node, no global node needed)
+    # LSP servers, Nix-provided instead of Mason (why: the nix-ld note in
+    # modules/nixos/dev.nix). Names must match nvim-lspconfig's launchers:
+    # bashls -> bash-language-server, cssls/html/jsonls ->
+    # vscode-langservers-extracted, yamlls -> yaml-language-server, lua_ls ->
+    # lua-language-server, marksman, vtsls -> vtsls (bundles its own node).
     bash-language-server
     vscode-langservers-extracted
     yaml-language-server
@@ -44,26 +34,23 @@ lib.mkIf osConfig.local.dev.enable {
     vtsls
     nil
 
-    # Formatters (conform.nvim, PATH-resolved). node arrives transitively via the
-    # node-based servers/prettier — no global node or nvm needed. (prettier is
-    # top-level in nixpkgs 26.05; the old nodePackages set was removed.)
+    # Formatters, resolved from PATH by conform.nvim.
     prettier
     shfmt
     stylua
-    nixfmt # nix formatter (RFC-style official; conform maps nix -> nixfmt)
+    nixfmt
     statix
   ];
 
-  # vim.loader caches compiled Lua at ~/.cache/nvim/luac, invalidate by the source's mtime + size.
-  # If the change is not modifying the size the cache will STALE.
-  # Wipe it on every activation so the next nvim launch recompiles from the fresh store
+  # vim.loader's luac cache keys on mtime/size, which Nix pins — wipe it each
+  # activation so the next launch recompiles (doc/troubleshooting.md).
   home.activation.clearNvimByteCache = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     run rm -rf "${config.xdg.cacheHome}/nvim/luac"
   '';
 
-  # LazyVim config tree, copied verbatim from the repo root's config/nvim/.
-  # Whole-dir symlink into ~/.config/nvim. Flakes only see git-tracked files, so
-  # `git add config/nvim` before switching. lazy.nvim's lockfile is redirected to
-  # the writable state dir (see lua/config/lazy.lua) and intentionally not committed.
+  # LazyVim config tree, verbatim from the repo root's config/nvim/ — symlinked
+  # into ~/.config/nvim. Flakes only see git-tracked files (`git add config/nvim`
+  # before switching); lazy.nvim's lockfile goes to the writable state dir and is
+  # intentionally not committed (see lua/config/lazy.lua).
   xdg.configFile."nvim".source = ../../config/nvim;
 }
