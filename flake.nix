@@ -5,13 +5,9 @@
 
     nixpkgs.url = "github:NixOs/nixpkgs/nixos-26.05";
 
-    # The workflow.md "escape hatch" (doc/workflow.md, "Need a newer version
-    # before the next release?"): a second nixpkgs tracking unstable, consumed
-    # for a SMALL, explicit selection of tools. Three consumers today: ollama
-    # (geekom) and opencode (geekom + the VM) through `unstablePkgs`, and omp
-    # through its own input's `follows` below. It moves daily, so anything
-    # referencing it re-evaluates against a moving target — never import this
-    # where a shared module could see it.
+    # The escape hatch (doc/workflow.md, "Need a newer version before the next
+    # release?"): a second nixpkgs, consumed for a small explicit selection of
+    # tools. It moves daily, so never reference it from shared code.
     nixpkgs-unstable.url = "github:NixOs/nixpkgs/nixos-unstable";
 
     home-manager = {
@@ -19,31 +15,23 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Declarative secret management (sops-nix). Follows our nixpkgs so the
-    # module pins to exactly the sops/age versions the system would build
-    # anyway — no second nixpkgs tree in the lockfile.
+    # sops-nix follows our nixpkgs so the module pins to the sops/age versions the
+    # system would build anyway — no second nixpkgs tree in the lockfile.
     sops-nix = {
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # omp (oh-my-pi, coding agent), from its upstream flake — not in nixpkgs
-    # (searched 2026-09-21), so the package comes from the upstream flake,
-    # tag-pinned: an unpinned github: input moves on every `nfu`. `nixpkgs`
-    # follows our unstable — the tree omp's own lock is cut against — so no
-    # third nixpkgs lands in the lock. `nixpkgs-darwin-x64` (omp keeps Intel-mac
-    # support on the last stable darwin tree) follows our stable nixpkgs
-    # instead: that input only matters for x86_64-darwin, which no host here is,
-    # and following it raw would add a THIRD nixpkgs tree to the lock for zero
-    # benefit. Lockfile cost accepted and documented in doc/omp.md: omp's inputs
-    # add bun2nix, nix-bun and oxalica rust-overlay, which build omp's Rust core
-    # + bun runtime on the from-source fallback — what this repo installs is the
-    # prebuilt release fetch from tool-pins.json. `nfb` (scripts/nfb.sh) rewrites
-    # this `?ref=` together with the version + hashes in
-    # modules/home/tool-pins.json; the URL must stay a literal for Nix's flake
-    # parser, which nfb's header explains. The HM module is threaded via
-    # extraSpecialArgs below and consumed by modules/home/omp.nix, gated on
-    # osConfig.local.dev.enable; hplaptop (dev off) never evaluates it.
+    # Not in nixpkgs, so the package comes from upstream's flake, TAG-PINNED —
+    # an unpinned github: input moves on every `nfu`. This `?ref=` must stay a
+    # literal (Nix's flake parser), so `nfb` (scripts/nfb.sh) rewrites it
+    # together with the version and hashes in tool-pins.json.
+    #
+    # `nixpkgs` follows our unstable (the tree omp's own lock is cut against);
+    # `nixpkgs-darwin-x64` follows stable instead, because that input only
+    # matters for x86_64-darwin, which no host here is — following it raw would
+    # add a third nixpkgs tree for zero benefit. What this repo installs is the
+    # prebuilt release from tool-pins.json, not the from-source build (doc/omp.md).
     omp = {
       url = "github:can1357/oh-my-pi?ref=v18.3.0";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
@@ -63,53 +51,38 @@
     let
       users = import ./user.nix;
 
-      # The systems that get developer-facing outputs (`formatter`, `devShells`).
-      # NOT the systems that get hosts: `nixosConfigurations` stay written out
-      # one by one below, because each names a different host module and a
-      # different `user`, so there is nothing to fold.
-      #
-      # aarch64-darwin is here because the Mac is where this repo is actually
-      # edited. Without it `nix develop` fails, which makes `use flake` in
-      # .envrc fail, which leaves `nixfmt` off PATH, which makes the
-      # scripts/pre-commit hook abort every commit that touches a .nix file —
-      # a chain that stayed invisible for as long as commits were docs-only.
-      # No host builds on darwin; these two outputs are the whole reason it is
-      # listed.
+      # The systems that get developer-facing outputs (`formatter`, `devShells`),
+      # NOT the systems that get hosts. aarch64-darwin is listed because the Mac
+      # is where this repo is edited: without it `nix develop` fails, which makes
+      # `.envrc`'s `use flake` fail, which leaves nixfmt off PATH, which makes
+      # the pre-commit hook abort every commit touching a .nix file. No host
+      # builds there.
       forAllSystems = nixpkgs.lib.genAttrs [
         "x86_64-linux"
         "aarch64-linux"
         "aarch64-darwin"
       ];
 
-      # Shared by every host. Host-specific configuration — hostName,
-      # stateVersion, hardware, display stack — lives in hosts/<host>/.
-      # Deliberately a plain list, not a mkSystem helper: at three hosts with no
-      # builder divergence, the helper would be indirection for ~10 saved lines.
+      # Shared by every host; host-specific configuration (hostName, stateVersion,
+      # hardware, display stack) lives in hosts/<host>/. A plain list rather than
+      # a mkSystem helper: at three hosts with no builder divergence the helper
+      # would be indirection for ~10 saved lines.
       #
-      # desktop.nix is listed here rather than under hosts/geekom because it
-      # DEFINES the `local.desktop` option as well as consuming it: every host
-      # must be able to see the option in order to leave it off.
-      #
-      # `user` is resolved per-host below (users.${hostname}) so each host sees
-      # its own identity attrset via specialArgs. home-manager.extraSpecialArgs
-      # threads the same per-host `user` through to HM.
+      # Every seam module is here, including the ones only one host switches on,
+      # because they DEFINE their `local.*` option: a host must be able to see an
+      # option in order to leave it off. `user` is resolved per-host below, so
+      # each host sees its own identity attrset via specialArgs; HM gets the same
+      # attrset through extraSpecialArgs.
       commonModules = [
         ./modules/nixos/common.nix
         ./modules/nixos/desktop.nix
         ./modules/nixos/gaming.nix
         ./modules/nixos/docker.nix
         ./modules/nixos/dev.nix
-        # The loopback-rebuild seam, same pattern as the rest of local.*:
-        # option tree defined in commonModules so every host can leave it
-        # off. Inert without local.loopbackRebuild.enable (only geekom sets
-        # it — see hosts/geekom/default.nix).
         ./modules/nixos/loopback-rebuild.nix
-        # sops-nix: declarative secrets. Inert on any host that declares no
-        # sops.* options — the module's config block is
-        # `mkIf (cfg.secrets != {})`, so hplaptop imports it but gets nothing
-        # from it (it is deliberately not a secret recipient). Kept in
-        # commonModules (not per-host) so the option tree exists everywhere
-        # and a host opting in later is a one-line change.
+        # Inert on a host that declares no `sops.*`: its config block is
+        # `mkIf (cfg.secrets != {})`, and hplaptop is deliberately not a recipient.
+        # Kept here so a host opting in later is a one-line change.
         sops-nix.nixosModules.sops
         home-manager.nixosModules.home-manager
         (
@@ -123,11 +96,10 @@
             home-manager.backupFileExtension = "backup";
             home-manager.extraSpecialArgs = {
               inherit user;
-              # The flake INPUT (not the package): modules/home/omp.nix
-              # imports omp's homeManagerModules.default, whose
-              # programs.omp.package already defaults to
-              # self.packages.<system>.default — threading the package here
-              # too would be a second path to the same drv.
+              # The flake INPUT, not the package: modules/home/omp.nix imports
+              # omp's homeManagerModules.default, whose programs.omp.package
+              # already defaults to self.packages.<system>.default — threading
+              # the package too would be a second path to the same drv.
               inherit omp;
             };
             home-manager.users.${user.username} = import ./home.nix;
@@ -136,20 +108,19 @@
       ];
     in
     {
-      # `unstablePkgs` is the workflow.md escape hatch (doc/workflow.md, "Need a
-      # newer version before the next release?"): a second nixpkgs at
-      # nixos-unstable. legacyPackages, not `import` — the `system` import
-      # argument is deprecated upstream. No allowUnfree wiring: the adopted
-      # packages (ollama, opencode) are free software.
+      # `unstablePkgs` is the second nixpkgs as the module arg the escape hatch
+      # needs. legacyPackages, not `import` — the `system` import argument is
+      # deprecated upstream. No allowUnfree wiring: the adopted packages (ollama,
+      # opencode) are free software.
       #
-      # It is passed to EVERY host as a module arg because a shared module
-      # consumes it (modules/nixos/dev.nix takes it for opencode), but the
-      # second tree is evaluated lazily and forced only where a package
-      # references it: ollama-vulkan in hosts/geekom/default.nix, and opencode
-      # behind dev.nix's dev gate. hplaptop receives the binding and her
-      # closure does not move. So: reference `unstablePkgs` from a host file,
-      # or from a shared module ONLY behind the dev gate — never from shared
-      # code that every host evaluates unconditionally.
+      # It is passed to EVERY host because a shared module consumes it
+      # (modules/nixos/dev.nix takes it for opencode), but the second tree is
+      # evaluated lazily and forced only where a package references it:
+      # ollama-vulkan in hosts/geekom/default.nix, and opencode behind dev.nix's
+      # dev gate. hplaptop receives the binding and her closure does not move.
+      # The rule: reference `unstablePkgs` from a host file, or from a shared
+      # module ONLY behind the dev gate — never from shared code that every host
+      # evaluates unconditionally.
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
         system = "aarch64-linux";
         specialArgs = {
@@ -193,32 +164,22 @@
         description = "Per-project Python dev shell: uv + python3 (pinned via flake.lock)";
       };
 
-      # `nix fmt` execs this with exactly the args it was given — Nix injects
-      # no path (nix 2.34 formatter.cc). With plain `nixfmt`, a *bare* `nix fmt`
-      # therefore parses STDIN as Nix code (nixfmt Main.hs: no files →
-      # stdioTarget), so an empty/closed stdin dies with "unexpected end of
-      # input" and an interactive bare invocation blocks instead of formatting
-      # anything. `nixfmt-tree` is the upstream-blessed wrapper (treefmt
-      # configured to run nixfmt over the repo, PRJ_ROOT-aware) that makes a
-      # bare `nix fmt` format the flake root — which is what this entry has
-      # always promised. Same nixfmt binary underneath: `nix fmt`, conform.nvim
-      # and the pre-commit hook still agree with each other by construction.
+      # `nix fmt` execs this with exactly the args it was given. With plain
+      # `nixfmt`, a bare `nix fmt` therefore parses STDIN as code and dies on an
+      # empty stdin (or blocks interactively) instead of formatting anything.
+      # `nixfmt-tree` is the upstream wrapper that makes a bare `nix fmt` format
+      # the flake root — same nixfmt binary underneath, so `nix fmt`, conform.nvim
+      # and the pre-commit hook still agree by construction.
       formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
 
-      # Minimal shell for hacking on this repo. On a NixOS host the only tool
-      # here that is not already on the system profile (via
-      # modules/home/neovim.nix) is deadnix — nixfmt, statix and nil are
-      # duplicated so a fresh clone has a self-contained `nix develop` / direnv
-      # that does not depend on having built and applied a host first. On the
-      # darwin workstation NONE of them are otherwise present: no host module
-      # applies there, so this shell is the only thing that puts them on PATH.
-      # The pre-commit hook that .envrc installs runs `nixfmt` from this shell,
-      # so the hook works on any clone, on any of the three systems.
+      # Minimal shell for hacking on this repo. On a NixOS host only deadnix is
+      # otherwise missing; on the darwin workstation none of them are present, so
+      # this shell is what puts them on PATH. The pre-commit hook `.envrc`
+      # installs runs nixfmt from here, so it works on any clone on any system.
       #
-      # sops / ssh-to-age / age: present so secret edits (sops
-      # secrets/andrea/secrets.yaml, recipient rekeying, age key inspection)
-      # need no ad-hoc `nix shell`. Only the repo shell carries them — hosts
-      # do not need the tools at runtime (sops-nix brings its own sops).
+      # sops / ssh-to-age / age are here so secret edits (sops
+      # secrets/andrea/secrets.yaml, recipient rekeying, key inspection) need no
+      # ad-hoc `nix shell`; hosts do not need them at runtime.
       devShells = forAllSystems (system: {
         default = nixpkgs.legacyPackages.${system}.mkShellNoCC {
           packages = with nixpkgs.legacyPackages.${system}; [
