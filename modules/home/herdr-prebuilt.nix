@@ -5,44 +5,27 @@
   system,
 }:
 # herdr from upstream's prebuilt release binaries instead of the flake's
-# from-source build. WHY THIS EXISTS: the from-source build measures ~5 min
-# of herdr buildPhase on a fast CI runner (~6 min with its rust toolchain
-# unpack + zig cache), it rebuilt on EVERY CI run because runner stores do
-# not persist (the drv was byte-identical across PRs #25 and #26 — it
-# recompiled anyway), and it re-triggered on every nfu that moved
-# nixpkgs-unstable. The release binaries are what upstream's own install path
-# ships; verified live on NixOS at v0.9.1: `herdr --version` and
-# `herdr config check` both pass.
+# from-source build: that build measures ~5 min of buildPhase on a fast CI runner
+# (plus its rust toolchain unpack and zig cache) and rebuilt on every CI run
+# because runner stores do not persist — the drv was byte-identical across two
+# PRs. Numbers and the adoption record: doc/herdr.md.
 #
-# LOAD-BEARING: the binary is STATIC-PIE (zero NEEDED libs — no glibc, no
-# nix-ld, no libgcc). It must never be ELF-patched or stripped: there is
-# nothing to patch and nothing to gain; the derivation sets
-# dontStrip/dontPatchELF so the bytes stay byte-identical to the release
-# asset (verified by cmp at adoption). This is SIMPLER than omp-prebuilt:
-# no loader override at all, and no Bun-standalone trailer trap.
+# LOAD-BEARING: the binary is static-PIE — zero NEEDED libraries, nothing to
+# patch — so dontStrip/dontPatchELF keep it byte-identical to the release asset.
+# Do not add patchelf or a loader override: unlike omp-prebuilt there is no
+# nix-ld dependency and no Bun-standalone trailer trap.
 #
-# The vendored plugin/extension assets (config/opencode/plugins/,
-# config/omp/) are TEXT vendored in this repo and deployed by herdr.nix —
-# they never depended on the source build, so dropping the build removes
-# only the binary+toolchain from the closure (nvd-verified: herdr + zig
-# cache + cargo vendor leave, ~-60 paths).
+# The vendored plugin/extension assets (config/opencode/plugins/, config/omp/)
+# are text in this repo, deployed by herdr.nix, and never depended on the source
+# build — dropping the build removes only the binary + toolchain from the closure
+# (nvd-verified: herdr, the zig cache and the cargo vendor leave).
 #
-# TRADEOFFS (accepted, documented in doc/herdr.md):
-# - Trust boundary widens from "herdr's build recipe" to "upstream's
-#   release CI" — the hash pins the exact bytes (fixed-output derivation),
-#   but nobody re-derives them. Mitigations: tag-pinned, SHA256 enforced by
-#   FOD; the from-source fallback is one line away (see herdr.nix).
-# - Not a Nix build: no grafts against our nixpkgs; the ONLY store output
-#   is the unpacked binary.
-#
-# Update procedure (per herdr tag bump): run `nfb` (scripts/nfb.sh) — it bumps
-# the version and both hashes in modules/home/tool-pins.json and re-fetches the
-# two vendored agent assets from the new tag in one step, so pin, binary and
-# assets can never disagree. No compile.
+# Trust trade-off: the hash pins the exact bytes (fixed-output derivation), but
+# nobody re-derives them; the from-source fallback is one line away (herdr.nix).
+# `nfb` (scripts/nfb.sh) bumps version + hashes and re-fetches the vendored assets
+# in one step, so pin, binary and assets cannot disagree. Full trade-offs:
+# doc/herdr.md.
 let
-  # Version + both hashes come from modules/home/tool-pins.json — the single
-  # source of the pin (herdr has no flake input). Written only by `nfb`
-  # (scripts/nfb.sh).
   pins = (builtins.fromJSON (builtins.readFile ./tool-pins.json)).herdr;
   version = pins.version;
   srcs = {
@@ -66,9 +49,8 @@ stdenvNoCC.mkDerivation {
     inherit (src) hash;
   };
 
-  # No unpack/build phases: fetchurl yields the bare static-PIE ELF; install
-  # copies it byte-for-byte. Nothing may rewrite the binary — see the
-  # LOAD-BEARING note above.
+  # fetchurl yields the bare static-PIE ELF and install copies it byte-for-byte;
+  # nothing may rewrite it (LOAD-BEARING above).
   dontUnpack = true;
   dontConfigure = true;
   dontBuild = true;
