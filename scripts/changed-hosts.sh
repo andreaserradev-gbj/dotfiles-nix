@@ -79,10 +79,14 @@ else
   for host in $HOSTS; do
     attr="nixosConfigurations.${host}.config.system.build.toplevel.drvPath"
     cur="$(nix eval --raw ".#${attr}")"
-    # A host absent from the baseline (newly added) fails to evaluate there.
-    # That is not an error: it means there is no prior build to lean on, so it
-    # must be built.
-    if base="$(nix eval --raw "github:${slug}/${baseline_sha}#${attr}" 2>/dev/null)"; then
+    # A failing baseline eval is not an error: there is then no prior build to
+    # lean on, so the host must be built. It has two causes — a host that does
+    # not exist on the baseline, or a broken eval (no network, GitHub rate
+    # limit) — and only the eval's stderr tells them apart, so it is printed,
+    # not discarded.
+    base_err="$(mktemp)"
+    if base="$(nix eval --raw "github:${slug}/${baseline_sha}#${attr}" 2>"$base_err")"; then
+      rm -f "$base_err"
       if [ "$cur" = "$base" ]; then
         echo "   ${host}: unchanged — already built on ${BASELINE_REF}" >&2
         continue
@@ -91,7 +95,9 @@ else
       echo "     was ${base}" >&2
       echo "     now ${cur}" >&2
     else
-      echo "   ${host}: not present on ${BASELINE_REF} — never built" >&2
+      echo "   ${host}: no baseline drvPath — building" >&2
+      sed 's/^/     /' "$base_err" >&2
+      rm -f "$base_err"
     fi
     changed="${changed} ${host}"
   done

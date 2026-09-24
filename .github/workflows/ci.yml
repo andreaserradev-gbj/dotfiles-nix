@@ -75,6 +75,14 @@ on:
     branches: [main]
   pull_request:
 
+# Two quick pushes to `main` must not race: the older run finishes last and its
+# advance-verified push to `verified` is rejected as a non-fast-forward, turning
+# a healthy pipeline red. They queue instead. On a pull request a new push makes
+# the previous run obsolete, so it is cancelled.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Least privilege by default. Only advance-verified overrides this, at job
 # scope, and only to push the `verified` ref.
 permissions:
