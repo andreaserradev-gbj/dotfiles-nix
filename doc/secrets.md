@@ -116,30 +116,30 @@ Rules that have bitten once already:
   fails (or an editor writing a scratch placeholder) leaves plaintext on
   disk — delete and retry. sops writes ciphertext only after the editor
   exits; the `/tmp/sopsNNN` file it shows is scratch, never the target.
-- **An unstaged ciphertext file breaks evaluation.** sops-nix validates at
-  *evaluation* time that every declared key exists in the ciphertext, so an
-  untracked `secrets.yaml` fails the build with a misleading "path does not
-  exist" (the `git add` rule itself: [AGENTS.md](../AGENTS.md)).
+- **An unstaged ciphertext file breaks evaluation.** `sops.defaultSopsFile` is a
+  store path, so Nix's own git rule applies: an untracked `secrets.yaml` is not
+  in the flake, and the error is `Path … is not tracked by Git` (the `git add`
+  rule itself: [AGENTS.md](../AGENTS.md)).
 - **Adding a new secret key** is the same `sops` edit, plus one
   `sops.secrets.<NAME>` entry in `modules/nixos/dev.nix` (and an export or
   consumer wherever it is read).
-  **Caveat, verified 2026-09-18:** the eval-time check catches a *missing
-  file* but NOT a spelling mismatch between `sops.secrets.<NAME>` and the
-  ciphertext keys — geekom evaluated green with `TYPESAFE_API_KEY` declared
-  under no such ciphertext key (sops-nix 0.4.x only asserts key existence
-  when `key =` is set explicitly, and warns rather than fails otherwise).
-  After adding a key, grep the decrypted file against the declarations:
-  `sops -d secrets/andrea/secrets.yaml | grep -o '^[A-Z_]*'` vs the
-  `sops.secrets.*` block in dev.nix. A mismatch surfaces only at activation
+  **Caveat, verified 2026-09-18:** sops-nix's eval-time check
+  (`validateSopsFiles`, default on) only throws when the declared sops *file* is
+  missing or outside the store — it never looks at the ciphertext's keys. So a
+  spelling mismatch between `sops.secrets.<NAME>` and the ciphertext keys
+  evaluates green (geekom did, with `TYPESAFE_API_KEY` declared under no such
+  ciphertext key). After adding a key, grep the decrypted file against the
+  declarations: `sops -d secrets/andrea/secrets.yaml | grep -o '^[A-Z_]*'` vs
+  the `sops.secrets.*` block in dev.nix. A mismatch surfaces only at activation
   — days later on a rebuild-only machine.
 - **Rotating a credential**: edit the value via `sops`, commit — a new data
   key is generated on every save, so rewrapping to all recipients happens
   automatically. Recipient *changes* (a new or rotated host key) additionally
   need `sops updatekeys`, per the note above.
-- **`key_groups` without shamir** — inside a `key_groups` entry, a `-`
-  before `age:` starts a *second* group, which enables shamir splitting and
-  locks every single machine out (each group would hold only a share of the
-  data key). The trap is annotated in place in [.sops.yaml](../.sops.yaml).
+- **`key_groups` without shamir** — a `key_groups` list must hold exactly ONE
+  `- age:` item. A second one makes sops treat them as groups and split the data
+  key with shamir, so each machine holds only a share and no single one can
+  decrypt. The trap is annotated in place in [.sops.yaml](../.sops.yaml).
 
 ## Credential tiers
 
