@@ -28,7 +28,7 @@ the *package* comes from a flake input (herdr, a locally built FOD, needs none).
 | herdr extension (`~/.omp/agent/extensions/herdr-omp-agent-state.ts`) | Nix | vendored asset, deployed by [herdr.nix](../modules/home/herdr.nix) — see [herdr.md](herdr.md) |
 | zsh completions | Nix | cached generator in omp.nix (regenerates when the binary is newer than the cache) |
 | **ollama.com API key** | **manual, per host** | first-run wizard or `/login ollama-cloud` → `~/.omp/agent/agent.db` |
-| sessions, logs, caches | stateful | `~/.omp/agent/{sessions,logs,cache}` — Nix-ignorable |
+| sessions, logs, caches | stateful | `~/.omp/agent/sessions`, `~/.omp/logs`, `~/.omp/cache` — Nix-ignorable |
 
 ## What Nix declares
 
@@ -101,7 +101,7 @@ which is why the pin file cannot feed `inputs.*.url` — see the comment on the 
    nothing else.
 3. `git add` everything, `./scripts/check-hosts.sh`: expect the dev hosts to move,
    `hplaptop` byte-identical (dev-gated).
-4. **No compile happens** — CI substitutes the ~244 MB prebuilt, so a FOD failure
+4. **No compile happens** — CI substitutes the ~263 MiB prebuilt, so a FOD failure
    here means the hash or URL is wrong, not a build issue.
 5. `nrp`, rebuild, then `omp --version` on the host to confirm the binary moved
    with the pin.
@@ -112,7 +112,8 @@ which is why the pin file cannot feed `inputs.*.url` — see the comment on the 
 - **Never ELF-patch the binary** (`autoPatchelfHook`, `strip`, `patchelf`): omp is
   a Bun standalone executable that finds its embedded payload via absolute trailer
   offsets, so patching shifts the section table and silently degrades the binary
-  into a plain `bun` runtime (`omp --version` → `Bun v1.4.2`). The derivation sets
+  into a plain `bun` runtime (`omp --version` then prints the Bun runtime's version
+  instead of omp's). The derivation sets
   `dontStrip`/`dontPatchELF` and documents this. It depends on nix-ld (dev-gated)
   for its `/lib64` loader — stock NixOS without the dev seam would not run it.
 - **The binary is upstream's prebuilt release, not a source build**
@@ -131,8 +132,8 @@ which is why the pin file cannot feed `inputs.*.url` — see the comment on the 
   second nixpkgs out of the lock, and `omp.inputs.nixpkgs-darwin-x64.follows =
   "nixpkgs"` avoids a third for a platform no host here is on.
 - **Where settings live**: `~/.omp/agent/config.yml` (main, HM-owned writable
-  copy), `<cwd>/.omp/config.yml` (project overrides), `agent.db`
-  (auth/sessions/MCP OAuth), `mcp.json`, logs under `~/.omp/logs`. `omp config
+  copy), `<cwd>/.omp/config.yml` (project overrides), `agent.db` (credentials,
+  usage counters, MCP OAuth), `mcp.json`, logs under `~/.omp/logs`. `omp config
   path` prints the active agent dir; `PI_CODING_AGENT_DIR` relocates it (herdr's
   omp integration honors the same variable).
 - The omp `browser` tool (Chromium automation) is unwired — its browser daemon
