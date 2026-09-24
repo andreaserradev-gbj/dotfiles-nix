@@ -10,9 +10,11 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 # Nix evaluates a flake from the git INDEX, not the working tree: an untracked
-# file is invisible, and the error it causes ("path does not exist") points
-# nowhere near the cause — warn loudly. The `-z` + NUL-delimited read loop below
-# keeps a path holding a space or a `*` from splitting into bogus filenames.
+# file is simply not there, so evaluation fails with "Path 'X' … is not tracked
+# by Git" — loud, but only if you get that far. Warn before the run, not after:
+# a green result on a stale tree is worse than a red one. The `-z` +
+# NUL-delimited read loop below keeps a path holding a space or a `*` from
+# splitting into bogus filenames.
 if [ -n "$(git ls-files --others --exclude-standard)" ]; then
   echo "!! WARNING: untracked files — nix will NOT see these:" >&2
   while IFS= read -r -d '' f; do
@@ -31,12 +33,11 @@ if [ -z "$HOSTS" ]; then
   exit 1
 fi
 
-# The drvPath doubles as the reference hash for the PRD's phase gates: record it
-# before a change, compare after — a host you did not mean to touch must not move.
+# The drvPath doubles as the reference hash around any change: record it before,
+# compare after — a host you did not mean to touch must not move (doc/workflow.md).
 
-# stderr is deliberately NOT captured: Nix emits `warnings` — including the
-# hardware-configuration.nix placeholder sentinel — as evaluation traces there,
-# and hiding them would remove the one warning this gate exists to surface.
+# stderr is deliberately NOT captured: Nix emits `warnings` as evaluation traces
+# there, and hiding them would remove the diagnostics this gate exists to surface.
 status=0
 for host in $HOSTS; do
   echo "-- evaluating ${host}"
