@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pre-commit hook — run `nix fmt` on every staged .nix file.
+# pre-commit hook — reject a commit whose staged .nix files are not nixfmt-clean.
 #
 # Self-installed into .git/hooks/pre-commit by .envrc on every direnv reload,
 # from this tracked canonical copy. Formatting uses `nixfmt` resolved by the
@@ -7,17 +7,28 @@
 # previously-built host system.
 #
 # Behaviour:
-#   - Stages only .nix files; non-nix files are untouched.
-#   - Formats in place, then re-stages the formatted content so the commit
-#     carries the formatted version WITHOUT a second `git add` round-trip.
+#   - Checks only .nix files; non-nix files are untouched.
+#   - Never writes or stages anything. It cannot: a rejected commit is the
+#     hook's only output, so unstaged work stays unstaged and no unstaged hunk
+#     can be pulled into the commit behind the author's back.
 #   - Aborts the commit if `nixfmt` is not on PATH (e.g. direnv not loaded),
 #     rather than silently letting unformatted code through.
-#   - Never reformats files that are not already staged, even if they live in
+#   - Never inspects files that are not already staged, even if they live in
 #     the repo — only what is about to be committed.
 set -euo pipefail
 
+# First, before any other command: the environment missing `nixfmt` is the
+# same one whose /usr/bin/env bash is macOS's bash 3.2, where the `mapfile`
+# below does not exist. The real cause is an unloaded devShell, and its
+# message must win over `mapfile: command not found`.
+if ! command -v nixfmt >/dev/null 2>&1; then
+  echo "!! pre-commit: nixfmt not on PATH." >&2
+  echo "   Run 'direnv allow' (or 'nix develop') to load the devShell." >&2
+  exit 1
+fi
+
 # Gather staged .nix files. `--diff-filter=d` drops deleted entries so the
-# list names files that actually exist and can be formatted.
+# list names files that actually exist and can be checked.
 mapfile -t files < <(
   git diff --cached --name-only --diff-filter=d -- '*.nix'
 )
@@ -26,20 +37,15 @@ if [ "${#files[@]}" -eq 0 ]; then
   exit 0
 fi
 
-if ! command -v nixfmt >/dev/null 2>&1; then
-  echo "!! pre-commit: nixfmt not on PATH." >&2
-  echo "   Run 'direnv allow' (or 'nix develop') to load the devShell." >&2
+# --check reports instead of rewriting, naming each offending file itself.
+# It exits non-zero for an unformatted file and for a parse error alike, and
+# aborting is right in both cases: the unformatted file would fail CI's
+# `nix fmt -- --ci`, and a syntactically broken .nix should not land even if
+# the author tried to force it through.
+if ! nixfmt --check -- "${files[@]}"; then
+  echo "!! pre-commit: the staged .nix files above are not nixfmt-clean." >&2
+  echo "   Run 'nix fmt' and stage the result." >&2
   exit 1
 fi
 
-# Format in place. nixfmt exits non-zero on a parse error, which aborts the
-# commit — the right call, since a syntactically broken .nix should not land
-# even if the author tried to force it through.
-nixfmt "${files[@]}"
-
-# Re-stage the formatted content so the commit carries the formatted version
-# without requiring a manual `git add` afterwards. Files that nixfmt did not
-# change are a no-op for `git add`.
-git add -- "${files[@]}"
-
-echo "pre-commit: formatted ${#files[@]} .nix file(s) with nixfmt"
+echo "pre-commit: ${#files[@]} staged .nix file(s) are nixfmt-clean"

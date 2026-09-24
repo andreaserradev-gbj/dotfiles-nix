@@ -37,8 +37,9 @@ Start from the [README](README.md) for the model and the
   append to it. History belongs in the commit message.
 - **Assets are verbatim.** `config/<tool>/…` is copied, not templated — edit the
   file itself, not a generator (there is none).
-- **Formatting** is `nixfmt` via `nix fmt` (pre-commit hook installed by
-  `.envrc` runs it too).
+- **Formatting** is `nixfmt` via `nix fmt`; the pre-commit hook `.envrc` installs
+  only *checks* it (`nixfmt --check`) and rejects the commit — running the
+  formatter is yours to do.
 - **Language** for all docs and comments: English.
 - **Library/API docs via context7.** When a task needs library, tool, or API
   documentation, use the `context7` MCP tools (resolve the library, then query
