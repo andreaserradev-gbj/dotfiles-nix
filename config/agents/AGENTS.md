@@ -36,6 +36,23 @@ is installed read-only, so edit it there, never in place.
   into the PRD folder (e.g. `.dev/<feature>/reference/`) so later sessions read
   the source rather than a summary of it.
 
+## Skill Workflow
+
+- Feature work: sharpen the design with `grill-me`/`grill-with-docs` BEFORE
+  `/dev-plan` writes the PRD — grilling after the PRD exists means hand-folding
+  findings back into `00-master-plan.md`. grill-with-docs' ADRs and glossary go
+  in `.dev/<feature>/reference/`, never inside the PRD files whose status
+  markers the dev-workflow CLI parses.
+- Per phase: accept `/dev-checkpoint`'s branch/worktree offer for features you
+  intend to review and PR (an uncommitted trial gives `code-review` no diffable
+  base). Review the diff against the base ref with `code-review`, passing
+  `.dev/<feature>/00-master-plan.md` as the spec source; fix findings, then
+  `/dev-checkpoint`.
+- Feature end: run `/dev-review` (PRD-vs-implementation alignment) before final
+  testing; write the PR body (`skill://pr`, see Git & PRs) only after review is
+  clean. `teach` is a separate learning workspace — never part of feature
+  delivery.
+
 ## Architecture & Design Reviews
 
 - When asked to compare, analyze, or critically review PRDs or architecture, use
