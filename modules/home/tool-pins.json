@@ -1,8 +1,8 @@
 {
   "omp": {
-    "version": "18.4.4",
-    "x86_64-linux": "sha256-JMgw/OsL1ohL9b8seit0B7wj+v5lXpJMaV75vjCORvM=",
-    "aarch64-linux": "sha256-YC7v3cD9hwQ/jwjYYo1yWS5YAsADoF8gPx7LxjqP3TA="
+    "version": "18.4.5",
+    "x86_64-linux": "sha256-QscQI5s/wwuXWUJPlzxsFDcJk11XUr5+7I17AR9A2GQ=",
+    "aarch64-linux": "sha256-Pc9qf4R7jC97xSlMUqCRUehYV4rjYQZVuCv5f/oSCnI="
   },
   "herdr": {
     "version": "0.9.3",
