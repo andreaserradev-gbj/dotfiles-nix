@@ -110,5 +110,11 @@ in
     sops.secrets.TYPESAFE_API_KEY = {
       owner = user.username;
     };
+    # Z.ai coding-plan key for the default model in both agent CLIs: omp's
+    # models.yml pin (`apiKey: "!cat /run/secrets/ZAI_API_KEY"`) and opencode's
+    # `provider.zai.options.apiKey = "{env:ZAI_API_KEY}"`. Same owner/mode.
+    sops.secrets.ZAI_API_KEY = {
+      owner = user.username;
+    };
   };
 }

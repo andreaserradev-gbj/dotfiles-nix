@@ -134,12 +134,28 @@ lib.mkIf osConfig.local.dev.enable {
       };
     };
 
+    # z.ai coding plan — the DEFAULT provider (model below): the same GLM
+    # 5.3 Flash as omp's default so the agent-bench comparison runs one model
+    # on both harnesses (doc/omp.md). openai-compatible endpoint; the key comes
+    # from the guarded shell export via {env:...}, the same expansion the
+    # context7 header further down uses. Limits are z.ai's published
+    # coding-plan figures; `limit.output` is schema-required.
+    provider.zai = {
+      npm = "@ai-sdk/openai-compatible";
+      options.baseURL = "https://api.z.ai/api/coding/paas/v4";
+      options.apiKey = "{env:ZAI_API_KEY}";
+      models."glm-5.3-flash".limit = {
+        context = 1000000;
+        output = 131072;
+      };
+    };
+
     # No custom agents: opencode's built-in plan agent already denies edits, and
     # both modes run on the top-level `model` below (Ctrl+T switches model).
-    # Default is the deepseek-v4.1 cloud stub, kept identical to omp's
+    # Default is z.ai's GLM 5.3 Flash, kept identical to omp's
     # `modelRoles.default` so the agent-bench comparison runs the same model on
     # both harnesses (doc/omp.md).
-    model = "ollama/deepseek-v4.1-flash:cloud";
+    model = "zai/glm-5.3-flash";
 
     # DRIFT WARNING: the same two servers are declared in modules/home/omp.nix,
     # so an edit must land in both (cross-linked on purpose, doc/omp.md).

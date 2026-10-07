@@ -41,13 +41,15 @@ in
       # edits survive until the next switch, so anything not declared here is
       # silently lost at the next rebuild.
       settings = {
-        # Default model — mirrors opencode.json's `model`: the deepseek-v4.1
-        # cloud stub (user pick, 2026-09-22) served by the LOCAL daemon at
-        # 127.0.0.1:11434, so the 890M never sees the work. The `:high` suffix is
+        # Default model — mirrors opencode.json's `model`: z.ai's GLM 5.3 Flash
+        # on the coding-plan endpoint, the same model on both harnesses so the
+        # agent-bench comparison stays apples-to-apples. The `:high` suffix is
         # omp's thinking-level syntax (`provider/model:level`) and is declared
-        # because a runtime pick is wiped by the next switch. No models.yml: omp
-        # discovers ollama's per-tag context and capabilities from /api/show.
-        modelRoles.default = "ollama/deepseek-v4.1-flash:cloud:high";
+        # because a runtime pick is wiped by the next switch. The deepseek cloud
+        # stub stays selectable for benchmarks; models.yml (below) pins only the
+        # zai key — ollama needs no entry there, omp discovers its per-tag
+        # context and capabilities from /api/show.
+        modelRoles.default = "zai/glm-5.3-flash:high";
 
         # Web search walks modelRoles.web, not a model provider: without this it
         # falls through to keyless scrapes and browser-backed engines that need a
@@ -103,6 +105,19 @@ in
         headers.Authorization = "Bearer \${CONTEXT7_API_KEY}";
       };
     };
+
+    # Provider credentials, override-only: the built-in `zai` provider keeps its
+    # catalog endpoint (the global coding-plan URL) and models; only the key is
+    # pinned, using omp's `!` syntax (run command, take trimmed stdout) so the
+    # value never lands in a repo file. A models.yml apiKey deliberately beats
+    # the stored login key, so no per-host `omp logout` is needed. Store symlink
+    # like mcp.json above: a hand-edit fails loudly instead of drifting. Ollama
+    # gets no entry — discovery comes from the daemon (/api/show).
+    home.file.".omp/agent/models.yml".text = ''
+      providers:
+        zai:
+          apiKey: "!cat /run/secrets/ZAI_API_KEY"
+    '';
 
     # Global agent rules, user scope — the same store asset as opencode's copy
     # (config/agents/AGENTS.md). Discovery keeps only ONE user-scope context file

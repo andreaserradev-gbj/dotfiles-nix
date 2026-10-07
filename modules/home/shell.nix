@@ -126,6 +126,12 @@ lib.mkIf osConfig.local.dev.enable {
       # export wins over the project's .env.
       export TYPESAFE_API_KEY="$(cat /run/secrets/TYPESAFE_API_KEY 2>/dev/null)"
 
+      # ZAI_API_KEY — runtime secret for the z.ai provider, the declarative
+      # default model in omp and opencode on dev hosts. Same provisioning and
+      # same guard as the two keys above; see doc/secrets.md for why env-export
+      # is an accepted exception for this low-value, rate-limit-scoped key.
+      export ZAI_API_KEY="$(cat /run/secrets/ZAI_API_KEY 2>/dev/null)"
+
       # fzf navigation helpers
       fcd() { cd "$(find . -type d -not -path '*/.*' | fzf)" && l; }
       fv()  { nvim "$(find . -type f -not -path '*/.*' | fzf)"; }

@@ -28,6 +28,7 @@ the *package* comes from a flake input (herdr, a locally built FOD, needs none).
 | herdr extension (`~/.omp/agent/extensions/herdr-omp-agent-state.ts`) | Nix | vendored asset, deployed by [herdr.nix](../modules/home/herdr.nix) — see [herdr.md](herdr.md) |
 | zsh completions | Nix | cached generator in omp.nix (regenerates when the binary is newer than the cache) |
 | **ollama.com API key** | **manual, per host** | first-run wizard or `/login ollama-cloud` → `~/.omp/agent/agent.db` |
+| z.ai coding-plan API key | Nix (sops-provisioned) | `~/.omp/agent/models.yml` store symlink in [omp.nix](../modules/home/omp.nix), pinning `providers.zai.apiKey` to `/run/secrets/ZAI_API_KEY` ([secrets.md](secrets.md)) |
 | sessions, logs, caches | stateful | `~/.omp/agent/sessions`, `~/.omp/logs`, `~/.omp/cache` — Nix-ignorable |
 
 ## What Nix declares
@@ -41,25 +42,39 @@ then loses to the declaration. **Anything not declared in
 that block rather than re-picking at runtime. The declared keys and their reasons
 are commented there; two consequences worth stating here:
 
-- No `models.yml`: omp discovers ollama implicitly (`/api/tags` + `/api/show`), so
-  per-tag context windows and capabilities come from the daemon — the
-  stale-`limit` maintenance class in [opencode.nix](../modules/home/opencode.nix)
-  cannot recur here.
+- `models.yml` is override-only — it pins the zai key (next section) and adds
+  no model catalog. omp still discovers ollama implicitly (`/api/tags` +
+  `/api/show`), so per-tag context windows and capabilities come from the
+  daemon — the stale-`limit` maintenance class in
+  [opencode.nix](../modules/home/opencode.nix) cannot recur here.
 - Nix ownership is safe by upstream guard, not by an absent updater:
   `resolveUpdateMethod` classifies any `/nix/store` path as `"nix"` and `omp
   update` then exits with "This installation is managed by Nix and cannot update
   itself."
 
-## The per-host API key (manual, like `ollama signin`)
+## The API keys: zai declarative, ollama manual
 
-The ollama.com credential is not declarable — it is the account's API-key form
-(create at ollama.com/settings/keys, free tier), pasted once per dev host into
-omp's auth store (`agent.db`, SQLite, app-local). This mirrors the daemon's own
-`ollama signin`: the cloud model is reached through the local daemon (keyless from
-the agent's perspective), but omp's *search* provider needs the key directly.
-`agent.db` is outside Nix's reach and survives rebuilds and GC. A fresh host needs:
-rebuild (binary + routing) → run `omp` → paste the key when asked (or `/login` →
-ollama-cloud); the wizard is otherwise suppressed.
+omp holds two provider credentials with different ownership:
+
+- **zai (declarative, tier 1).** The coding-plan key is provisioned by
+  sops-nix to `/run/secrets/ZAI_API_KEY` on dev hosts ([secrets.md](secrets.md));
+  the HM-managed `models.yml` ([omp.nix](../modules/home/omp.nix)) pins
+  `providers.zai.apiKey` to it with omp's `!` syntax (run the command, take
+  trimmed stdout), so the value never lands in a repo file. A models.yml key
+  outranks a stored login, so nothing interactive is needed: a fresh dev host
+  picks the key up on first `omp` start, and a stored `agent.db` zai row (from
+  the pre-sops era) is only a redundant fallback — `omp logout zai` removes it
+  along with its stale-key-on-rotation risk.
+- **ollama.com (manual, like `ollama signin`).** Not declarable — it is the
+  account's API-key form (create at ollama.com/settings/keys, free tier), pasted
+  once per dev host into omp's auth store (`agent.db`, SQLite, app-local). This
+  mirrors the daemon's own `ollama signin`: the cloud model is reached through
+  the local daemon (keyless from the agent's perspective), but omp's *search*
+  provider needs the key directly. `agent.db` is outside Nix's reach and
+  survives rebuilds and GC. A fresh host needs: rebuild (binary + routing) →
+  run `omp` → paste the key when asked (or `/login` → ollama-cloud); the wizard
+  is otherwise suppressed. Tier 2: re-run after a reinstall
+  ([secrets.md](secrets.md)).
 
 ## MCP: the two-file drift warning
 
@@ -132,7 +147,8 @@ which is why the pin file cannot feed `inputs.*.url` — see the comment on the 
   second nixpkgs out of the lock, and `omp.inputs.nixpkgs-darwin-x64.follows =
   "nixpkgs"` avoids a third for a platform no host here is on.
 - **Where settings live**: `~/.omp/agent/config.yml` (main, HM-owned writable
-  copy), `<cwd>/.omp/config.yml` (project overrides), `agent.db` (credentials,
+  copy), `<cwd>/.omp/config.yml` (project overrides), `models.yml` (HM-owned
+  store symlink, provider key pins), `agent.db` (credentials,
   usage counters, MCP OAuth), `mcp.json`, logs under `~/.omp/logs`. `omp config
   path` prints the active agent dir; `PI_CODING_AGENT_DIR` relocates it (herdr's
   omp integration honors the same variable).
