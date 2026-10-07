@@ -103,6 +103,34 @@ curl -s http://127.0.0.1:11434/api/ps | jq '.models[] | {size, size_vram, contex
 journalctl -u ollama --no-pager | grep -E 'llama_server|llama_kv_cache|vram-based'
 ```
 
+## Runner A/B — ollama vs mainline llama.cpp (2026-10-07)
+
+Whether the runner vendored into ollama 0.35.1 leaves speed on the table.
+llama.cpp side: nixpkgs-unstable `llama-cpp` 0.5.0 (Vulkan, build 11146) as
+`llama-server`/`llama-bench`, same model blob, same protocol (seed 42, temp 0,
+300-tok decode; fresh random prompt for prefill), `-ngl 99 -c 262144 -fa on
+-b 2048 -ub <u> -np 1 --no-mmproj`. ollama rows from the tables above.
+
+| metric | ollama 0.35.1 | llama.cpp 0.5.0 | winner |
+| --- | --- | --- | --- |
+| decode, MTP draft 2 | 29-31 t/s | 27.7 t/s (draft 1 same, draft 3: 26.0) | ollama +11% |
+| decode, MTP off | 24 t/s | 24.2 t/s | tie — runner baselines identical |
+| prefill, 1520 tok fresh | ~364 t/s | 531.7 t/s at ub 2048 (456.6 at ub 512) | llama.cpp +46% |
+| prefill, ~11k tok fresh | 348 t/s | 376.5 (MTP off) / 322.1 (MTP on) | wash — attention depth dominates |
+
+Verdict: keep ollama. Decode is the interactive metric and ollama's vendored
+MTP is 11% ahead of mainline's; the mid-depth prefill win does not survive to
+~11k. Re-check with `unstablePkgs.llama-cpp.override { vulkanSupport = true; }`
+(the default build is BLAS/CPU-only) and:
+
+```sh
+llama-bench -m <35b-blob> -ngl 99 -fa 1 -b 2048 -ub 512,1024,2048 -p 1520 -n 128 -r 3
+```
+
+If a long-prompt TTFT session ever justifies it: mainline `llama-server` with
+`-ub 2048 --spec-type draft-mtp --spec-draft-n-max 2` on a second port, never
+loaded beside the daemon's model (22+22 GiB > 35.3 GiB pool).
+
 ## Daemon decisions (the "why" next to each knob)
 
 Every knob here has a measurement behind it; these verdicts are the record:
@@ -119,7 +147,7 @@ Every knob here has a measurement behind it; these verdicts are the record:
 | MTP `draft_num_predict` | 2 (GGUF-shipped) | measured A/B above; **do not touch** |
 | `loadModels` / boot preload | not used | pulls but does not preload; boot-time preload would pin 22 GiB and slow every boot for nothing |
 | `OLLAMA_GPU_OVERHEAD` | 0 (default) | makes the scheduler assume less VRAM (conservative packing) — relevant only if ollama must refuse loads while a game hogs GTT; not needed today |
-| runner flags (`-b/-ub 512`, `--context-shift`, `--keep 4`) | daemon-fixed | not user-tunable via env; no measured pathology |
+| runner flags (`-b/-ub 512`, `--context-shift`, `--keep 4`) | daemon-fixed | not user-tunable via env; the ub 512 pin costs mid-depth prefill vs mainline (runner A/B above), decode unaffected |
 
 Package: `unstablePkgs.ollama-vulkan`. Vulkan-not-ROCm is the standing choice:
 ROCm on this part is the reported 6.42 tok/s (ollama#9999 — an
