@@ -1,7 +1,8 @@
 # Secret management (sops-nix)
 
 Secrets that **configuration itself consumes** (the context7 MCP API key was
-the first, the typesafe-lab `real` provider key the second) live in this repo
+the first, the typesafe-lab `real` provider key the second, the z.ai
+coding-plan key the third) live in this repo
 as age-encrypted ciphertext, committed and pushed like any other file.
 Decryption happens on each machine, at activation, with that machine's own
 SSH host key — by [sops-nix](https://github.com/Mic92/sops-nix). Nothing is
@@ -21,6 +22,7 @@ metadata elided, and within the `sops:` block only the shape is shown):
 
 ```yaml
 CONTEXT7_API_KEY: ENC[AES256_GCM,data:GH6XZ2/…,iv:…,tag:…,type:str]
+ZAI_API_KEY: ENC[AES256_GCM,data:Qm4kR9/…,iv:…,tag:…,type:str]
 sops:
     age:
         - recipient: age10p2fkelpq…
@@ -54,6 +56,12 @@ secrets/andrea/secrets.yaml   (committed ciphertext; inert in the nix store)
         │  zsh initContent: export CONTEXT7_API_KEY="$(cat … 2>/dev/null)"
         ▼
 opencode.json mcp.context7 → "Authorization: Bearer {env:CONTEXT7_API_KEY}"
+
+/run/secrets/ZAI_API_KEY  (same activation, third key)
+        ├─ omp: models.yml pin  apiKey: "!cat /run/secrets/ZAI_API_KEY"
+        │     (read at omp startup; beats a stored login key — no env involved)
+        └─ zsh initContent: export ZAI_API_KEY="$(cat … 2>/dev/null)"
+              └─ opencode.json provider.zai.options.apiKey = "{env:ZAI_API_KEY}"
 ```
 
 The shell export is **guarded** (`2>/dev/null`): on a host where no secret
@@ -111,7 +119,8 @@ Rules that have bitten once already:
 
 - **Verify after every save.** The first line of
   `secrets/andrea/secrets.yaml` must be a top-level key ending in `ENC[`
-  (currently `CONTEXT7_API_KEY:`, then `TYPESAFE_API_KEY:`). A save that
+  (currently `CONTEXT7_API_KEY:`, then `TYPESAFE_API_KEY:`, then
+  `ZAI_API_KEY:`). A save that
   fails (or an editor writing a scratch placeholder) leaves plaintext on
   disk — delete and retry. sops writes ciphertext only after the editor
   exits; the `/tmp/sopsNNN` file it shows is scratch, never the target.
@@ -147,7 +156,7 @@ configuration-consumed secrets only":
 
 | tier | what | where it lives | why not sops |
 | ---- | ---- | -------------- | ------------ |
-| 1 — config-consumed | `CONTEXT7_API_KEY` (MCP header), `TYPESAFE_API_KEY` (typesafe-lab real provider) | `secrets/andrea/secrets.yaml` | read by config or a project's env-reading CLI at runtime; needs a machine-provisioned value |
+| 1 — config-consumed | `CONTEXT7_API_KEY` (MCP header), `TYPESAFE_API_KEY` (typesafe-lab real provider), `ZAI_API_KEY` (z.ai coding plan; default model in omp + opencode) | `secrets/andrea/secrets.yaml` | read by config or a project's env-reading CLI at runtime; needs a machine-provisioned value |
 | 2 — keyring logins | `gh`, `ollama`, opencode's `auth.json` | OS keyring / OAuth flows, imperative | interactive, per-user, needs browser round-trips; `gh auth login` etc. survive in a keyring that flake commits cannot and should not touch |
 | 3 — browser-internal | site logins, cookies, saved passwords | inside each browser's own store | never exported, on any tier; treating browser state as config would be a security regression |
 
@@ -156,7 +165,11 @@ interactive logins must be re-run once:
 
 - `gh auth login` (git and CLI credential helper)
 - `ollama signin` (account sync)
-- opencode: re-run its auth flow (`auth.json` is regenerated)
+- opencode: re-run its auth flow (`auth.json` is regenerated) — no longer
+  needed for z.ai specifically: that credential moved to Tier 1, so both
+  harnesses self-heal from the committed ciphertext (opencode via `{env:}`,
+  omp via the models.yml pin). omp's stored `agent.db` zai row, if it still
+  exists from the pre-sops era, is only a redundant fallback the pin outranks.
 
 Only Tier 1 comes back for free — reboot after rebuild and `/run/secrets`
 is filled from the committed ciphertext.
@@ -168,7 +181,12 @@ is filled from the committed ciphertext.
   exists only in `/run/secrets` (ramfs, 0400) and in the consuming process.
 - **HNDL (harvest-now, decrypt-later).** Accepted for these keys. The
   secrets here are low-value rate-limit keys, not payment credentials; if
-  that changes, the tier table is the thing to revisit first.
+  that changes, the tier table is the thing to revisit first. The z.ai
+  coding-plan key is the strongest of the three (metered use of a paid
+  plan) and is the named exception of
+  [shell.nix](../modules/home/shell.nix)'s do-not-copy warning on env
+  exports — accepted because its exposure surface matches the other two:
+  a 0400 ramfs copy, wiped at reboot, never plaintext at rest.
 - **Repo-write attacker.** Can replace the ciphertext with their own, but
   tampering with existing ciphertext fails the MAC — and the recipient list
   in `.sops.yaml` diffs is the tripwire: a new recipient key appears in git
