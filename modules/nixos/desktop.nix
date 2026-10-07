@@ -74,6 +74,69 @@ in
     # the Hyprland-era replacement for it, not a companion.
     hardware.bluetooth.enable = true;
 
+    # Audio sinks reconnect to their last host on their own when they power on,
+    # but a host that vanished mid-session (reboot) gets no re-dial, and GNOME
+    # never dials out itself. The connect must happen in the USER session, not
+    # early at boot: a device connected during the GDM greeter phase negotiates
+    # its A2DP transport against the greeter's PipeWire, and the transport dies
+    # when the real session replaces it — connected at the login screen,
+    # dropped at login. Ordered after graphical-session.target, the
+    # connection binds to the session audio stack that owns the endpoints.
+    #
+    # Every bluetoothctl call is wrapped in `timeout`: against a powered-off or
+    # sleeping speaker the D-Bus calls block indefinitely (observed: a connect
+    # loop stalled 2 minutes and was killed by the unit timeout). Devices that
+    # are merely absent therefore cost one bounded, logged attempt each.
+    systemd.user.services.bluetooth-reconnect = {
+      description = "Reconnect trusted Bluetooth devices at login";
+      after = [ "graphical-session.target" ];
+      wantedBy = [ "graphical-session.target" ];
+      path = [ pkgs.bluez ];
+      serviceConfig = {
+        Type = "oneshot";
+        TimeoutStartSec = "3min";
+      };
+      script = ''
+        for attempt in 1 2 3; do
+          pending=0
+          # A wedged bluetoothd makes these calls block indefinitely, and a
+          # killed call must look PENDING (retry), never like "nothing to do":
+          # an empty device list or an unreadable device would otherwise turn
+          # the whole run into a silent no-op.
+          devs="$(timeout -k 5 10 bluetoothctl devices Paired)" || {
+            echo "attempt $attempt: devices query failed"
+            pending=1
+            sleep 5
+            continue
+          }
+          macs="$(echo "$devs" | cut -d ' ' -f 2)"
+          for mac in $macs; do
+            rc=0
+            info="$(timeout -k 5 10 bluetoothctl info "$mac" 2>&1)" || rc=$?
+            if [ "$rc" -ne 0 ]; then
+              echo "attempt $attempt: info $mac failed (rc=$rc)"
+              pending=1
+              continue
+            fi
+            echo "$info" | grep -q 'Connected: yes' && continue
+            echo "$info" | grep -q 'Trusted: yes' || continue
+            pending=1
+            echo "attempt $attempt: connecting $mac"
+            timeout -k 5 20 bluetoothctl connect "$mac" 2>&1 || true
+          done
+          [ "$pending" -eq 0 ] && exit 0
+          sleep 5
+        done
+        exit 0
+      '';
+    };
+
+    # Observed on a reboot: a connect racing the greeter→session endpoint
+    # churn hit a BlueZ a2dp.c assertion and bluetoothd died (SIGABRT) for the
+    # whole session — with no Restart= in the unit. The user-unit timing above
+    # avoids the race window; this makes the residual crash self-heal.
+    systemd.services.bluetooth.serviceConfig.Restart = "on-failure";
+
     # Printing, plus the mDNS that finds the printer. Same shape as Bluetooth
     # above, for the same reason: GNOME turns avahi on, so printer discovery
     # would vanish with the Hyprland swap while cupsd kept running. `nssmdns4`
