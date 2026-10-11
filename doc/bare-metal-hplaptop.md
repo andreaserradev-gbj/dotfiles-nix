@@ -11,8 +11,7 @@ from that:
 
 - **No dev tooling, no sshd.** `local.dev.enable = false` in
   `hosts/hplaptop/default.nix` (explicit). The `dev.nix` seam gates nix-ld,
-  ollama, opencode, nodejs, uv, jq, python3, **and** sshd + authorized_keys —
-  all off.
+  ollama, nodejs, uv, jq, python3, **and** sshd + authorized_keys — all off.
 - **Vanilla GNOME**, not PaperWM + Catppuccin. `local.desktop.variant =
   "vanilla"` skips the HM theming modules (see the desktop module's callout).
 - **LibreOffice enabled** (`local.desktop.libreoffice.enable = true`) — Elisa

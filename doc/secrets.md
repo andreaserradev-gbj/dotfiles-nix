@@ -55,18 +55,16 @@ secrets/andrea/secrets.yaml   (committed ciphertext; inert in the nix store)
 /run/secrets/CONTEXT7_API_KEY  (ramfs, mode 0400, owner andrea, gone at reboot)
         │  zsh initContent: export CONTEXT7_API_KEY="$(cat … 2>/dev/null)"
         ▼
-opencode.json mcp.context7 → "Authorization: Bearer {env:CONTEXT7_API_KEY}"
+mcp.json mcpServers.context7 → "Authorization: Bearer ${CONTEXT7_API_KEY}"
 
 /run/secrets/ZAI_API_KEY  (same activation, third key)
-        ├─ omp: models.yml pin  apiKey: "!cat /run/secrets/ZAI_API_KEY"
-        │     (read at omp startup; beats a stored login key — no env involved)
-        └─ zsh initContent: export ZAI_API_KEY="$(cat … 2>/dev/null)"
-              └─ opencode.json provider.zai.options.apiKey = "{env:ZAI_API_KEY}"
+        └─ omp: models.yml pin  apiKey: "!cat /run/secrets/ZAI_API_KEY"
+              (read at omp startup; beats a stored login key — no env involved)
 ```
 
 The shell export is **guarded** (`2>/dev/null`): on a host where no secret
 is provisioned — before the first rebuild, or a non-recipient machine — the
-variable is simply empty and opencode degrades to context7's anonymous
+variable is simply empty and context7 degrades to its anonymous
 (rated-limited) mode. No shell ever errors over a missing secret.
 
 ## Trust boundary
@@ -156,8 +154,8 @@ configuration-consumed secrets only":
 
 | tier | what | where it lives | why not sops |
 | ---- | ---- | -------------- | ------------ |
-| 1 — config-consumed | `CONTEXT7_API_KEY` (MCP header), `TYPESAFE_API_KEY` (typesafe-lab real provider), `ZAI_API_KEY` (z.ai coding plan; default model in omp + opencode) | `secrets/andrea/secrets.yaml` | read by config or a project's env-reading CLI at runtime; needs a machine-provisioned value |
-| 2 — keyring logins | `gh`, `ollama`, opencode's `auth.json` | OS keyring / OAuth flows, imperative | interactive, per-user, needs browser round-trips; `gh auth login` etc. survive in a keyring that flake commits cannot and should not touch |
+| 1 — config-consumed | `CONTEXT7_API_KEY` (MCP header), `TYPESAFE_API_KEY` (typesafe-lab real provider), `ZAI_API_KEY` (z.ai coding plan; omp's default model) | `secrets/andrea/secrets.yaml` | read by config or a project's env-reading CLI at runtime; needs a machine-provisioned value |
+| 2 — keyring logins | `gh`, `ollama`, omp's ollama.com key (`agent.db`) | OS keyring / OAuth flows, imperative | interactive, per-user, needs browser round-trips; `gh auth login` etc. survive in a keyring that flake commits cannot and should not touch |
 | 3 — browser-internal | site logins, cookies, saved passwords | inside each browser's own store | never exported, on any tier; treating browser state as config would be a security regression |
 
 Practical consequence of being Tier 2: after a **host reinstall**, the
@@ -165,11 +163,10 @@ interactive logins must be re-run once:
 
 - `gh auth login` (git and CLI credential helper)
 - `ollama signin` (account sync)
-- opencode: re-run its auth flow (`auth.json` is regenerated) — no longer
-  needed for z.ai specifically: that credential moved to Tier 1, so both
-  harnesses self-heal from the committed ciphertext (opencode via `{env:}`,
-  omp via the models.yml pin). omp's stored `agent.db` zai row, if it still
-  exists from the pre-sops era, is only a redundant fallback the pin outranks.
+- omp's ollama.com key (`/login` → ollama-cloud; see [doc/omp.md](omp.md)).
+  z.ai needs nothing: that credential moved to Tier 1 and self-heals from the
+  committed ciphertext via the models.yml pin — a stored `agent.db` zai row
+  from the pre-sops era is only a redundant fallback the pin outranks.
 
 Only Tier 1 comes back for free — reboot after rebuild and `/run/secrets`
 is filled from the committed ciphertext.

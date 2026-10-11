@@ -254,13 +254,12 @@ To move to a new release (e.g. 26.05 → 26.11):
 > ROCm-regression comment there). A missing attribute fails at eval time, so
 > `nrp` catches it before anything is activated.
 
-Between releases, version bumps for fast-moving CLI tools (opencode, zellij)
-land on `nixos-unstable` only — they are not backported to the stable
-branch, so seeing no version movement on `nfu` is the normal condition, not a
-broken update. Two tools are the exception, both pinned from
-`nixpkgs-unstable` via the escape hatch below: `ollama` since 2026-09-11 and
-`opencode` since 2026-09-22. For both, `nfu` (or a targeted
-`nix flake update nixpkgs-unstable`) DOES move them.
+Between releases, version bumps for fast-moving CLI tools (zellij) land on
+`nixos-unstable` only — they are not backported to the stable branch, so
+seeing no version movement on `nfu` is the normal condition, not a broken
+update. One tool is the exception, pinned from `nixpkgs-unstable` via the
+escape hatch below: `ollama` since 2026-09-11. For it, `nfu` (or a targeted
+`nix flake update nixpkgs-unstable`) DOES move it.
 
 ### Need a newer version before the next release?
 
@@ -273,18 +272,17 @@ inputs.nixpkgs-unstable.url = "github:NixOs/nixpkgs/nixos-unstable";
 
 The input exists in [flake.nix](../flake.nix) today, and the binding is
 **passed to every host**: `specialArgs` on each `nixosConfigurations` entry
-carries `unstablePkgs = nixpkgs-unstable.legacyPackages.<system>` because a
-shared module consumes it — `modules/nixos/dev.nix` takes it for opencode.
-What stays gated is the *forcing*: the second tree is evaluated lazily, on
-first reference, and only these sites reference it — `ollama-vulkan` in
-[hosts/geekom/default.nix](../hosts/geekom/default.nix) and `unstablePkgs.opencode`
-inside dev.nix's `mkIf cfg.enable`. hplaptop receives the binding and her
-closure is byte-identical (`check-hosts.sh` is the proof: her drvPath has never
-moved across this refactor). So the rule for new code is: reference
-`unstablePkgs` from a host file, or from a shared module **behind the dev
-gate** — never from shared code every host evaluates unconditionally.
+carries `unstablePkgs = nixpkgs-unstable.legacyPackages.<system>`. What keeps
+the blast radius small is the *lazy forcing*: the second tree is evaluated
+only on first reference, and today the only referencing site is
+`ollama-vulkan` in [hosts/geekom/default.nix](../hosts/geekom/default.nix).
+hplaptop receives the binding and her closure is byte-identical
+(`check-hosts.sh` is the proof: her drvPath has never moved across this
+refactor). So the rule for new code is: reference `unstablePkgs` from a host
+file, or from a shared module **behind the dev gate** — never from shared
+code every host evaluates unconditionally.
 
-Adopted for two packages so far:
+Adopted for one package so far:
 
 - `ollama-vulkan` on geekom
   ([hosts/geekom/default.nix](../hosts/geekom/default.nix), 2026-09-11): 0.32.15+
@@ -295,18 +293,6 @@ Adopted for two packages so far:
   [doc/local-llm.md](local-llm.md)). The older caution against pulling ollama
   from unstable mid-cycle was written without measurements and is superseded by
   that doc.
-- `opencode` on geekom and the VM (2026-09-22), through
-  [modules/nixos/dev.nix](../modules/nixos/dev.nix) (`unstablePkgs.opencode` in
-  its `environment.systemPackages`, inside the dev gate): 26.05 carries
-  1.15.10 while unstable carries 1.18.x, three minor series of agent fixes the
-  stable branch will not have before the next release. Adopted with no on-box
-  gate because the tool is a userland CLI with no daemon, no GPU path and no
-  vendored C/C++ backend — the reason this row was named a fit long before it
-  was taken. Cost paid: geekom's closure grows by ~104 MiB (`nvd`-verified) and
-  the unstable tree's `bash`/`ripgrep`/`pcre2` come along for opencode's
-  wrapper, so a stable-tree `nfu` no longer implies "nothing in the closure
-  compiles" for these two hosts. Both opencode outputs substitute from
-  cache.nixos.org on x86_64 and aarch64, so neither CI nor the VM compiles it.
 
 For any NEW tool: the trade-off is a second nixpkgs evaluation (lazy, but a
 daily-moving lock entry) versus a version the stable branch will not carry

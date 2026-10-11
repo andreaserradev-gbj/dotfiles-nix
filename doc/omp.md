@@ -1,14 +1,12 @@
-# omp (oh-my-pi) — the second coding agent
+# omp (oh-my-pi) — the coding agent
 
 omp ([github:can1357/oh-my-pi](https://github.com/can1357/oh-my-pi)) is a coding
 agent — a fork of Mario Zechner's Pi with an expanded tool surface (LSP wired in,
 DAP debugging, subagents, web search). It was adopted through the
-[adoption ladder](adopting-tools.md) as a **coexisting** second harness alongside
-[opencode](../modules/home/opencode.nix), and is dev-gated like herdr.
+[adoption ladder](adopting-tools.md) and is dev-gated like herdr.
 
-Which agent is *primary* is deliberately not decided here: a benchmark harness
-(`~/code/agent-bench`, own PRD; same tasks × same models) will drive any switch,
-and it should invoke the installed, pinned binary — never `nix run …main`, which
+The benchmark harness (`~/code/agent-bench`, own PRD; same tasks × same models)
+compares agents on the installed, pinned binaries — never `nix run …main`, which
 would let a release change the harness under recorded results.
 
 ## Ownership: Nix-managed vs manual/stateful
@@ -24,7 +22,7 @@ the *package* comes from a flake input (herdr, a locally built FOD, needs none).
 | omp binary | Nix | `omp` flake input (tag-pinned, `programs.omp.package` → [omp-prebuilt.nix](../modules/home/omp-prebuilt.nix)); version + both hashes from the `omp` entry in [tool-pins.json](../modules/home/tool-pins.json) |
 | `~/.omp/agent/config.yml` | **Nix-declared, writable copy** | upstream HM module: `programs.omp.settings`; re-imposed on every `home-manager switch` |
 | `~/.omp/agent/mcp.json` | Nix | `home.file` in [omp.nix](../modules/home/omp.nix), store symlink |
-| `~/.omp/agent/AGENTS.md` (global agent rules) | Nix | `home.file` in omp.nix, store symlink — the same asset opencode loads as its global rules ([opencode.nix](../modules/home/opencode.nix)) |
+| `~/.omp/agent/AGENTS.md` (global agent rules) | Nix | `home.file` in omp.nix, store symlink from [config/agents/AGENTS.md](../config/agents/AGENTS.md) |
 | herdr extension (`~/.omp/agent/extensions/herdr-omp-agent-state.ts`) | Nix | vendored asset, deployed by [herdr.nix](../modules/home/herdr.nix) — see [herdr.md](herdr.md) |
 | zsh completions | Nix | cached generator in omp.nix (regenerates when the binary is newer than the cache) |
 | **ollama.com API key** | **manual, per host** | first-run wizard or `/login ollama-cloud` → `~/.omp/agent/agent.db` |
@@ -45,8 +43,7 @@ are commented there; two consequences worth stating here:
 - `models.yml` is override-only — it pins the zai key (next section) and adds
   no model catalog. omp still discovers ollama implicitly (`/api/tags` +
   `/api/show`), so per-tag context windows and capabilities come from the
-  daemon — the stale-`limit` maintenance class in
-  [opencode.nix](../modules/home/opencode.nix) cannot recur here.
+  daemon — there is no client-side model catalog to maintain.
 - Nix ownership is safe by upstream guard, not by an absent updater:
   `resolveUpdateMethod` classifies any `/nix/store` path as `"nix"` and `omp
   update` then exits with "This installation is managed by Nix and cannot update
@@ -76,26 +73,23 @@ omp holds two provider credentials with different ownership:
   is otherwise suppressed. Tier 2: re-run after a reinstall
   ([secrets.md](secrets.md)).
 
-## MCP: the two-file drift warning
+## MCP servers
 
-The two MCP servers (nixos, context7) are declared **twice**, in native shape per
-agent: the `mcp` key in [opencode.json](../modules/home/opencode.nix)
-(`{env:VAR}` interpolation) and `mcpServers` in `~/.omp/agent/mcp.json`
-(Claude-style `${VAR}`, `home.file` store symlink). **An edit to either server must
-land in both files** — the accepted cost of keeping omp's opencode-compat provider
-off ([omp.nix](../modules/home/omp.nix) carries the reasons). The context7 auth
-chain is identical in both: sops-nix puts the key in `/run/secrets` (dev hosts
-only — [secrets.md](secrets.md)), the guarded
-[shell.nix](../modules/home/shell.nix) export feeds the environment, and the
-empty-var fallback yields context7's anonymous mode instead of a broken request.
+The two MCP servers (nixos, context7) are declared once, in
+`~/.omp/agent/mcp.json` (Claude-style `${VAR}`, `home.file` store symlink —
+[omp.nix](../modules/home/omp.nix)). The context7 auth chain: sops-nix puts
+the key in `/run/secrets` (dev hosts only — [secrets.md](secrets.md)), the
+guarded [shell.nix](../modules/home/shell.nix) export feeds the environment,
+and the empty-var fallback yields context7's anonymous mode instead of a
+broken request.
 
 ## herdr integration
 
-Like the opencode plugin, the omp extension is vendored byte-for-byte from herdr's
-source tree and deployed by [herdr.nix](../modules/home/herdr.nix) — keeping both
-herdr↔agent couplings greppable in one place. The two assets carry **independent**
-version counters, and the tag-bump checklist in [herdr.md](herdr.md) covers both.
-Verify with `herdr integration status` (expect `omp: current`).
+The omp extension is vendored byte-for-byte from herdr's
+source tree and deployed by [herdr.nix](../modules/home/herdr.nix) — keeping
+the herdr↔agent coupling greppable in one place, re-fetched from the same
+release tag as the binary by the checklist in [herdr.md](herdr.md). Verify
+with `herdr integration status` (expect `omp: current`).
 
 ## Update checklist (per omp tag bump)
 
@@ -155,7 +149,7 @@ which is why the pin file cannot feed `inputs.*.url` — see the comment on the 
 - The omp `browser` tool (Chromium automation) is unwired — its browser daemon
   needs `PUPPETEER_EXECUTABLE_PATH` pointed at a real Chromium, since the bundled
   Puppeteer download cannot work on NixOS. Search does not need it. Wiring Brave in
-  is a trial item if omp ever becomes primary.
+  is an open trial item.
 - `nix run github:can1357/oh-my-pi` is **ephemeral** — no GC root, swept by
   `ngca`; the installed binary from the module is the permanent path.
 - Skills: `~/.agents/skills/` loads by default — omp treats `.agents/skills` as
@@ -165,8 +159,6 @@ which is why the pin file cannot feed `inputs.*.url` — see the comment on the 
 
 - [doc/herdr.md](herdr.md) — the herdr adoption (same flake pattern); owns the omp
   extension asset
-- [modules/home/opencode.nix](../modules/home/opencode.nix) — the first agent;
-  holds the MCP block this module mirrors
 - [doc/adopting-tools.md](adopting-tools.md) — the ladder this followed
 - [doc/workflow.md](workflow.md) — rebuild aliases, release cycle
 - upstream docs: [omp.sh/docs](https://omp.sh/docs)

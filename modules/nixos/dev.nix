@@ -1,12 +1,11 @@
 # The developer tooling seam. Imported by EVERY host through commonModules, but
 # wholly inert unless the host sets `local.dev.enable`. hplaptop leaves it off:
-# a non-technical user's machine with no nix-ld, ollama, opencode, nodejs, uv,
-# jq, python3, and no sshd.
+# a non-technical user's machine with no nix-ld, ollama, nodejs, uv, jq,
+# python3, and no sshd.
 {
   config,
   lib,
   pkgs,
-  unstablePkgs,
   user,
   ...
 }:
@@ -15,7 +14,7 @@ let
   cfg = config.local.dev;
 in
 {
-  options.local.dev.enable = lib.mkEnableOption "developer tooling (nix-ld, ollama, opencode, nodejs, uv, jq, python3, sshd)";
+  options.local.dev.enable = lib.mkEnableOption "developer tooling (nix-ld, ollama, nodejs, uv, jq, python3, sshd)";
 
   config = lib.mkIf cfg.enable {
     # A real dynamic loader at /lib/ld-linux-*.so.* plus NIX_LD, so prebuilt
@@ -43,13 +42,8 @@ in
     # a venv fails by design on NixOS, and project code belongs in
     # templates/python-devshell/.
     environment.systemPackages = with pkgs; [
-      # From nixos-unstable: opencode is a fast-moving userland CLI whose bumps
-      # land on unstable only, so 26.05 lags upstream (doc/workflow.md). The
-      # second tree is forced only here and in hosts/geekom/default.nix, because
-      # this list sits inside `mkIf cfg.enable`.
-      unstablePkgs.opencode
       nodejs
-      jq # ollama, opencode and the flake all speak JSON
+      jq # ollama and the flake speak JSON
       uv
       python3
     ];
@@ -110,9 +104,9 @@ in
     sops.secrets.TYPESAFE_API_KEY = {
       owner = user.username;
     };
-    # Z.ai coding-plan key for the default model in both agent CLIs: omp's
-    # models.yml pin (`apiKey: "!cat /run/secrets/ZAI_API_KEY"`) and opencode's
-    # `provider.zai.options.apiKey = "{env:ZAI_API_KEY}"`. Same owner/mode.
+    # Z.ai coding-plan key for omp's default model: the models.yml pin
+    # `apiKey: "!cat /run/secrets/ZAI_API_KEY"` in modules/home/omp.nix.
+    # Same owner/mode as the two keys above.
     sops.secrets.ZAI_API_KEY = {
       owner = user.username;
     };
