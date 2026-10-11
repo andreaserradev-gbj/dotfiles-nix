@@ -114,9 +114,10 @@ lib.mkIf osConfig.local.dev.enable {
     # tokens, passwords — belongs in /run/secrets, read at the point of use.
     initContent = ''
       # CONTEXT7_API_KEY — runtime secret for the context7 MCP server
-      # (modules/home/opencode.nix reads it via {env:...}). Provisioned by
-      # sops-nix on dev-enabled hosts only: the guard keeps shells quiet where the
-      # secret is not provisioned yet, and opencode falls back to anonymous mode.
+      # (expanded from the environment by ~/.omp/agent/mcp.json;
+      # modules/home/omp.nix). Provisioned by sops-nix on dev-enabled hosts
+      # only: the guard keeps shells quiet where the secret is not provisioned
+      # yet, and an empty var leaves context7 in anonymous mode.
       export CONTEXT7_API_KEY="$(cat /run/secrets/CONTEXT7_API_KEY 2>/dev/null)"
 
       # TYPESAFE_API_KEY — runtime secret for ~/code/typesafe-lab's `real`
@@ -125,12 +126,6 @@ lib.mkIf osConfig.local.dev.enable {
       # (src/cli.ts) only fills vars NOT already in the environment, so this
       # export wins over the project's .env.
       export TYPESAFE_API_KEY="$(cat /run/secrets/TYPESAFE_API_KEY 2>/dev/null)"
-
-      # ZAI_API_KEY — runtime secret for the z.ai provider, the declarative
-      # default model in omp and opencode on dev hosts. Same provisioning and
-      # same guard as the two keys above; see doc/secrets.md for why env-export
-      # is an accepted exception for this low-value, rate-limit-scoped key.
-      export ZAI_API_KEY="$(cat /run/secrets/ZAI_API_KEY 2>/dev/null)"
 
       # fzf navigation helpers
       fcd() { cd "$(find . -type d -not -path '*/.*' | fzf)" && l; }

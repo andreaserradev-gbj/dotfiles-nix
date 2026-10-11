@@ -81,8 +81,7 @@ A global tool lands in the dev-gated layer (`local.dev.enable`), in one of
 two spots:
 
 - **System layer** — `environment.systemPackages` in `modules/nixos/dev.nix`.
-  For tools that are system-wide or service-shaped (like `opencode` or
-  `ollama`).
+  For tools that are system-wide or service-shaped (like `ollama`).
 - **Home layer** — a small HM module modeled on `modules/home/zellij.nix` (a
   flake-sourced tool adds the `imports`/`config` split of
   `modules/home/omp.nix` — step 3 below). For per-user interactive tools with
@@ -169,14 +168,14 @@ config, so she never sees the tool.
 
 > **Check for a self-updater.** A tool that replaces its own binary fights Nix
 > ownership — find the off switch in its config before adopting
-> (`autoupdate = false` in `modules/home/opencode.nix`). Where the updater is
+> (`update.version_check = false` in herdr's config.toml). Where the updater is
 > inert under Nix — the store binary cannot replace itself — what still needs
 > flipping is the phone-home/version check ([doc/herdr.md](herdr.md),
 > [doc/omp.md](omp.md)).
 
 > **Check for overlap.** A new tool may shadow an existing module's role (a
 > second terminal multiplexer vs `zellij`, a second coding agent vs
-> `opencode`). Trial both, keep one module per role.
+> `omp`). Trial both, keep one module per role.
 
 > **Pin the input when the pace is wrong.** An unpinned `github:` input moves
 > on every `nfu`. When a tool's release pace does not suit the system's, pin

@@ -119,7 +119,7 @@ bootstrap.sh           one-command install of any host, from a live ISO
 | [doc/vm-console.md](doc/vm-console.md)             | The cage + foot local console and its known limitations |
 | [doc/local-llm.md](doc/local-llm.md)               | Local LLM inference on geekom: hardware budget, tuning decisions, measured baselines, future-model protocol |
 | [doc/herdr.md](doc/herdr.md)                       | herdr (agent workspace manager): zellij coexistence, what Nix owns, tag-bump checklist (`nfb`), keymap and state gotchas |
-| [doc/omp.md](doc/omp.md)                           | omp / oh-my-pi (second coding agent): coexistence with opencode, Nix-owned vs stateful, MCP drift warning, per-host API key |
+| [doc/omp.md](doc/omp.md)                           | omp / oh-my-pi (coding agent): Nix-owned vs stateful, MCP servers, per-host API key |
 | [doc/troubleshooting.md](doc/troubleshooting.md)   | Gotchas that are not tied to one workflow |
 
 ## Quickstart pointers

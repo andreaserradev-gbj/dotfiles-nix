@@ -24,7 +24,6 @@
     ./modules/home/gtk.nix
     ./modules/home/desktop.nix
     ./modules/home/maintenance.nix
-    ./modules/home/opencode.nix
     ./modules/home/omp.nix
     ./modules/home/npm.nix
   ];

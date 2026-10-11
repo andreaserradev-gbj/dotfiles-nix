@@ -7,10 +7,11 @@ and the 27b it was measured against — plus the protocol for the next local
 model, so tuning starts from measurement instead of folklore.
 
 Config lives in [hosts/geekom/default.nix](../hosts/geekom/default.nix)
-(daemon env) and [modules/home/opencode.nix](../modules/home/opencode.nix)
-(client-side model metadata). The version-pinning decision (unstable) is
-in [doc/workflow.md](workflow.md), "Need a newer version before the next
-release?".
+(daemon env); the only client-side config is omp's models.yml key pin
+([modules/home/omp.nix](../modules/home/omp.nix)) — model metadata is
+discovered from the daemon (`/api/show`). The version-pinning decision
+(unstable) is in [doc/workflow.md](workflow.md), "Need a newer version before
+the next release?".
 
 ## The machine
 
@@ -142,7 +143,7 @@ Every knob here has a measurement behind it; these verdicts are the record:
 | `OLLAMA_IGPU_ENABLE` | `1` | without it the iGPU is discovered then dropped (`dropping integrated GPU; to enable, set OLLAMA_IGPU_ENABLE=1` in the journal) and every request is served from CPU. `ollama ps` → 100% GPU is the check |
 | `OLLAMA_FLASH_ATTENTION` | unset (auto) | already active (`--flash-attn auto` in the runner cmd); pinning `=1` adds nothing |
 | `OLLAMA_KV_CACHE_TYPE` | unset (f16) | q8_0 would halve the KV (5.5 → 2.7 GiB at 262144, a fifth of the resident footprint) and the full window already fits with headroom; it costs quality and is global to all models. Revisit only for a dense-attention model, or a load that stops fitting |
-| `OLLAMA_NUM_PARALLEL` | unset (1) | slots multiply KV and split memory bandwidth; single-user opencode gains nothing at 2 |
+| `OLLAMA_NUM_PARALLEL` | unset (1) | slots multiply KV and split memory bandwidth; single-user inference gains nothing at 2 |
 | `OLLAMA_MAX_LOADED_MODELS` | unset (auto) | auto-compute already allows what fits |
 | MTP `draft_num_predict` | 2 (GGUF-shipped) | measured A/B above; **do not touch** |
 | `loadModels` / boot preload | not used | pulls but does not preload; boot-time preload would pin 22 GiB and slow every boot for nothing |
@@ -177,8 +178,8 @@ content-addressed blobs; the registry is consulted only at `ollama pull`
 time, never at load. A tag the registry does not have must therefore be
 created locally with `ollama create` and cannot be reproduced by the flake.
 The daemon-side half is the same Tier-2 imperative store as `ollama signin` —
-see [doc/secrets.md](secrets.md). The client-side half (the opencode model entry)
-IS declarative, in modules/home/opencode.nix; the tag is not. The failure mode is
+see [doc/secrets.md](secrets.md). Clients need no per-model config: omp
+discovers tags and their parameters from the daemon. The failure mode is
 loud, not silent: a missing tag errors on first use, and the recovery is the
 recipe below.
 
@@ -205,19 +206,20 @@ promotes this to an idempotent systemd oneshot. Until then the recipe above
 is the whole automation — partial automation of an already-manual pull is
 not worth a unit file.
 
-## opencode ↔ daemon context agreement
+## Daemon context length
 
-`modules/home/opencode.nix` declares `limit.context = 262144` for this model
-(from `/api/show`, matching the GGUF). Left alone, the daemon's vram-tier
-default (32768 for this pool) silently overrides it per request — opencode
-sends no `num_ctx`, so the client's declared limit and the daemon's enforced
-one disagree by 8×. The daemon env sets 262144 and the two agree. When adding a
-local model:
+`OLLAMA_CONTEXT_LENGTH=262144` in
+[hosts/geekom/default.nix](../hosts/geekom/default.nix) sets the full window
+the GGUF declares. Left alone, the daemon's vram-tier default (32768 for this
+pool) silently trims it; a derived tag's baked `num_ctx` overrides it downward
+at load time (the 27b tag above). Clients discover the effective limit from
+the daemon (`/api/show`), so the env is the single place the window is set.
+When adding a local model:
 
 1. read `context_length` from `/api/show` (the daemon trims to what it loads),
-2. set the client `limit.context` to that figure,
-3. if the daemon default differs, either set `OLLAMA_CONTEXT_LENGTH` for the
-   model class or send `num_ctx` per request — never leave the two disagreeing.
+2. if the daemon default differs from the GGUF's figure, either set
+   `OLLAMA_CONTEXT_LENGTH` for the model class or bake/send `num_ctx` —
+   never leave the two disagreeing.
 
 ## Future-model protocol (measure before adopt)
 
@@ -235,8 +237,7 @@ Before adopting any new local model on geekom:
    load time (unload → reload). Compare against the baseline table above.
 5. **MTP check**: if the GGUF ships `draft_num_predict`, A/B it (0 vs shipped
    value vs 2×) with the decode one-liner before trusting the default.
-6. **Only then** touch env vars in `hosts/geekom/default.nix` (geekom-only
-   blast radius) and the model entry in `modules/home/opencode.nix` — then run
-   `./scripts/check-hosts.sh` and account for every `drvPath` delta it prints
-   ([doc/workflow.md](workflow.md)).
+6. **Only then** touch the env vars in `hosts/geekom/default.nix`
+   (geekom-only blast radius) — then run `./scripts/check-hosts.sh` and
+   account for every `drvPath` delta it prints ([doc/workflow.md](workflow.md)).
 7. **Record** the measured row in the table above and date it.

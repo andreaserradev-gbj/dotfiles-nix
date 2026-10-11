@@ -110,17 +110,15 @@
     {
       # `unstablePkgs` is the second nixpkgs as the module arg the escape hatch
       # needs. legacyPackages, not `import` — the `system` import argument is
-      # deprecated upstream. No allowUnfree wiring: the adopted packages (ollama,
-      # opencode) are free software.
+      # deprecated upstream. No allowUnfree wiring: the adopted package
+      # (ollama-vulkan) is free software.
       #
-      # It is passed to EVERY host because a shared module consumes it
-      # (modules/nixos/dev.nix takes it for opencode), but the second tree is
-      # evaluated lazily and forced only where a package references it:
-      # ollama-vulkan in hosts/geekom/default.nix, and opencode behind dev.nix's
-      # dev gate. hplaptop receives the binding and her closure does not move.
-      # The rule: reference `unstablePkgs` from a host file, or from a shared
-      # module ONLY behind the dev gate — never from shared code that every host
-      # evaluates unconditionally.
+      # It is passed to EVERY host, but the second tree is evaluated lazily and
+      # forced only where a package references it — today only ollama-vulkan in
+      # hosts/geekom/default.nix. hplaptop receives the binding and her closure
+      # does not move. The rule: reference `unstablePkgs` from a host file, or
+      # from a shared module ONLY behind the dev gate — never from shared code
+      # that every host evaluates unconditionally.
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
         system = "aarch64-linux";
         specialArgs = {

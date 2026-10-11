@@ -77,9 +77,8 @@
   # modules/nixos/gaming.nix.
   local.gaming.enable = true;
 
-  # nix-ld, ollama, opencode, nodejs, uv, jq, sshd — gated behind
-  # `local.dev.enable` in modules/nixos/dev.nix. opencode's version is decided
-  # there, not here.
+  # nix-ld, ollama, nodejs, uv, jq, sshd — gated behind `local.dev.enable` in
+  # modules/nixos/dev.nix.
   local.dev.enable = true;
 
   # `nrs`/`nrt` activate over SSH to THIS machine, so phase 1 cannot be killed
@@ -110,11 +109,11 @@
   services.ollama.package = unstablePkgs.ollama-vulkan;
 
   # The FULL 262144 the GGUF declares. Without it, 0.32+'s vram-based default
-  # context tiering picks 32768 and silently overrides the limit.context that
-  # modules/home/opencode.nix declares for this model. Per-request num_ctx still
-  # overrides this downward; a dense-attention model would NOT get this
-  # treatment — measure first (doc/local-llm.md has the KV math and the
-  # measurements).
+  # context tiering picks 32768, and clients discover the effective limit from
+  # the daemon (omp reads it via /api/show) — this env is the single place the
+  # window is set. Per-request num_ctx still overrides it downward; a
+  # dense-attention model would NOT get this treatment — measure first
+  # (doc/local-llm.md has the KV math and the measurements).
   services.ollama.environmentVariables.OLLAMA_CONTEXT_LENGTH = "262144";
 
   # 1h, not the 5m default: a reload of this model costs 11-14 s and sessions

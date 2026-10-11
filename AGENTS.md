@@ -46,7 +46,7 @@ Start from the [README](README.md) for the model and the
 - **Library/API docs via context7.** When a task needs library, tool, or API
   documentation, use the `context7` MCP tools (resolve the library, then query
   its docs) instead of relying on training data — the config lives in
-  `modules/home/opencode.nix`.
+  `modules/home/omp.nix`.
 
 ## Release cycle — branch → PR → CI → squash merge → cleanup → verify on main
 

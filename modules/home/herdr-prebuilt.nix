@@ -15,8 +15,8 @@
 # Do not add patchelf or a loader override: unlike omp-prebuilt there is no
 # nix-ld dependency and no Bun-standalone trailer trap.
 #
-# The vendored plugin/extension assets (config/opencode/plugins/, config/omp/)
-# are text in this repo, deployed by herdr.nix, and never depended on the source
+# The vendored extension asset (config/omp/) is text in this repo, deployed by
+# herdr.nix, and never depended on the source
 # build — dropping the build removes only the binary + toolchain from the closure
 # (nvd-verified: herdr, the zig cache and the cargo vendor leave).
 #

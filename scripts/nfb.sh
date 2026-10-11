@@ -82,9 +82,9 @@ systems=(x86_64-linux aarch64-linux)
 # herdr's vendored agent assets, in lockstep with the binary: upstream path at the
 # tag -> this repo's copy -> the HERDR_INTEGRATION_ID that file must declare (the
 # guard that catches an upstream path/format change before it is vendored).
-herdr_asset_up=(src/integration/assets/opencode/herdr-agent-state.js src/integration/assets/omp/herdr-agent-state.ts)
-herdr_asset_dest=(config/opencode/plugins/herdr-agent-state.js config/omp/herdr-omp-agent-state.ts)
-herdr_asset_id=(opencode omp)
+herdr_asset_up=(src/integration/assets/omp/herdr-omp-agent-state.ts)
+herdr_asset_dest=(config/omp/herdr-omp-agent-state.ts)
+herdr_asset_id=(omp)
 
 case "$(uname -m)" in
   x86_64) host_system="x86_64-linux" ;;

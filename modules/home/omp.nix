@@ -16,10 +16,10 @@ let
     system = pkgs.stdenv.hostPlatform.system;
   };
 in
-# omp (oh-my-pi) — the second coding agent, adopted per doc/adopting-tools.md and
-# documented in doc/omp.md. Same gate as the other dev-only HM modules
-# (herdr.nix, opencode.nix): hplaptop evaluates this to the empty config and
-# never sees the package, the settings or the assets below.
+# omp (oh-my-pi) — the coding agent, adopted per doc/adopting-tools.md and
+# documented in doc/omp.md. Same gate as the other dev-only HM module
+# (herdr.nix): hplaptop evaluates this to the empty config and never sees the
+# package, the settings or the assets below.
 #
 # FILE SHAPE: `imports` must stay UNCONDITIONAL — putting the import inside the
 # gate would define home-manager.users.<user>.imports, which is not an option.
@@ -41,10 +41,9 @@ in
       # edits survive until the next switch, so anything not declared here is
       # silently lost at the next rebuild.
       settings = {
-        # Default model — mirrors opencode.json's `model`: z.ai's GLM 5.3 Flash
-        # on the coding-plan endpoint, the same model on both harnesses so the
-        # agent-bench comparison stays apples-to-apples. The `:high` suffix is
-        # omp's thinking-level syntax (`provider/model:level`) and is declared
+        # Default model — z.ai's GLM 5.3 Flash on the coding-plan endpoint.
+        # The `:high` suffix is omp's thinking-level syntax
+        # (`provider/model:level`) and is declared
         # because a runtime pick is wiped by the next switch. The deepseek cloud
         # stub stays selectable for benchmarks; models.yml (below) pins only the
         # zai key — ollama needs no entry there, omp discovers its per-tag
@@ -69,8 +68,8 @@ in
         setupVersion = 2;
         "startup.setupWizard" = false;
 
-        # The version check, off — matching herdr's update.version_check = false
-        # and opencode's autoupdate = false. It GETs the GitHub releases API on
+        # The version check, off — matching herdr's update.version_check = false.
+        # It GETs the GitHub releases API on
         # every launch to announce a version we could not install anyway: `omp
         # update` refuses on a /nix/store binary ("managed by Nix"), so the flake
         # pin is the only version story here.
@@ -84,12 +83,7 @@ in
       };
     };
 
-    # MCP servers — omp's counterpart of opencode.json's `mcp` block, declared in
-    # omp's native Claude-style shape (its opencode-compat provider stays off: it
-    # would drag in opencode-only plugins and settings keys).
-    #
-    # DRIFT WARNING: this file and modules/home/opencode.nix hold the same two
-    # servers, so an edit must land in both (cross-linked on purpose, doc/omp.md).
+    # MCP servers in omp's native Claude-style shape.
     #
     # home.file, NOT xdg.configFile: omp's base directory is ~/.omp/agent/, so an
     # xdg path would be silently ignored. Store symlink: a hand-edit fails loudly.
@@ -119,10 +113,9 @@ in
           apiKey: "!cat /run/secrets/ZAI_API_KEY"
     '';
 
-    # Global agent rules, user scope — the same store asset as opencode's copy
-    # (config/agents/AGENTS.md). Discovery keeps only ONE user-scope context file
-    # and foreign roots (`~/.config/opencode`, `~/.agents/AGENTS.md`) are opt-in
-    # through `enabledProviders`, so the native path is what loads
+    # Global agent rules, user scope (config/agents/AGENTS.md). Discovery keeps
+    # only ONE user-scope context file and foreign roots (`~/.agents/AGENTS.md`)
+    # are opt-in through `enabledProviders`, so the native path is what loads
     # deterministically. Deliberately not RULES.md: the sticky variant is re-sent
     # on every request, and these belong in the once-per-session opening context.
     home.file.".omp/agent/AGENTS.md".source = ../../config/agents/AGENTS.md;
