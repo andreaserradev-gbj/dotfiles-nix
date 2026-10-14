@@ -79,10 +79,16 @@ declare -A asset=(
 declare -A flake_input=([omp]=1)
 systems=(x86_64-linux aarch64-linux)
 
-# herdr's vendored agent assets, in lockstep with the binary: upstream path at the
+# The subset of tools that also have a flake input whose `?ref=` this script owns.
+# herdr is absent by design: its input was removed (nothing bound it — the package
+# is the prebuilt FOD), so its pin lives only in tool-pins.json and
+# rewrite_ref/relock have nothing to touch for it.
+declare -A flake_input=([omp]=1)
+
+# herdr's vendored agent asset, in lockstep with the binary: upstream path at the
 # tag -> this repo's copy -> the HERDR_INTEGRATION_ID that file must declare (the
 # guard that catches an upstream path/format change before it is vendored).
-herdr_asset_up=(src/integration/assets/omp/herdr-omp-agent-state.ts)
+herdr_asset_up=(src/integration/assets/omp/herdr-agent-state.ts)
 herdr_asset_dest=(config/omp/herdr-omp-agent-state.ts)
 herdr_asset_id=(omp)
 
