@@ -1,12 +1,12 @@
 {
   "omp": {
-    "version": "18.10.4",
-    "x86_64-linux": "sha256-/1n8G0hMEwinJHrSCDBQBWJ7P6xitEBzfCsYNawyB04=",
-    "aarch64-linux": "sha256-WNcR1W+gyV0gjBUFdd/bCP6PwSYuOCDS2QDwpedQEQs="
+    "version": "18.11.0",
+    "x86_64-linux": "sha256-wjpYrYqS9Oc4qhLckE87ChrHA1uVO5v105txoiYXn28=",
+    "aarch64-linux": "sha256-KZ4LY8SC148A8rrnUACBWtaJDLYZLLyfZsjZjpznC4A="
   },
   "herdr": {
-    "version": "0.9.4",
-    "x86_64-linux": "sha256-STME+++w7Q6gRV83O0f0jSTod0vHl09MkWrS6TdnWyM=",
-    "aarch64-linux": "sha256-lRHLcJgsHvEV8jIFjn7Xz5ZAqlosDKeJNM79o66wk/0="
+    "version": "0.9.5",
+    "x86_64-linux": "sha256-FNnovItKngEY13wyJm921GHwm0A0LrI3UpYL2J9Zkp0=",
+    "aarch64-linux": "sha256-F9dTby2lCFlSNoDvJ53/ysjkojX05G/o2mwuxEFBiXw="
   }
 }
