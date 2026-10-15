@@ -21,6 +21,18 @@ let
   herdrPkg = pkgs.callPackage ./herdr-prebuilt.nix {
     system = pkgs.stdenv.hostPlatform.system;
   };
+
+  # reviewr plugin (persiyanov/herdr-reviewr): FOD tarball + vendored manifest
+  # assembled into a store directory. Ownership is by reference, not copy:
+  # `herdr plugin link` points the user's plugin registry at this immutable
+  # path; it is idempotent across switches and re-points itself when a bump
+  # changes the path, so no uninstall/install churn is needed. The plugin runs
+  # with full user privileges — the pin and the vendored manifest are the
+  # review surface, same trust shape as herdr-prebuilt above.
+  herdrReviewrPlugin = pkgs.callPackage ./herdr-reviewr-prebuilt.nix {
+    system = pkgs.stdenv.hostPlatform.system;
+    manifestSrc = ../../config/herdr/plugins/reviewr-herdr-plugin.toml;
+  };
 in
 lib.mkIf osConfig.local.dev.enable {
   home.packages = [ herdrPkg ];
@@ -37,4 +49,11 @@ lib.mkIf osConfig.local.dev.enable {
   # is in doc/herdr.md.
   home.file.".omp/agent/extensions/herdr-omp-agent-state.ts".source =
     ../../config/omp/herdr-omp-agent-state.ts;
+
+  # Runs on every switch; with no server running it still registers (plugin
+  # link needs only the user's registry). A link failure must fail the switch:
+  # pin, manifest and binary are then out of agreement.
+  home.activation.linkHerdrReviewr = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    $DRY_RUN_CMD ${herdrPkg}/bin/herdr plugin link ${herdrReviewrPlugin}
+  '';
 }

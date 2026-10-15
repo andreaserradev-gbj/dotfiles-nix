@@ -35,3 +35,11 @@ zoom             = ["alt+f"]
 new_tab          = ["alt+t"]
 next_tab         = ["alt+shift+right"]
 previous_tab     = ["alt+shift+left"]
+
+# prefix+d is free (prefix+shift+d closes a workspace) and a bare alt-letter
+# would swallow that key inside pane apps.
+[[keys.command]]
+key = "prefix+d"
+type = "plugin_action"
+command = "persiyanov.reviewr.toggle"
+description = "reviewr: toggle pane"

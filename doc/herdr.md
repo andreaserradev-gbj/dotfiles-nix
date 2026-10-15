@@ -26,6 +26,7 @@ evaluates it to the empty config.
 | `~/.config/herdr/config.toml` | Nix | `xdg.configFile` from the verbatim asset [config/herdr/config.toml](../config/herdr/config.toml) |
 | `~/.omp/agent/extensions/herdr-omp-agent-state.ts` | Nix | `home.file` from the vendored byte-for-byte copy [config/omp/herdr-omp-agent-state.ts](../config/omp/herdr-omp-agent-state.ts) — omp's base directory is `~/.omp/agent/`, not `~/.config/omp/` |
 | agent skill (`~/.agents/skills/herdr/SKILL.md`) | **npx, manual** | `npx skills add herdrdev/herdr --skill herdr -g` |
+| reviewr plugin (`persiyanov.reviewr`, `~/.config/herdr/plugins`) | Nix | musl release tarball + vendored manifest [reviewr-herdr-plugin.toml](../config/herdr/plugins/reviewr-herdr-plugin.toml) assembled by [herdr-reviewr-prebuilt.nix](../modules/home/herdr-reviewr-prebuilt.nix) into a store dir; `home.activation` in [herdr.nix](../modules/home/herdr.nix) runs `herdr plugin link` on it every switch |
 
 The agent extension is deployed by [modules/home/herdr.nix](../modules/home/herdr.nix),
 **not** by omp.nix: the herdr↔agent coupling stays in one
@@ -65,24 +66,30 @@ pane, and zellij already trains the Alt-arrow habit. Two upstream gaps worth
 knowing: there is **no quit key** (`prefix+q` *detaches* — the server keeps
 running; killing it is a CLI action), and wider zellij-mirror bindings were
 deliberately left out of the asset — extend it after testing, don't ship
-unverified keymap claims. `herdr config check` validates the asset (it prints
+unverified keymap claims. Plugin actions bind as `[[keys.command]]` with
+`type = "plugin_action"` and the qualified `plugin.id.action`; reviewr's toggle
+lives on `prefix+d` (`prefix+r` is resize_mode, and bare alt-letters would
+swallow keys inside panes). `herdr config check` validates the asset (it prints
 `config: ok`).
 
-## Update checklist (per herdr tag bump)
+## Update checklist (per nfb bump)
 
 **`nfb`** (`scripts/nfb.sh`, alias in [shell.nix](../modules/home/shell.nix)) does
-the mechanical half: it checks upstream's latest release, asks before writing,
-then updates the version + both hashes in
-[tool-pins.json](../modules/home/tool-pins.json) and re-fetches both vendored
-agent assets if their bytes changed — so pin, binary and assets cannot drift
-apart. Hashes come from the release's own SHA256 digest, cross-checked against a
+the mechanical half: it checks each pinned tool's latest release (herdr and the
+reviewr plugin alike), asks before writing, then updates the version + both
+hashes in [tool-pins.json](../modules/home/tool-pins.json) and re-fetches the
+vendored assets whose bytes moved — herdr's two agent assets and reviewr's
+plugin manifest, all guarded against upstream path/format changes. So pin,
+binaries and assets cannot drift apart. Hashes come from the release's own
+SHA256 digest, cross-checked against a
 download of this host's asset. herdr has **no flake input**: as a prebuilt FOD the
 input fed nothing but an unexercised fallback, so it and its lock nodes are gone —
 the `tool-pins.json` entry is the pin of record.
 
-1. `nfb`, answer `y` for herdr.
-2. `git diff` — `tool-pins.json` (three fields) plus the agent asset **if** its
-   bytes moved; `nfb` prints the old → new `HERDR_INTEGRATION_VERSION` marker.
+1. `nfb`, answer `y` for herdr (and for reviewr when it offers).
+2. `git diff` — `tool-pins.json` (three fields per bumped tool) plus vendored
+   assets **if** their bytes moved; `nfb` prints the old → new marker line for
+   each re-vendored asset.
    Upstream vendoring renames
    `src/integration/assets/omp/herdr-agent-state.ts` to the `config/omp/…` name;
    the copy is byte-for-byte — review it, never edit it.
