@@ -8,5 +8,10 @@
     "version": "0.9.5",
     "x86_64-linux": "sha256-FNnovItKngEY13wyJm921GHwm0A0LrI3UpYL2J9Zkp0=",
     "aarch64-linux": "sha256-F9dTby2lCFlSNoDvJ53/ysjkojX05G/o2mwuxEFBiXw="
+  },
+  "herdr-reviewr": {
+    "version": "0.46.0",
+    "x86_64-linux": "sha256-e4QFbWgE5itLlIbEJbYZuyW/5jtFm1iaNCNEh5hDxn4=",
+    "aarch64-linux": "sha256-dptreYXmRp0MwUJ2dGWfBYZ8GNn9D4suxJGPlibqjoI="
   }
 }

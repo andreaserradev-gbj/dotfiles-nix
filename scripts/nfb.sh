@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# nfb.sh — bump the pinned upstream tool tags (omp, herdr) to their latest
-# release: modules/home/tool-pins.json (version + both per-arch hashes), the
-# matching `?ref=` in flake.nix for the tools that have a flake input, herdr's two
-# vendored agent assets, then re-lock just those inputs. TTY-interactive by design
+# nfb.sh — bump the pinned upstream tool tags (omp, herdr, herdr-reviewr) to
+# their latest release: modules/home/tool-pins.json (version + both per-arch
+# hashes), the matching `?ref=` in flake.nix for the tools that have a flake
+# input, each tool's vendored assets, then re-lock just those inputs. TTY-interactive by design
 # — the git diff is the review surface — and with no TTY it reports and writes
 # nothing. It never runs the full `nix flake update`: that stays `nfu`'s job.
 #
@@ -17,13 +17,15 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-nfb — bump the pinned tool tags (omp, herdr) to their latest upstream release.
+nfb — bump the pinned tool tags (omp, herdr, herdr-reviewr) to their latest
+upstream release.
 
 usage: nfb.sh [--help]
 
 For each tool in turn: reports whether a newer release exists and, on a TTY,
 asks before writing. A bump updates modules/home/tool-pins.json (version + both
-per-arch hashes), re-vendors herdr's two agent assets, and — for the tools with
+per-arch hashes), re-vendors each tool's vendored assets (herdr's two agent
+assets, reviewr's plugin manifest), and — for the tools with
 a flake input (omp) — rewrites the `?ref=` in flake.nix and re-locks that input.
 Without a TTY it only reports.
 EOF
@@ -61,16 +63,19 @@ flake_file="flake.nix"
 }
 
 # Tool table. Order matters only for the prompts (omp first, the fast-moving one).
-tools=(omp herdr)
+tools=(omp herdr herdr-reviewr)
 declare -A slug=(
   [omp]=can1357/oh-my-pi
   [herdr]=herdrdev/herdr
+  [herdr-reviewr]=persiyanov/herdr-reviewr
 )
 declare -A asset=(
   [omp:x86_64-linux]=omp-linux-x64
   [omp:aarch64-linux]=omp-linux-arm64
   [herdr:x86_64-linux]=herdr-linux-x86_64
   [herdr:aarch64-linux]=herdr-linux-aarch64
+  [herdr-reviewr:x86_64-linux]=herdr-reviewr-x86_64-unknown-linux-musl.tar.gz
+  [herdr-reviewr:aarch64-linux]=herdr-reviewr-aarch64-unknown-linux-musl.tar.gz
 )
 # The subset of tools that also have a flake input whose `?ref=` this script owns.
 # herdr is absent by design: its input was removed (nothing bound it — the package
@@ -85,12 +90,19 @@ systems=(x86_64-linux aarch64-linux)
 # rewrite_ref/relock have nothing to touch for it.
 declare -A flake_input=([omp]=1)
 
-# herdr's vendored agent asset, in lockstep with the binary: upstream path at the
-# tag -> this repo's copy -> the HERDR_INTEGRATION_ID that file must declare (the
-# guard that catches an upstream path/format change before it is vendored).
+# Vendored assets, in lockstep with each tool's binary: upstream path at the
+# tag -> this repo's copy -> a guard regex the fetched file must match (catches
+# an upstream path/format change before it is vendored) and a marker regex
+# whose matched line is reported old -> new on re-vendor. Tools without
+# vendored assets simply declare no <tool>_asset_* arrays.
 herdr_asset_up=(src/integration/assets/omp/herdr-agent-state.ts)
 herdr_asset_dest=(config/omp/herdr-omp-agent-state.ts)
-herdr_asset_id=(omp)
+herdr_asset_guard=('^// HERDR_INTEGRATION_ID=omp$')
+herdr_asset_marker=('^// HERDR_INTEGRATION_VERSION=')
+reviewr_asset_up=(herdr-plugin.toml)
+reviewr_asset_dest=(config/herdr/plugins/reviewr-herdr-plugin.toml)
+reviewr_asset_guard=('^id = "persiyanov.reviewr"$')
+reviewr_asset_marker=('^version = ')
 
 case "$(uname -m)" in
   x86_64) host_system="x86_64-linux" ;;
@@ -139,6 +151,53 @@ relock() {
   git add -- "$pins_file" "$flake_file"
   nix flake update --flake "$repo_root" "$tool"
   git add -- flake.lock
+}
+
+# tool_has_vendored_assets TOOL — true when that tool declares vendored assets.
+tool_has_vendored_assets() {
+  declare -p "${1}_asset_up" >/dev/null 2>&1
+}
+
+# fetch_vendored_assets TOOL TAG — fetch + validate each vendored asset to a
+# temp file, appending the paths to the global tmp_assets. Nothing in the repo
+# is written here, so a failure leaves the tool's bump wholly unwritten.
+fetch_vendored_assets() {
+  local -n ups="$1_asset_up" guards="$1_asset_guard"
+  local tool="$1" tag="$2" i tmp
+  for i in "${!ups[@]}"; do
+    tmp="$(mktemp)"
+    wget -qO "$tmp" "https://raw.githubusercontent.com/${slug[$tool]}/${tag}/${ups[$i]}" || {
+      rm -f "$tmp"
+      fail "$tool: cannot fetch ${ups[$i]} at ${tag} — nothing written"
+    }
+    grep -qE -- "${guards[$i]}" "$tmp" || {
+      rm -f "$tmp"
+      fail "$tool: ${ups[$i]} does not match guard ${guards[$i]} — nothing written"
+    }
+    tmp_assets+=("$tmp")
+  done
+}
+
+# write_vendored_assets TOOL — copy the fetched temp files over the repo
+# copies. The marker line is REPORTED, never the decision rule: a
+# same-marker content change must still land, and it shows up in the git
+# diff for review.
+write_vendored_assets() {
+  local -n ups="$1_asset_up" dests="$1_asset_dest" markers="$1_asset_marker"
+  local i dest tmp old new
+  for i in "${!ups[@]}"; do
+    dest="${dests[$i]}"
+    tmp="${tmp_assets[$i]}"
+    if cmp -s "$tmp" "$dest"; then
+      printf '   %s: unchanged\n' "$dest"
+    else
+      old="$(grep -m1E -- "${markers[$i]}" "$dest" || true)"
+      new="$(grep -m1E -- "${markers[$i]}" "$tmp" || true)"
+      cp "$tmp" "$dest"
+      printf '   %s: re-vendored (%s -> %s)\n' "$dest" "${old:-<absent>}" "${new:-<absent>}"
+    fi
+    rm -f "$tmp"
+  done
 }
 
 failed=0
@@ -218,23 +277,10 @@ for tool in "${tools[@]}"; do
     esac
   done
 
-  # ---- herdr: fetch + validate both assets to temp files, still before any write ----
+  # ---- vendored assets: fetch + validate to temp files, still before any write ----
   tmp_assets=()
-  if [ "$tool" = herdr ]; then
-    for i in "${!herdr_asset_up[@]}"; do
-      up="${herdr_asset_up[$i]}"
-      id="${herdr_asset_id[$i]}"
-      tmp="$(mktemp)"
-      wget -qO "$tmp" "https://raw.githubusercontent.com/${slug[herdr]}/${tag}/${up}" || {
-        rm -f "$tmp"
-        fail "herdr: cannot fetch ${up} at ${tag} — nothing written"
-      }
-      grep -q "^// HERDR_INTEGRATION_ID=${id}$" "$tmp" || {
-        rm -f "$tmp"
-        fail "herdr: ${up} does not declare ID ${id} — nothing written"
-      }
-      tmp_assets+=("$tmp")
-    done
+  if tool_has_vendored_assets "$tool"; then
+    fetch_vendored_assets "$tool" "$tag"
   fi
 
   # ---- write the pin table, the input ref, then the assets ----
@@ -247,23 +293,8 @@ for tool in "${tools[@]}"; do
 
   rewrite_ref "$tool" "$tag"
 
-  if [ "$tool" = herdr ]; then
-    for i in "${!herdr_asset_up[@]}"; do
-      dest="${herdr_asset_dest[$i]}"
-      tmp="${tmp_assets[$i]}"
-      # The marker is REPORTED, never the decision rule: a same-marker content
-      # change must still land, and it shows up in the git diff for review.
-      if cmp -s "$tmp" "$dest"; then
-        printf '   %s: unchanged\n' "$dest"
-      else
-        old_marker="$(grep -m1 '^// HERDR_INTEGRATION_VERSION=' "$dest" | cut -d= -f2)"
-        new_marker="$(grep -m1 '^// HERDR_INTEGRATION_VERSION=' "$tmp" | cut -d= -f2)"
-        cp "$tmp" "$dest"
-        printf '   %s: re-vendored (HERDR_INTEGRATION_VERSION %s -> %s)\n' \
-          "$dest" "$old_marker" "$new_marker"
-      fi
-      rm -f "$tmp"
-    done
+  if tool_has_vendored_assets "$tool"; then
+    write_vendored_assets "$tool"
   fi
 
   # ---- re-lock just this input (helper stages first) ----
