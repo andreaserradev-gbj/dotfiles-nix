@@ -73,6 +73,31 @@
   # switches on.
   local.desktop.enable = true;
 
+  # A SECOND session at the GDM login screen, next to GNOME: niri 26.04 with
+  # the Noctalia shell (config/niri/, config/noctalia/). Here and not in
+  # modules/nixos/desktop.nix because hplaptop sets local.desktop.enable too
+  # and must not grow a second session. Nothing about the GNOME session moves:
+  # the module only adds sessionPackages, a systemd user unit and the
+  # niri-portals.conf, and Noctalia's config is HM-owned behind the same
+  # option (modules/home/niri.nix).
+  #
+  # `defaultSession` stays unset, so autologin and the preselected entry remain
+  # gnome; switching back is `niri msg action quit`, Noctalia's Log out, or a
+  # GDM reboot, and GNOME is the same entry it always was.
+  #
+  # The two packages that make that session usable live in the systemPackages
+  # list below, next to Vial:
+  #   noctalia           — the shell. From nixpkgs, not upstream's flake: the
+  #                        flake pins its own nixpkgs (a second glibc, pipewire
+  #                        and systemd generation, ~805 MiB marginal) or, with
+  #                        `follows`, builds from source and misses its cache.
+  #                        Revisit when nixos-26.05 carries 5.3.x.
+  #   xwayland-satellite — niri's X11 integration needs this ON PATH; the
+  #                        nixpkgs module passes enableXWayland = false, so
+  #                        without it every X11 app is unavailable and niri
+  #                        logs "error spawning xwayland-satellite".
+  programs.niri.enable = true;
+
   # Steam + Vulkan (RADV for the Radeon 890M), same pattern — defined in
   # modules/nixos/gaming.nix.
   local.gaming.enable = true;
@@ -142,7 +167,15 @@
   # device, so it is not installed; this is that rule narrowed to Vial
   # controllers by the serial their firmware reports, with an ACL for the
   # active session instead of world-write.
-  environment.systemPackages = [ pkgs.vial ];
+  environment.systemPackages = [
+    # Vial, above.
+    pkgs.vial
+
+    # The niri session's shell and its X11 bridge, for the reasons given at
+    # `programs.niri.enable`.
+    pkgs.noctalia
+    pkgs.xwayland-satellite
+  ];
   services.udev.extraRules = ''KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{serial}=="*vial:f64c2b3c*", MODE="0660", TAG+="uaccess"'';
 
   # Set once at install; never bump (doc/workflow.md).
