@@ -1,0 +1,55 @@
+# Noctalia shell for the niri session on geekom.
+#
+# Noctalia merges every *.toml here with built-in defaults, then layers
+# ~/.local/state/noctalia/settings.toml (written by its Settings UI) on top.
+# So a setting changed in the GUI beats this file; clear that key or delete the
+# state file to get the declarative value back.
+
+[shell]
+# Noctalia is the only polkit agent in a niri session: GNOME's lives inside
+# gnome-shell, which is not running here.
+polkit_agent = true
+font_family = "JetBrainsMono Nerd Font"
+# Type-to-launch from niri's overview, opt-in upstream.
+niri_overview_type_to_launch_enabled = true
+
+[theme]
+mode = "dark"
+source = "builtin"
+# Matches the GTK/GNOME half (modules/home/gtk.nix).
+builtin = "Catppuccin"
+
+[wallpaper]
+enabled = true
+# The same asset the GNOME session sets as its background; gtk.nix puts it at
+# this stable path (no store hash) on the full variant only.
+[wallpaper.default]
+path = "~/.local/share/backgrounds/catppuccin-mocha.png"
+
+[backdrop]
+enabled = true
+
+[lockscreen]
+enabled = true
+
+[notification]
+enable_daemon = true
+
+# No suspend entries: geekom masks sleep.target and suspend.target
+# (hosts/geekom/default.nix), so "Lock & Suspend" would fail with
+# "Call to Suspend failed: Access denied".
+[shell.session]
+grid = false
+
+[[shell.session.actions]]
+action = "lock"
+
+[[shell.session.actions]]
+action = "logout"
+
+[[shell.session.actions]]
+action = "reboot"
+
+[[shell.session.actions]]
+action = "shutdown"
+variant = "destructive"
