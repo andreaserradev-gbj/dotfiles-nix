@@ -29,6 +29,12 @@ layout {
   // Noctalia draws the wallpaper, so the gaps between windows must be
   // transparent for it to show through.
   background-color "transparent"
+
+  gaps 8
+
+  focus-ring {
+    width 1
+  }
 }
 
 overview {
