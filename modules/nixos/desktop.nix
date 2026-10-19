@@ -188,9 +188,22 @@ in
     # `shell-version` metadata, so a GNOME bump fails at eval until a matching
     # release lands.
     ++ lib.optionals (cfg.session == "gnome") [ pkgs.gnomeExtensions.dash-to-dock ]
+    # Files (nautilus) plus gvfs, the Trash/mount backend no file manager has
+    # built in — niri session only; hplaptop gets both from GNOME.
+    ++ lib.optionals (cfg.session == "niri") [
+      pkgs.nautilus
+      pkgs.gvfs
+    ]
     # LibreOffice, its own sub-option and default false: geekom does not pull the
     # ~1GB closure. Only hplaptop enables it — Word/Excel compatibility for HR
     # work.
     ++ lib.optionals cfg.libreoffice.enable [ pkgs.libreoffice ];
+
+    # GIO clients learn trash://, mtp://, sftp:// … through gvfs's GIO modules;
+    # GNOME exported them via GIO_EXTRA_MODULES, so the niri session must —
+    # dconf starts the variable with its own dir and the lists merge. Next login.
+    environment.sessionVariables.GIO_EXTRA_MODULES = lib.mkIf (cfg.session == "niri") [
+      "${pkgs.gvfs}/lib/gio/modules"
+    ];
   };
 }
