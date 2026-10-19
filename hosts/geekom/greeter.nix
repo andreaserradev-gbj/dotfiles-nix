@@ -11,9 +11,11 @@
 # the appearance sync from the session (polkit action
 # org.noctalia.greeter.apply-appearance ships with the package; admin = wheel).
 #
-# The greeter is themed by that sync from the running Noctalia session
-# (wallpaper, palette, font): theme settings live in sync.toml after one sync,
-# not here. Judged and accepted at the trial boot; regreet was removed with it
+# The greeter's theme default is declarative in greeter.toml below
+# ([appearance]); the sync layers runtime keys on top (wallpaper, palette,
+# font) — the wallpaper must be a staged COPY in the greeter's own directory,
+# because the greeter account cannot read the user's 0700 home. Judged and
+# accepted at the trial boot; regreet was removed with it
 # (static-image polish was tried first and rejected on the real panel).
 {
   lib,
@@ -47,6 +49,11 @@
       [keyboard]
       layout = "it"
       numlock = true
+      # Theme default; Sync's staged wallpaper copy and runtime keys land in
+      # sync.toml on top of this.
+      [appearance]
+      scheme = "Catppuccin"
+      theme_mode = "dark"
       [output]
       # Same panel and scale as the user session, so the handoff does not
       # rescale the display (DP-6 4K at 1.25, as greeter.kdl did).

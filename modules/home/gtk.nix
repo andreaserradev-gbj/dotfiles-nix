@@ -1,5 +1,5 @@
 # The niri session's GTK-side theming: the Papirus icon theme (Mocha folder
-# colors) and the wallpaper asset Noctalia displays. Gated on the same option
+# colors). Gated on the same option
 # as modules/nixos/desktop.nix AND on `session == "niri"` — hplaptop runs plain
 # GNOME, and the VM's cage+foot kiosk must not pick it up. The GTK3 THEME died
 # with the variant world: catppuccin-gtk was archived in 2024 because GTK
@@ -37,13 +37,4 @@ lib.mkIf (osConfig.local.desktop.enable && osConfig.local.desktop.session == "ni
   # unset: the default Adwaita cursor is neutral against Mocha. Re-enable only
   # with a wrapper that fixes both, or if upstream packaging is fixed.
   # home.pointerCursor = { ... };
-
-  # Through `xdg.dataFile` so the path in config/noctalia/config.toml's
-  # `[wallpaper.default]` carries no nix store hash: a wallpaper package bump
-  # would otherwise leave Noctalia pointing at a store path that no longer
-  # exists.
-  home.packages = [ pkgs.nixos-artwork.wallpapers.catppuccin-mocha ];
-
-  xdg.dataFile."backgrounds/catppuccin-mocha.png".source =
-    "${pkgs.nixos-artwork.wallpapers.catppuccin-mocha}/share/backgrounds/nixos/nixos-wallpaper-catppuccin-mocha.png";
 }

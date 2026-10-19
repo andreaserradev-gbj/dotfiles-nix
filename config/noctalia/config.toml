@@ -22,9 +22,10 @@ builtin = "Catppuccin"
 
 [wallpaper]
 enabled = true
-# gtk.nix installs the asset at this stable path (no store hash).
+# Wallpapers are user-managed in ~/Pictures/Wallpapers now; the Settings UI's
+# state file (~/.local/state/noctalia/settings.toml) overrides this default.
 [wallpaper.default]
-path = "~/.local/share/backgrounds/catppuccin-mocha.png"
+path = "~/Pictures/Wallpapers/3d-render-bloom-3840x2160-27150.jpg"
 
 [backdrop]
 enabled = true
