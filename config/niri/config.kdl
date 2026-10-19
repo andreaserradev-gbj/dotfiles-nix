@@ -88,8 +88,8 @@ debug {
 binds {
   Mod+Shift+Slash { show-hotkey-overlay; }
 
-  // Terminal and browser match the GNOME session's Super+Return / Super+b
-  // (modules/home/desktop.nix), so switching sessions keeps the muscle memory.
+  // Terminal and browser match hplaptop's GNOME media-keys
+  // (modules/home/desktop.nix), so the muscle memory transfers between machines.
   Mod+Return hotkey-overlay-title="Open a Terminal: ghostty" { spawn "ghostty"; }
   Mod+B hotkey-overlay-title="Open a Browser: brave" { spawn "brave"; }
 
@@ -217,8 +217,8 @@ binds {
 
   Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
 
-  // The escape hatch back to GDM, where GNOME is one entry away. niri shows a
-  // confirmation dialog, and Noctalia's session panel Log out does the same.
+  // Ends the session; greetd respawns the greeter. niri shows a confirmation
+  // dialog, and Noctalia's session panel Log out does the same.
   Mod+Shift+E { quit; }
 
   Mod+Shift+P { power-off-monitors; }
