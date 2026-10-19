@@ -1,13 +1,11 @@
-# Catppuccin Mocha theming for GNOME: GTK3 apps, the icon theme, the wallpaper.
-# Gated on the same option as modules/nixos/desktop.nix AND on
-# `variant == "full"` — hplaptop is vanilla, and the VM's cage+foot kiosk must
-# not pick it up. What it cannot reach is deliberate: libadwaita surfaces
-# (modules/home/desktop.nix's `accent-color` is the honest lever there), GNOME
-# Shell chrome (the `user-themes` extension over catppuccin-gtk's version-skewed
-# shell CSS risks a broken-looking shell) and GDM (modules/nixos/desktop.nix).
-# catppuccin-gtk was archived in 2024 because GTK theming has no stable API: the
-# build stays, the failure mode is a buggy theme in specific apps, and it covers
-# a shrinking set as apps move to GTK4.
+# The niri session's GTK-side theming: the Papirus icon theme (Mocha folder
+# colors) and the wallpaper asset Noctalia displays. Gated on the same option
+# as modules/nixos/desktop.nix AND on `session == "niri"` — hplaptop runs plain
+# GNOME, and the VM's cage+foot kiosk must not pick it up. The GTK3 THEME died
+# with the variant world: catppuccin-gtk was archived in 2024 because GTK
+# theming has no stable API, and its failure mode was a buggy theme in a
+# shrinking set of apps as they move to GTK4. Libadwaita surfaces were never
+# reachable by it anyway (desktop.nix's `accent-color` is the lever there).
 {
   lib,
   osConfig,
@@ -15,26 +13,14 @@
   ...
 }:
 
-lib.mkIf (osConfig.local.desktop.enable && osConfig.local.desktop.variant == "full") {
+lib.mkIf (osConfig.local.desktop.enable && osConfig.local.desktop.session == "niri") {
   gtk = {
     enable = true;
 
-    # The override args are validated by an `lib.checkListOfEnum` in package.nix,
-    # so a typo fails at eval time rather than producing a silently-wrong theme.
-    # `theme.name` must match the directory the override produces:
-    # `catppuccin-mocha-mauve-standard`, with no `+default` suffix.
-    theme = {
-      name = "catppuccin-mocha-mauve-standard";
-      package = pkgs.catppuccin-gtk.override {
-        variant = "mocha";
-        accents = [ "mauve" ];
-      };
-    };
-
-    # The icon theme IS honoured by GTK4/libadwaita, unlike `gtk-theme` — it is
-    # the one theming surface that crosses the GTK3/GTK4 boundary. The package
-    # bakes the Mocha folder colors in at build time; the resulting directory is
-    # `Papirus-Dark`, standard Papirus naming.
+    # The icon theme IS honoured by GTK4/libadwaita — it is the one theming
+    # surface that crosses the GTK3/GTK4 boundary. The package bakes the Mocha
+    # folder colors in at build time; the resulting directory is `Papirus-Dark`,
+    # standard Papirus naming.
     iconTheme = {
       name = "Papirus-Dark";
       package = pkgs.catppuccin-papirus-folders.override {
@@ -52,9 +38,10 @@ lib.mkIf (osConfig.local.desktop.enable && osConfig.local.desktop.variant == "fu
   # with a wrapper that fixes both, or if upstream packaging is fixed.
   # home.pointerCursor = { ... };
 
-  # Through `xdg.dataFile` so the dconf `picture-uri` in desktop.nix points at a
-  # stable path with no nix store hash in it; `home.packages` also lists the
-  # package so GNOME's Backgrounds panel offers `catppuccin-mocha`.
+  # Through `xdg.dataFile` so the path in config/noctalia/config.toml's
+  # `[wallpaper.default]` carries no nix store hash: a wallpaper package bump
+  # would otherwise leave Noctalia pointing at a store path that no longer
+  # exists.
   home.packages = [ pkgs.nixos-artwork.wallpapers.catppuccin-mocha ];
 
   xdg.dataFile."backgrounds/catppuccin-mocha.png".source =

@@ -15,25 +15,12 @@ let
 in
 {
   options.local.desktop = {
-    enable = lib.mkEnableOption "the GNOME desktop stack (GDM, GNOME, pipewire, Bluetooth, printing, scanning, Brave, PDF tools)";
-
-    # `full` = PaperWM + Catppuccin theming (geekom); `vanilla` = plain GNOME
-    # (hplaptop). The HM half (modules/home/desktop.nix, modules/home/gtk.nix)
-    # reads this and gates the PaperWM/Catppuccin dconf + GTK config on
-    # `variant == "full"`.
-    variant = lib.mkOption {
-      type = lib.types.enum [
-        "full"
-        "vanilla"
-      ];
-      default = "full";
-      description = "Desktop variant: `full` enables PaperWM + Catppuccin theming, `vanilla` ships plain GNOME.";
-    };
+    enable = lib.mkEnableOption "the desktop stack (a GNOME or niri session: pipewire, Bluetooth, printing, scanning, Brave, PDF tools)";
 
     # Which session the seam delivers. `gnome` (default) is GDM + GNOME exactly
     # as always — hplaptop never sets this and stays byte-identical. `niri`
     # drops the X server, GDM and GNOME, leaving greetd + regreet (host module)
-    # as the only path in. `variant` stays until the HM half stops reading it.
+    # as the only path in.
     session = lib.mkOption {
       type = lib.types.enum [
         "gnome"
@@ -79,6 +66,13 @@ in
       alsa.support32Bit = true;
       pulse.enable = true;
     };
+
+    # Power profiles (performance/balanced/power-saver) — EXPLICIT for the same
+    # reason as Bluetooth: GNOME mkDefaults this daemon, so the niri cutover
+    # silently dropped it and Noctalia's Power panel went empty. Noctalia
+    # drives it over D-Bus; nixpkgs asserts it cannot coexist with TLP, which
+    # this repo does not use.
+    services.power-profiles-daemon.enable = true;
 
     # Bluetooth, EXPLICITLY — and this line is not redundant. GNOME already sets
     # `hardware.bluetooth.enable = mkDefault true`, so with this line deleted
@@ -189,17 +183,11 @@ in
       pkgs.pdfarranger
       pkgs.imagemagick
     ]
-    # Dash to Dock — auto-hide bottom dock, on both variants. NOT Dash to
-    # *Panel*: that is the different, incompatible extension PaperWM's list
-    # names. nixpkgs gates the extension on its `shell-version` metadata, so a
-    # GNOME bump fails at eval until a matching release lands.
-    ++ [ pkgs.gnomeExtensions.dash-to-dock ]
-    # PaperWM — scrollable tiling. Here and not in the HM half because GNOME
-    # Shell extensions are system-wide packages loaded from the system profile,
-    # while the ENABLE state is per-user dconf (modules/home/desktop.nix). Gated
-    # on `variant == "full"`; PaperWM auto-disables the three incompatible
-    # settings itself, so nothing is set for those here.
-    ++ lib.optionals (cfg.variant == "full") [ pkgs.gnomeExtensions.paperwm ]
+    # Dash to Dock — GNOME's auto-hide bottom dock (hplaptop); the niri session
+    # gets its dock from Noctalia instead. nixpkgs gates the extension on its
+    # `shell-version` metadata, so a GNOME bump fails at eval until a matching
+    # release lands.
+    ++ lib.optionals (cfg.session == "gnome") [ pkgs.gnomeExtensions.dash-to-dock ]
     # LibreOffice, its own sub-option and default false: geekom does not pull the
     # ~1GB closure. Only hplaptop enables it — Word/Excel compatibility for HR
     # work.

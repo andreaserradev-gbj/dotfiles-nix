@@ -32,10 +32,9 @@
   # Intel box — the AMD counterpart would do nothing here.
   hardware.cpu.intel.updateMicrocode = true;
 
-  # GDM + vanilla GNOME (modules/nixos/desktop.nix, imported everywhere, enabled
-  # on the desktop hosts). `variant = "vanilla"` skips PaperWM and Catppuccin.
+  # GDM + plain GNOME (modules/nixos/desktop.nix, imported everywhere, enabled
+  # on the desktop hosts): `session` defaults to "gnome", so nothing to set.
   local.desktop.enable = true;
-  local.desktop.variant = "vanilla";
   local.desktop.libreoffice.enable = true; # Elisa needs Word/Excel for HR work
 
   # No dev tooling, no sshd, no authorized_keys. `local.dev.enable` defaults to

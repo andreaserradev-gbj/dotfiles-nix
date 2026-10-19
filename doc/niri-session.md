@@ -1,37 +1,71 @@
 # niri + Noctalia on geekom
 
-geekom offers **two sessions at the GDM login screen**: GNOME, unchanged, and
-niri with the [Noctalia](https://noctalia.dev) shell. Nothing is replaced, so
-switching is a session choice, not a rebuild.
+geekom runs **one session**: [niri](https://github.com/YaLTeR/niri) with the
+[Noctalia](https://noctalia.dev) shell. There is no session chooser and no
+fallback desktop — GDM and GNOME are not installed — so changing the session
+is a rebuild, not a login-screen choice.
 
-| session | started by | shell |
-| ------- | ---------- | ----- |
-| GNOME (default) | `gnome-session` | GNOME Shell + PaperWM + Catppuccin |
-| Niri | `niri-session` → `niri.service` → `spawn-at-startup "noctalia"` | Noctalia |
+## The path in: greetd → niri → regreet
+
+```
+power → systemd → greetd (VT1)
+                   └─ niri -c /etc/niri/greeter.kdl -- regreet
+                        └─ password auth → niri-session + Noctalia
+```
+
+- **regreet runs inside a minimal niri**, not inside cage: the nixpkgs regreet
+  module sets its cage command with `mkDefault`, and
+  `hosts/geekom/greeter.nix` replaces it with a plain assignment. One
+  compositor everywhere, and the same `niri validate` gate covers the greeter
+  config.
+- **Password auth, no autologin**: a daily workstation with sops secrets and
+  SSH keys on disk. The VM's kiosk (`nullok`, no prompt) is the deliberate
+  contrast — [doc/vm-console.md](vm-console.md). The keyring unlock chains are
+  unchanged: greetd's PAM service wires `enableGnomeKeyring`, and Noctalia's
+  lock screen authenticates through PAM's `login` service.
+- **The greeter is themed Mocha + Papirus-Dark**, the session's own look;
+  regreet is libadwaita, so the GTK theme name does not restyle it — the icons
+  and the dark flag do. It renders at the panel's scale (`greeter.kdl`
+  declares DP-6 at 1.25, like the session config).
+- `config/niri/greeter.kdl` is validated at build time and delivered through
+  `environment.etc` — the greeter user has no Home Manager home. The check IS
+  the deployed artifact: a broken config fails the rebuild instead of dropping
+  the machine to a black screen.
 
 ## What owns what
 
-- **System** (`hosts/geekom/default.nix`): `programs.niri.enable`, plus
-  `pkgs.noctalia` and `pkgs.xwayland-satellite` in `environment.systemPackages`.
-  The nixpkgs module adds the session package, the `niri.service` user unit,
-  `xdg.portal.config.niri`, a PAM entry for `swaylock` and an XDG-autostart
-  target. It changes nothing in the GNOME session.
-- **Home** (`modules/home/niri.nix`): the two config files, gated on
+- **Session** (`hosts/geekom/default.nix`): `programs.niri.enable` plus
+  `pkgs.noctalia` and `pkgs.xwayland-satellite` in
+  `environment.systemPackages`. The nixpkgs module adds the session package,
+  the `niri.service` user unit, `xdg.portal.config.niri` (gnome+gtk — niri
+  implements Mutter's ScreenCast API, so no portal-wlr), a PAM entry for
+  `swaylock` and an XDG-autostart target. The same host file carries the
+  explicit-enable assertions the GNOME defaults used to hide: ibus off, dconf
+  on, gnome-keyring on.
+- **Greeter** (`hosts/geekom/greeter.nix`): greetd + regreet, the niri greeter
+  command, and the validated `environment.etc."niri/greeter.kdl"`. Host-local
+  by import, like `usb-mouse-recovery.nix` — hplaptop keeps GDM and never
+  evaluates it.
+- **Home** (`modules/home/niri.nix`): the session's two config files, gated on
   `osConfig.programs.niri.enable` so hplaptop never sees them.
-- **Assets**: `config/niri/config.kdl` and `config/noctalia/config.toml`,
-  copied verbatim (edit the file, there is no generator).
+- **Assets**: `config/niri/config.kdl`, `config/niri/greeter.kdl` and
+  `config/noctalia/config.toml`, copied verbatim (edit the file, there is no
+  generator).
 
-## Switching sessions
+## Recovery
 
-- **Into niri**: at GDM, pick *Niri* in the session menu (the gear, bottom
-  right). `defaultSession` is unset, so the picker still preselects GNOME.
-- **Back to GNOME**: *Noctalia* → session panel → *Log out*, `Mod+Shift+E`, or
-  `niri msg action quit`. All three end the niri session and return to GDM,
-  where GNOME is the entry you started from. GNOME keeps no state from niri, so
-  the next login is the same desktop as before.
-- **Recovery**: if a niri session will not start, `Ctrl+Alt+F3` to a TTY, log
-  in, and `sudo nixos-rebuild switch --rollback`. GDM is outside the session, so
-  a broken compositor cannot lock you out of the machine.
+Recovery is generation-level, not session-level — there is no second session
+to fall back to:
+
+- **TTY**: `Ctrl+Alt+F3`, log in, `sudo nixos-rebuild switch --rollback`.
+- **Boot menu**: the previous generations are selectable at boot; one boots
+  the old system without touching the current profile.
+- **SSH**: `local.loopbackRebuild` keeps rebuilds outside the display stack
+  entirely, so a dead session never blocks a repair
+  ([doc/workflow.md](workflow.md)).
+
+A broken compositor cannot lock you out: greetd sits outside the session and
+respawns — `Mod+Shift+E` ends niri and lands back at the greeter.
 
 `systemctl suspend` returns access denied on this host: `sleep.target` and
 `suspend.target` are masked (`hosts/geekom/default.nix`), which is why
@@ -63,11 +97,11 @@ config uses. Upstream's flake is 5.3.0 and pins its own nixpkgs:
   805 MiB marginal over this system;
 - with `follows`, a from-source build (~5 min here) that misses its own cache;
 - either way, `disabledModules` replaces the nixpkgs module and adds a KDE
-  polkit agent that GNOME's setup does not need.
+  polkit agent that this setup does not need.
 
 Revisit when nixos-26.05 carries 5.3.x.
 
-## What Noctalia replaces in that session
+## What Noctalia replaces
 
 Bar, dock, launcher, control center, notifications, OSDs, wallpaper, lock
 screen and session panel, from one binary. Verified as niri layer surfaces
@@ -75,24 +109,26 @@ screen and session panel, from one binary. Verified as niri layer surfaces
 `workspace-switch` moving between workspaces and `session lock` engaging
 `ext_session_lock_v1`.
 
-It authenticates the lock screen through PAM's `login` service, which is the
-same stack `pam_gnome_keyring` already unlocks the login keyring from. Its
-polkit prompt is its own (`polkit_agent = true`), because GNOME's agent lives
-inside gnome-shell and is not running in a niri session.
+Its polkit prompt is its own (`polkit_agent = true`): GNOME's agent lived
+inside gnome-shell, which is gone, so Noctalia is the only polkit agent in the
+session.
 
 ## Gotchas
 
 - **Noctalia's settings UI wins over the declarative config.** It writes
   `~/.local/state/noctalia/settings.toml`, merged after `config/noctalia/`.
-  When a Nix setting appears ignored, inspect or delete that file.
+  When a Nix setting appears ignored, inspect or delete that file — this
+  includes the lock screen's login-box widget settings, which the state file
+  owns.
 - **niri's own default config is never merged.** A config file exists, so the
   built-in one is not used at all; every bind in `config/niri/config.kdl` is
   deliberate. Diff it against upstream's `default-config.kdl` at the pinned tag
   when nixpkgs moves.
 - **`config/niri/config.kdl` and `config/noctalia/config.toml` are validated at
-  build time** (`modules/home/niri.nix`). niri falls back to defaults on a bad
-  config and Noctalia ignores one it cannot parse, so without the gate a typo
-  would only show up as a session with no bar.
+  build time** (`modules/home/niri.nix`, and the greeter config in
+  `hosts/geekom/greeter.nix`). niri falls back to defaults on a bad config and
+  Noctalia ignores one it cannot parse, so without the gate a typo would only
+  show up as a session with no bar.
 - **`xwayland-satellite` is required.** The nixpkgs niri module passes
   `enableXWayland = false`; without the satellite on PATH, every X11 app is
   unavailable and niri logs `error spawning xwayland-satellite`.

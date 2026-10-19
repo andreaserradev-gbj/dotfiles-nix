@@ -16,13 +16,13 @@ niri_overview_type_to_launch_enabled = true
 [theme]
 mode = "dark"
 source = "builtin"
-# Matches the GTK/GNOME half (modules/home/gtk.nix).
+# Matches the session's GTK side: Papirus-Dark icons (modules/home/gtk.nix)
+# and ghostty's Catppuccin Mocha (modules/home/desktop.nix).
 builtin = "Catppuccin"
 
 [wallpaper]
 enabled = true
-# The same asset the GNOME session sets as its background; gtk.nix puts it at
-# this stable path (no store hash) on the full variant only.
+# gtk.nix installs the asset at this stable path (no store hash).
 [wallpaper.default]
 path = "~/.local/share/backgrounds/catppuccin-mocha.png"
 
@@ -31,6 +31,18 @@ enabled = true
 
 [lockscreen]
 enabled = true
+
+# One session, one user: the lock screen's session switcher is dead UI. The
+# key lives on the login-box WIDGET in 5.0.1 (verified with `noctalia config
+# export`), not on [lockscreen]; `type` is required for the widget record to
+# be recognized at all. The Settings UI persists the same widget block in
+# ~/.local/state/noctalia/settings.toml, which merges after this file and
+# wins — clear its show_session_buttons key there to let this apply.
+[lockscreen_widgets.widget."lockscreen-login-box@DP-6"]
+type = "login_box"
+
+[lockscreen_widgets.widget."lockscreen-login-box@DP-6".settings]
+show_session_buttons = false
 
 [notification]
 enable_daemon = true
