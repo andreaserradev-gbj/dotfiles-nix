@@ -13,9 +13,12 @@ power → systemd → greetd (VT1)
                         └─ password auth → niri-session + Noctalia
 ```
 
-- **noctalia-greeter, hand-wired**: the package is in the pinned channel
-  (1.3.1) but its NixOS module is not (it exists in unstable), so
-  `hosts/geekom/greeter.nix` assigns the greetd command and delivers
+- **noctalia-greeter, hand-wired, unstable**: the greeter runs from
+  `unstablePkgs.noctalia-greeter` (the channel's 1.3.1 ignores
+  `[appearance.wallpaper]` on builtin schemes; 1.6.0 applies it — see the
+  version note in `hosts/geekom/greeter.nix`), but the unstable NixOS module
+  (`services.displayManager.noctalia-greeter`) is not adopted,
+  so `hosts/geekom/greeter.nix` assigns the greetd command and delivers
   `greeter.toml` through a systemd tmpfiles symlink — the same pattern the
   unstable module uses. The greeter bundles its own compositor, so the
   `niri validate` gate covers the session configs only, not the greeter.
@@ -29,12 +32,15 @@ power → systemd → greetd (VT1)
   compositor reads its own `[keyboard]` from `greeter.toml` and would fall
   back to `us`. `greeter.toml` sets `layout = "it"` from the same
   `user.nix` field — change one, check the other.
-- **The greeter is themed by the session, not by Nix**: from the running
-  Noctalia session, appearance sync (`pkexec noctalia-greeter-apply-appearance`,
-  polkit action from the package, admin = wheel) writes wallpaper, palette and
-  font into `/var/lib/noctalia-greeter/sync.toml`; it applies on the next
-  login screen. `greeter.toml` is the Nix-owned declarative half (keyboard,
-  output scale); sync.toml must never be written by hand.
+- **Greeter theming is split: wallpaper declarative, palette/font by session
+  sync**: greeter.toml wins over sync.toml on any key it sets, so the
+  wallpaper is Nix-owned — a tmpfiles `r`+`C` copy stages
+  `~/Pictures/Wallpapers/…` into `/var/lib/noctalia-greeter/wallpaper.jpg`
+  on every boot, because the greeter account cannot read the user's 0700
+  home. Palette and font still come from the session (`pkexec
+  noctalia-greeter-apply-appearance`, polkit action from the package, admin
+  = wheel) writing `/var/lib/noctalia-greeter/sync.toml`; sync.toml must
+  never be written by hand.
 
 ## What owns what
 
