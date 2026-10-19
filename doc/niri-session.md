@@ -5,32 +5,36 @@ geekom runs **one session**: [niri](https://github.com/YaLTeR/niri) with the
 fallback desktop — GDM and GNOME are not installed — so changing the session
 is a rebuild, not a login-screen choice.
 
-## The path in: greetd → niri → regreet
+## The path in: greetd → noctalia-greeter
 
 ```
 power → systemd → greetd (VT1)
-                   └─ niri -c /etc/niri/greeter.kdl -- regreet
+                   └─ noctalia-greeter-session (bundled compositor + greeter)
                         └─ password auth → niri-session + Noctalia
 ```
 
-- **regreet runs inside a minimal niri**, not inside cage: the nixpkgs regreet
-  module sets its cage command with `mkDefault`, and
-  `hosts/geekom/greeter.nix` replaces it with a plain assignment. One
-  compositor everywhere, and the same `niri validate` gate covers the greeter
-  config.
+- **noctalia-greeter, hand-wired**: the package is in the pinned channel
+  (1.3.1) but its NixOS module is not (it exists in unstable), so
+  `hosts/geekom/greeter.nix` assigns the greetd command and delivers
+  `greeter.toml` through a systemd tmpfiles symlink — the same pattern the
+  unstable module uses. The greeter bundles its own compositor, so the
+  `niri validate` gate covers the session configs only, not the greeter.
 - **Password auth, no autologin**: a daily workstation with sops secrets and
   SSH keys on disk. The VM's kiosk (`nullok`, no prompt) is the deliberate
   contrast — [doc/vm-console.md](vm-console.md). The keyring unlock chains are
   unchanged: greetd's PAM service wires `enableGnomeKeyring`, and Noctalia's
   lock screen authenticates through PAM's `login` service.
-- **The greeter is themed Mocha + Papirus-Dark**, the session's own look;
-  regreet is libadwaita, so the GTK theme name does not restyle it — the icons
-  and the dark flag do. It renders at the panel's scale (`greeter.kdl`
-  declares DP-6 at 1.25, like the session config).
-- `config/niri/greeter.kdl` is validated at build time and delivered through
-  `environment.etc` — the greeter user has no Home Manager home. The check IS
-  the deployed artifact: a broken config fails the rebuild instead of dropping
-  the machine to a black screen.
+- **Keyboard layout is declared, not inherited**: the session's niri reads
+  its layout from systemd-localed (`user.keyboardLayout`), but the greeter
+  compositor reads its own `[keyboard]` from `greeter.toml` and would fall
+  back to `us`. `greeter.toml` sets `layout = "it"` from the same
+  `user.nix` field — change one, check the other.
+- **The greeter is themed by the session, not by Nix**: from the running
+  Noctalia session, appearance sync (`pkexec noctalia-greeter-apply-appearance`,
+  polkit action from the package, admin = wheel) writes wallpaper, palette and
+  font into `/var/lib/noctalia-greeter/sync.toml`; it applies on the next
+  login screen. `greeter.toml` is the Nix-owned declarative half (keyboard,
+  output scale); sync.toml must never be written by hand.
 
 ## What owns what
 
@@ -42,15 +46,14 @@ power → systemd → greetd (VT1)
   `swaylock` and an XDG-autostart target. The same host file carries the
   explicit-enable assertions the GNOME defaults used to hide: ibus off, dconf
   on, gnome-keyring on.
-- **Greeter** (`hosts/geekom/greeter.nix`): greetd + regreet, the niri greeter
-  command, and the validated `environment.etc."niri/greeter.kdl"`. Host-local
-  by import, like `usb-mouse-recovery.nix` — hplaptop keeps GDM and never
-  evaluates it.
+- **Greeter** (`hosts/geekom/greeter.nix`): greetd + noctalia-greeter, the
+  greetd command, the AccountsService daemon, and the tmpfiles-delivered
+  `greeter.toml`. Host-local by import, like `usb-mouse-recovery.nix` —
+  hplaptop keeps GDM and never evaluates it.
 - **Home** (`modules/home/niri.nix`): the session's two config files, gated on
   `osConfig.programs.niri.enable` so hplaptop never sees them.
-- **Assets**: `config/niri/config.kdl`, `config/niri/greeter.kdl` and
-  `config/noctalia/config.toml`, copied verbatim (edit the file, there is no
-  generator).
+- **Assets**: `config/niri/config.kdl` and `config/noctalia/config.toml`,
+  copied verbatim (edit the file, there is no generator).
 
 ## Recovery
 
@@ -125,10 +128,9 @@ session.
   deliberate. Diff it against upstream's `default-config.kdl` at the pinned tag
   when nixpkgs moves.
 - **`config/niri/config.kdl` and `config/noctalia/config.toml` are validated at
-  build time** (`modules/home/niri.nix`, and the greeter config in
-  `hosts/geekom/greeter.nix`). niri falls back to defaults on a bad config and
-  Noctalia ignores one it cannot parse, so without the gate a typo would only
-  show up as a session with no bar.
+  build time** (`modules/home/niri.nix`). niri falls back to defaults on a bad
+  config and Noctalia ignores one it cannot parse, so without the gate a typo
+  would only show up as a session with no bar.
 - **`xwayland-satellite` is required.** The nixpkgs niri module passes
   `enableXWayland = false`; without the satellite on PATH, every X11 app is
   unavailable and niri logs `error spawning xwayland-satellite`.
