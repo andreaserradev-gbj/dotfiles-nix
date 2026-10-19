@@ -56,6 +56,12 @@ window-rule {
   clip-to-geometry true
 }
 
+// Every new window opens filling the desktop (gaps included), one column per
+// window — the dynamic-tiling default, equivalent to Mod+F's maximize-column.
+window-rule {
+  open-maximized true
+}
+
 window-rule {
   match app-id="dev.noctalia.Noctalia"
   open-floating true
