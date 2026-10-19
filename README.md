@@ -30,7 +30,7 @@ remember or mistype.
 | attr       | directory           | architecture    | machine                 | console                      |
 | ---------- | ------------------- | --------------- | ----------------------- | ---------------------------- |
 | `nixos`    | `hosts/vm/`         | `aarch64-linux` | UTM VM on Apple Silicon, **dormant** | cage + foot kiosk, autologin |
-| `geekom`   | `hosts/geekom/`     | `x86_64-linux`  | GEEKOM A9 Max mini PC   | niri + Noctalia via greetd/regreet (one session) |
+| `geekom`   | `hosts/geekom/`     | `x86_64-linux`  | GEEKOM A9 Max mini PC   | niri + Noctalia via greetd/noctalia-greeter (one session) |
 | `hplaptop` | `hosts/hplaptop/`   | `x86_64-linux`  | HP laptop (Intel i5)    | vanilla GNOME on GDM         |
 
 > **The VM's two names are not a typo.** Its flake attr is `nixos` because that
@@ -102,7 +102,7 @@ bootstrap.sh           one-command install of any host, from a live ISO
 
 > **`local.desktop.session` selects the login session.** `"gnome"` (default)
 > keeps GDM + GNOME — hplaptop's unchanged setup; `"niri"` drops the X server,
-> GDM and GNOME for a greetd → niri → regreet login with Noctalia (geekom).
+> GDM and GNOME for a greetd → noctalia-greeter login with Noctalia (geekom).
 > The session-specific reasoning lives in `modules/nixos/desktop.nix` and the
 > host files.
 
@@ -118,7 +118,7 @@ bootstrap.sh           one-command install of any host, from a live ISO
 | [doc/dev-environments.md](doc/dev-environments.md) | Per-project dev shells: the `devshell` template, direnv, SSH port forwards |
 | [doc/adopting-tools.md](doc/adopting-tools.md)     | Trying a new tool and promoting it into the flake: triage, trial, promotion |
 | [doc/vm-console.md](doc/vm-console.md)             | The cage + foot local console and its known limitations |
-| [doc/niri-session.md](doc/niri-session.md)         | geekom's only session: greetd → niri → regreet with Noctalia, recovery, why not sway/Hyprland, gotchas |
+| [doc/niri-session.md](doc/niri-session.md)         | geekom's only session: greetd → noctalia-greeter with Noctalia, recovery, why not sway/Hyprland, gotchas |
 | [doc/local-llm.md](doc/local-llm.md)               | Local LLM inference on geekom: hardware budget, tuning decisions, measured baselines, future-model protocol |
 | [doc/herdr.md](doc/herdr.md)                       | herdr (agent workspace manager): zellij coexistence, what Nix owns, tag-bump checklist (`nfb`), keymap and state gotchas |
 | [doc/omp.md](doc/omp.md)                           | omp / oh-my-pi (coding agent): Nix-owned vs stateful, MCP servers, per-host API key |

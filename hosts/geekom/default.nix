@@ -19,9 +19,9 @@
     # with this host — see doc/troubleshooting.md.
     ./usb-mouse-recovery.nix
 
-    # greetd + regreet: the only path in now that session = "niri" dropped
-    # GDM. Host-local like usb-mouse-recovery.nix: hplaptop keeps GDM and
-    # must not see greetd.
+    # greetd + noctalia-greeter: the only path in now that session = "niri"
+    # dropped GDM. Host-local like usb-mouse-recovery.nix: hplaptop keeps GDM
+    # and must not see greetd.
     ./greeter.nix
   ];
 
@@ -80,11 +80,11 @@
 
   # niri is THE session, not one of two: `session = "niri"` drops the X
   # server, GDM and GNOME (modules/nixos/desktop.nix), and ./greeter.nix makes
-  # greetd + regreet the only path in. niri 26.04 with the Noctalia shell
-  # (config/niri/, config/noctalia/); Noctalia's config is HM-owned behind the
-  # same switch (modules/home/niri.nix).
+  # greetd + noctalia-greeter the only path in. niri 26.04 with the Noctalia
+  # shell (config/niri/, config/noctalia/); Noctalia's config is HM-owned
+  # behind the same switch (modules/home/niri.nix).
   #
-  # No session chooser and no autologin: regreet asks for the password and
+  # No session chooser and no autologin: noctalia-greeter asks for the password and
   # starts the one session there is. Getting out is Noctalia's Log out
   # (`niri msg action quit`), which lands back in the greeter.
   #
@@ -188,6 +188,9 @@
     # The niri session's shell and its X11 bridge, for the reasons given at
     # `programs.niri.enable`.
     pkgs.noctalia
+    # TRIAL (uncommitted): greeter packages on PATH for the greeter user and
+    # the polkit action under /share/polkit-1 (pkexec appearance sync).
+    pkgs.noctalia-greeter
     pkgs.xwayland-satellite
   ];
   services.udev.extraRules = ''KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{serial}=="*vial:f64c2b3c*", MODE="0660", TAG+="uaccess"'';

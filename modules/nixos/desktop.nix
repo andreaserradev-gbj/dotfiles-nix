@@ -19,8 +19,8 @@ in
 
     # Which session the seam delivers. `gnome` (default) is GDM + GNOME exactly
     # as always — hplaptop never sets this and stays byte-identical. `niri`
-    # drops the X server, GDM and GNOME, leaving greetd + regreet (host module)
-    # as the only path in.
+    # drops the X server, GDM and GNOME, leaving greetd + noctalia-greeter
+    # (host module) as the only path in.
     session = lib.mkOption {
       type = lib.types.enum [
         "gnome"
