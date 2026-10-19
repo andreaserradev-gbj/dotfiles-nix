@@ -30,21 +30,39 @@ in
       description = "Desktop variant: `full` enables PaperWM + Catppuccin theming, `vanilla` ships plain GNOME.";
     };
 
+    # Which session the seam delivers. `gnome` (default) is GDM + GNOME exactly
+    # as always — hplaptop never sets this and stays byte-identical. `niri`
+    # drops the X server, GDM and GNOME, leaving greetd + regreet (host module)
+    # as the only path in. `variant` stays until the HM half stops reading it.
+    session = lib.mkOption {
+      type = lib.types.enum [
+        "gnome"
+        "niri"
+      ];
+      default = "gnome";
+      description = "Login session: `gnome` keeps GDM + GNOME, `niri` makes the niri session the only one.";
+    };
+
     libreoffice.enable = lib.mkEnableOption "LibreOffice";
   };
 
   config = lib.mkIf cfg.enable {
-    # Supplies XWayland, so X11-only applications still run on GNOME's Wayland
-    # session.
-    services.xserver.enable = true;
+    # The GNOME session's plumbing (XWayland for X11-only apps, GDM, GNOME),
+    # gated on `session` so the niri-only host drops the whole stack without
+    # touching what hplaptop needs.
+    services.xserver.enable = lib.mkIf (cfg.session == "gnome") true;
 
     # Same per-host field as the console keymap (common.nix), so TTY and GUI can
-    # never disagree. Feeds GDM's greeter and the session's XKB defaults; GNOME's
-    # per-user input sources are declarative in modules/home/desktop.nix.
+    # never disagree. Deliberately NOT gated on `session`: niri reads its layout
+    # from systemd-localed, and localed writes 00-keyboard.conf from these
+    # values for any graphical session — greetd sets
+    # services.displayManager.enable, which keeps that chain alive with
+    # services.xserver.enable off. GNOME's per-user input sources are
+    # declarative in modules/home/desktop.nix.
     services.xserver.xkb.layout = user.keyboardLayout or "us";
 
-    services.displayManager.gdm.enable = true;
-    services.desktopManager.gnome.enable = true;
+    services.displayManager.gdm.enable = lib.mkIf (cfg.session == "gnome") true;
+    services.desktopManager.gnome.enable = lib.mkIf (cfg.session == "gnome") true;
 
     # GDM theming deliberately NOT applied: the one piece worth styling (the
     # cursor) is blocked by the packaging issue in modules/home/gtk.nix, and the

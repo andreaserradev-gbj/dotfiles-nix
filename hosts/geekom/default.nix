@@ -18,6 +18,11 @@
     # mouse's xHCI controller when it is absent. Geekom-only IDs, so it lives
     # with this host — see doc/troubleshooting.md.
     ./usb-mouse-recovery.nix
+
+    # greetd + regreet: the only path in now that session = "niri" dropped
+    # GDM. Host-local like usb-mouse-recovery.nix: hplaptop keeps GDM and
+    # must not see greetd.
+    ./greeter.nix
   ];
 
   networking.hostName = "geekom";
@@ -51,9 +56,9 @@
 
   # THIS BOX CANNOT SUSPEND, so nothing is allowed to try — see
   # doc/bare-metal-geekom.md. Masked at the SYSTEM level on purpose: the obvious
-  # fix (GNOME Settings → Power → Automatic Suspend) writes to the logged-in
-  # user's dconf, while GDM's greeter runs as its own user with its own idle
-  # timer — which is how the machine was lost while nobody was logged in.
+  # fix (a desktop's power settings) writes to the logged-in user's dconf,
+  # while the login greeter runs as its own user outside any desktop's power
+  # settings — which is how the machine was lost while nobody was logged in.
   # Masking the targets is the only form that covers the greeter, every user
   # session, AND the power menu entry. hibernate and hybrid-sleep cost nothing:
   # both need swap, and this disk layout creates none.
@@ -68,22 +73,20 @@
     hybrid-sleep.enable = false;
   };
 
-  # GDM + GNOME, pipewire, Brave, Bluetooth, ghostty — defined in
+  # The desktop seam — pipewire, Brave, Bluetooth, ghostty — defined in
   # modules/nixos/desktop.nix, which every host imports but only this one
   # switches on.
   local.desktop.enable = true;
 
-  # A SECOND session at the GDM login screen, next to GNOME: niri 26.04 with
-  # the Noctalia shell (config/niri/, config/noctalia/). Here and not in
-  # modules/nixos/desktop.nix because hplaptop sets local.desktop.enable too
-  # and must not grow a second session. Nothing about the GNOME session moves:
-  # the module only adds sessionPackages, a systemd user unit and the
-  # niri-portals.conf, and Noctalia's config is HM-owned behind the same
-  # option (modules/home/niri.nix).
+  # niri is THE session, not one of two: `session = "niri"` drops the X
+  # server, GDM and GNOME (modules/nixos/desktop.nix), and ./greeter.nix makes
+  # greetd + regreet the only path in. niri 26.04 with the Noctalia shell
+  # (config/niri/, config/noctalia/); Noctalia's config is HM-owned behind the
+  # same switch (modules/home/niri.nix).
   #
-  # `defaultSession` stays unset, so autologin and the preselected entry remain
-  # gnome; switching back is `niri msg action quit`, Noctalia's Log out, or a
-  # GDM reboot, and GNOME is the same entry it always was.
+  # No session chooser and no autologin: regreet asks for the password and
+  # starts the one session there is. Getting out is Noctalia's Log out
+  # (`niri msg action quit`), which lands back in the greeter.
   #
   # The two packages that make that session usable live in the systemPackages
   # list below, next to Vial:
@@ -96,6 +99,7 @@
   #                        nixpkgs module passes enableXWayland = false, so
   #                        without it every X11 app is unavailable and niri
   #                        logs "error spawning xwayland-satellite".
+  local.desktop.session = "niri";
   programs.niri.enable = true;
 
   # Explicit-enable trio for the niri session, each currently a GNOME
