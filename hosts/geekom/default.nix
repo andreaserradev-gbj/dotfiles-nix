@@ -98,6 +98,16 @@
   #                        logs "error spawning xwayland-satellite".
   programs.niri.enable = true;
 
+  # Explicit-enable trio for the niri session, each currently a GNOME
+  # `mkDefault` the greetd cutover would otherwise silently remove with GNOME:
+  # ibus off kills the keyboard-notification autostart entry (its NotShowIn
+  # fires under niri), dconf serves HM `dconf.settings`, gnome-keyring backs
+  # the lock screen's PAM unlock. Same pattern as bluetooth in
+  # modules/nixos/desktop.nix.
+  i18n.inputMethod.enable = false;
+  programs.dconf.enable = true;
+  services.gnome.gnome-keyring.enable = true;
+
   # Steam + Vulkan (RADV for the Radeon 890M), same pattern — defined in
   # modules/nixos/gaming.nix.
   local.gaming.enable = true;

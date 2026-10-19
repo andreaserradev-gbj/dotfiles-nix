@@ -25,6 +25,12 @@ input {
   }
 }
 
+// The 4K panel reads at 1.25 and DP-6 is the only output. Declared here so the
+// scale is config, not runtime state Noctalia happens to set.
+output "DP-6" {
+  scale 1.25
+}
+
 layout {
   // Noctalia draws the wallpaper, so the gaps between windows must be
   // transparent for it to show through.
