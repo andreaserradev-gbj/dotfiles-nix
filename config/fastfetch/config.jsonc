@@ -1,5 +1,23 @@
 {
     "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+    // Key/percent colors are Noctalia's resolved palette, mapped by the same
+    // slots its fastfetch template uses (primary/secondary/tertiary/
+    // primary_fixed_dim/error). Static by design — re-copy if the Noctalia
+    // theme changes; the community template can't write into this Nix-owned
+    // file.
+    "display": {
+        "color": {
+            "keys": "#cba6f7",
+            "title": "#fab387"
+        },
+        "percent": {
+            "color": {
+                "green": "#94e2d5",
+                "yellow": "#bb8af4",
+                "red": "#f38ba8"
+            }
+        }
+    },
     "logo": {
         "padding": {
             "top": 5,
@@ -7,6 +25,9 @@
         }
     },
     "modules": [
+        {
+            "type": "title"
+        },
         "break",
         {
             "type": "custom",
@@ -15,34 +36,39 @@
         {
             "type": "host",
             "key": " PC",
-            "keyColor": "green"
+            "keyColor": "#94e2d5"
         },
         {
             "type": "cpu",
             "key": "│ ├",
             "showPeCoreCount": true,
-            "keyColor": "green"
+            "keyColor": "#94e2d5"
         },
         {
             "type": "gpu",
             "key": "│ ├",
             "detectionMethod": "pci",
-            "keyColor": "green"
+            "keyColor": "#94e2d5"
         },
         {
             "type": "display",
             "key": "│ ├󱄄",
-            "keyColor": "green"
+            "keyColor": "#94e2d5"
         },
         {
             "type": "disk",
             "key": "│ ├󰋊",
-            "keyColor": "green"
+            "keyColor": "#94e2d5"
+        },
+        {
+            "type": "swap",
+            "key": "│ ├󰓡",
+            "keyColor": "#94e2d5"
         },
         {
             "type": "memory",
             "key": "│ ├",
-            "keyColor": "green"
+            "keyColor": "#94e2d5"
         },
         {
             "type": "custom",
@@ -56,48 +82,58 @@
         {
             "type": "os",
             "key": " OS",
-            "keyColor": "yellow"
+            "keyColor": "#fab387"
         },
         {
             "type": "kernel",
             "key": "│ ├",
-            "keyColor": "yellow"
+            "keyColor": "#fab387"
         },
         {
             "type": "packages",
             "key": "│ ├󰏖",
-            "keyColor": "yellow"
+            "keyColor": "#fab387"
+        },
+        {
+            "type": "processes",
+            "key": "│ ├󰐰",
+            "keyColor": "#fab387"
+        },
+        {
+            "type": "loadavg",
+            "key": "│ ├󰓅",
+            "keyColor": "#fab387"
         },
         {
             "type": "shell",
             "key": "└ └",
-            "keyColor": "yellow"
+            "keyColor": "#fab387"
         },
         "break",
         {
-            "type": "de",
-            "key": " DE",
-            "keyColor": "blue"
+            "type": "wm",
+            "key": " WM",
+            "keyColor": "#bb8af4"
         },
         {
             "type": "icons",
             "key": "│ ├󰀻",
-            "keyColor": "blue",
+            "keyColor": "#bb8af4",
         },
         {
             "type": "cursor",
             "key": "│ ├",
-            "keyColor": "blue",
+            "keyColor": "#bb8af4",
         },
         {
             "type": "terminalfont",
             "key": "│ ├",
-            "keyColor": "blue",
+            "keyColor": "#bb8af4",
         },
         {
             "type": "terminal",
             "key": "└ └",
-            "keyColor": "blue"
+            "keyColor": "#bb8af4"
         },
         {
             "type": "custom",
@@ -106,18 +142,23 @@
         "break",
         {
             "type": "custom",
-            "format": "\u001b[90m┌────────────────────Uptime / Age────────────────────┐"
+            "format": "\u001b[90m┌─────────────────Uptime / Net / Age─────────────────┐"
         },
         {
             "type": "command",
             "key": "  OS Age ",
-            "keyColor": "magenta",
+            "keyColor": "#f38ba8",
             "text": "birth_install=$(stat -c %W /); current=$(date +%s); time_progression=$((current - birth_install)); days_difference=$((time_progression / 86400)); echo $days_difference days"
         },
         {
             "type": "uptime",
             "key": "  Uptime ",
-            "keyColor": "magenta"
+            "keyColor": "#f38ba8"
+        },
+        {
+            "type": "localip",
+            "key": "  Net    ",
+            "keyColor": "#f38ba8"
         },
         {
             "type": "custom",
