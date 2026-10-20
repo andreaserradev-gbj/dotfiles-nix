@@ -41,18 +41,28 @@
   # After=plymouth-quit-wait.service, so the splash ends exactly when the
   # greeter takes the display.
   boot.plymouth.enable = true;
-  boot.plymouth.theme = "spinner";
-  # The 4K panel's DP link trains several seconds after amdgpu binds on cold
-  # boot; with the stock 8s device timeout plymouthd quits before any head
-  # initializes (debug log: query_device "Could not initialize heads", then
-  # an idle quit) and the splash never shows. 60s covers link training;
-  # plymouth-quit at greetd bounds it. extraConfig lands after the module's
-  # DeviceTimeout=8 and plymouth's key file keeps the last duplicate.
-  boot.plymouth.extraConfig = "DeviceTimeout=60";
+  # Mocha to match the session's scheme (foot.nix et al.); one flavor per
+  # build (variant arg, default macchiato), installed as catppuccin-<variant>.
+  boot.plymouth.theme = "catppuccin-mocha";
+  boot.plymouth.themePackages = [ (pkgs.catppuccin-plymouth.override { variant = "mocha"; }) ];
+  # Wiki HiDPI section: without DeviceScale the two-step spinner renders at
+  # its native ~1080p size on the 4K panel — a seconds-long speck that reads
+  # as nothing. DeviceTimeout beyond the stock 8s covers boots where the DP
+  # link trains after amdgpu binds (debug log: heads failed until the panel
+  # settled, then an idle quit).
+  boot.plymouth.extraConfig = ''
+    [Daemon]
+    DeviceScale=2
+    DeviceTimeout=60
+  '';
   boot.kernelParams = [
     "quiet"
+    "rd.udev.log_level=3"
+    "rd.systemd.show_status=auto"
   ];
   boot.consoleLogLevel = 3;
+  # Silent initrd: without this its own status text prints before the splash.
+  boot.initrd.verbose = false;
 
   # The first plymouth-era reboot froze at the final kernel restart — the
   # journal shows userspace shutdown completing cleanly — and needed a
