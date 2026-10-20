@@ -63,6 +63,10 @@ window-rule {
 }
 
 window-rule {
+  default-column-width {}
+}
+
+window-rule {
   match app-id="dev.noctalia.Noctalia"
   open-floating true
   default-column-width { fixed 1080; }
