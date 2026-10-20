@@ -49,6 +49,17 @@
   boot.kernelParams = [ "quiet" ];
   boot.consoleLogLevel = 3;
 
+  # The first plymouth-era reboot froze at the final kernel restart — the
+  # journal shows userspace shutdown completing cleanly — and needed a
+  # physical power-off; every pre-plymouth reboot the same day was clean.
+  # The shutdown-side splashes are the only shutdown-path delta, so they are
+  # unplugged first: the boot splash stays, plymouthd simply never starts
+  # for reboot/halt/poweroff. If the freeze survives this, plymouth is
+  # exonerated and the reboot path itself needs looking at.
+  systemd.services.plymouth-reboot.wantedBy = lib.mkForce [ ];
+  systemd.services.plymouth-halt.wantedBy = lib.mkForce [ ];
+  systemd.services.plymouth-poweroff.wantedBy = lib.mkForce [ ];
+
   # Password auth — a daily workstation with sops secrets and SSH keys on
   # disk, not a kiosk (the VM's greetd uses `nullok` for exactly that
   # reason). No `initial_session`: nothing autologins.
