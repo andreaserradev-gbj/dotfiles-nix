@@ -41,6 +41,11 @@
   # After=plymouth-quit-wait.service, so the splash ends exactly when the
   # greeter takes the display.
   boot.plymouth.enable = true;
+  # One flavor per build (variant arg, default macchiato), installed as
+  # catppuccin-<variant> — mocha to match the session's scheme
+  # (modules/home/foot.nix et al.).
+  boot.plymouth.themePackages = [ (pkgs.catppuccin-plymouth.override { variant = "mocha"; }) ];
+  boot.plymouth.theme = "catppuccin-mocha";
   boot.kernelParams = [ "quiet" ];
   boot.consoleLogLevel = 3;
 

@@ -101,6 +101,12 @@
   #                        logs "error spawning xwayland-satellite".
   local.desktop.session = "niri";
   programs.niri.enable = true;
+  # Unstable, like the greeter above (flake guard rule): unstable's niri is
+  # tracked for a released niri-session that stops calling the blanket
+  # `systemctl --user import-environment` — systemd deprecates it and its
+  # yellow warning prints onto the login VT until niri's first frame.
+  # Revert to the channel package once it carries the fix.
+  programs.niri.package = unstablePkgs.niri;
   # Recording backend for Noctalia's screen_recorder plugin (config/noctalia/
   # config.toml): the module wraps gsr-kms-server with cap_sys_admin+ep, so
   # capture is promptless — the xdg-desktop-portal-gnome chooser this avoids
