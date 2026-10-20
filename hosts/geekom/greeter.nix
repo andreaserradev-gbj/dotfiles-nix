@@ -41,11 +41,11 @@
   # After=plymouth-quit-wait.service, so the splash ends exactly when the
   # greeter takes the display.
   boot.plymouth.enable = true;
-  # One flavor per build (variant arg, default macchiato), installed as
-  # catppuccin-<variant> — mocha to match the session's scheme
-  # (modules/home/foot.nix et al.).
-  boot.plymouth.themePackages = [ (pkgs.catppuccin-plymouth.override { variant = "mocha"; }) ];
-  boot.plymouth.theme = "catppuccin-mocha";
+  # spinner: dark background with a visible white spinner. The Catppuccin
+  # theme was rejected after a real boot: two-step with a near-black
+  # background, no watermark and an invisible-by-design progress bar reads
+  # as a dead screen on the 4K panel.
+  boot.plymouth.theme = "spinner";
   boot.kernelParams = [ "quiet" ];
   boot.consoleLogLevel = 3;
 
