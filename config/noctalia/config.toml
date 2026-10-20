@@ -28,7 +28,7 @@ enabled = true
 path = "~/Pictures/Wallpapers/3d-render-bloom-3840x2160-27150.jpg"
 
 [backdrop]
-enabled = true
+enabled = false
 
 [lockscreen]
 enabled = true
