@@ -66,3 +66,9 @@ action = "reboot"
 [[shell.session.actions]]
 action = "shutdown"
 variant = "destructive"
+
+# Captures go to their own folder instead of Noctalia's default (~/Pictures,
+# alongside wallpapers). Noctalia creates the directory on capture; the
+# default filename pattern (screenshot_%Y%m%d_%H%M%S) needs no override.
+[shell.screenshot]
+directory = "~/Pictures/Screenshots"
