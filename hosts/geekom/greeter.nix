@@ -46,7 +46,10 @@
   # background, no watermark and an invisible-by-design progress bar reads
   # as a dead screen on the 4K panel.
   boot.plymouth.theme = "spinner";
-  boot.kernelParams = [ "quiet" ];
+  boot.kernelParams = [
+    "quiet"
+    "plymouth.debug"
+  ]; # TEMP instrumentation: reads /var/log/plymouth-debug.log, remove once the invisible-splash cause is named
   boot.consoleLogLevel = 3;
 
   # The first plymouth-era reboot froze at the final kernel restart — the
