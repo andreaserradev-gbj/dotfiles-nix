@@ -209,6 +209,12 @@ binds {
   Ctrl+Print { spawn-sh "noctalia msg screenshot-fullscreen monitor"; }
   Alt+Print { spawn-sh "noctalia msg screenshot-fullscreen all"; }
 
+  // Recording: the noctalia/screen_recorder plugin (gpu-screen-recorder
+  // backend; its service exists only from shell start — config.toml
+  // enables the plugin, not a runtime toggle).
+  Mod+Print { spawn-sh "noctalia msg plugin noctalia/screen_recorder:service all toggle"; }
+  Mod+Shift+Print { spawn-sh "noctalia msg plugin noctalia/screen_recorder:service all start focused"; }
+
   // allow-when-locked so volume keeps working on the lock screen.
   XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "noctalia msg volume-up"; }
   XF86AudioLowerVolume allow-when-locked=true { spawn-sh "noctalia msg volume-down"; }
