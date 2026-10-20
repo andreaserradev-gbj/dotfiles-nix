@@ -30,6 +30,20 @@
 {
   services.greetd.enable = true;
 
+  # Boot and handoff polish for the graphical path: without a splash, the
+  # kernel/systemd console text sits in the tty1 buffer and shows through for
+  # ~1 s between the greeter exiting and niri's first frame (greetd owns
+  # vt 1, nothing repaints until the session shell uploads the wallpaper).
+  # `quiet` stops systemd's status lines and loglevel 3 keeps kernel
+  # err-level lines (amdgpu display-init REG_WAIT spam) out of that buffer,
+  # so the handoff shows a plain black beat instead of unreadable text; both
+  # streams remain in the journal. greetd's unit already orders itself
+  # After=plymouth-quit-wait.service, so the splash ends exactly when the
+  # greeter takes the display.
+  boot.plymouth.enable = true;
+  boot.kernelParams = [ "quiet" ];
+  boot.consoleLogLevel = 3;
+
   # Password auth — a daily workstation with sops secrets and SSH keys on
   # disk, not a kiosk (the VM's greetd uses `nullok` for exactly that
   # reason). No `initial_session`: nothing autologins.
