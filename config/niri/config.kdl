@@ -31,6 +31,12 @@ output "DP-6" {
   scale 1.25
 }
 
+// niri pops the hotkey overlay on every shell start by default; Mod+Shift+Slash
+// opens it on demand, so the login-time popup is noise.
+hotkey-overlay {
+  skip-at-startup
+}
+
 layout {
   // Noctalia draws the wallpaper, so the gaps between windows must be
   // transparent for it to show through.
