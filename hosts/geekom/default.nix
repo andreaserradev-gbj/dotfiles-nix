@@ -101,6 +101,11 @@
   #                        logs "error spawning xwayland-satellite".
   local.desktop.session = "niri";
   programs.niri.enable = true;
+  # Recording backend for Noctalia's screen_recorder plugin (config/noctalia/
+  # config.toml): the module wraps gsr-kms-server with cap_sys_admin+ep, so
+  # capture is promptless — the xdg-desktop-portal-gnome chooser this avoids
+  # does not render under niri (xdg-desktop-portal#2039).
+  programs.gpu-screen-recorder.enable = true;
 
   # Explicit-enable trio for the niri session, each currently a GNOME
   # `mkDefault` the greetd cutover would otherwise silently remove with GNOME:
@@ -192,6 +197,9 @@
     # the polkit action under /share/polkit-1 (pkexec appearance sync).
     pkgs.noctalia-greeter
     pkgs.xwayland-satellite
+
+    # Region picker for the screen_recorder plugin's default (region) source.
+    pkgs.slurp
   ];
   services.udev.extraRules = ''KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{serial}=="*vial:f64c2b3c*", MODE="0660", TAG+="uaccess"'';
 

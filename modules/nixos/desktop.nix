@@ -189,10 +189,15 @@ in
     # release lands.
     ++ lib.optionals (cfg.session == "gnome") [ pkgs.gnomeExtensions.dash-to-dock ]
     # Files (nautilus) plus gvfs, the Trash/mount backend no file manager has
-    # built in — niri session only; hplaptop gets both from GNOME.
+    # built in — niri session only; hplaptop gets both from GNOME. loupe and
+    # celluloid are the session's double-click viewers, targeted by the MIME
+    # defaults in modules/home/mime.nix via these desktop-file IDs:
+    # org.gnome.Loupe.desktop, io.github.celluloid_player.Celluloid.desktop.
     ++ lib.optionals (cfg.session == "niri") [
       pkgs.nautilus
       pkgs.gvfs
+      pkgs.loupe
+      pkgs.celluloid
     ]
     # LibreOffice, its own sub-option and default false: geekom does not pull the
     # ~1GB closure. Only hplaptop enables it — Word/Excel compatibility for HR

@@ -24,6 +24,7 @@
     ./modules/home/gtk.nix
     ./modules/home/desktop.nix
     ./modules/home/niri.nix
+    ./modules/home/mime.nix
     ./modules/home/maintenance.nix
     ./modules/home/omp.nix
     ./modules/home/npm.nix

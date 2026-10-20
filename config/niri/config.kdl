@@ -31,6 +31,12 @@ output "DP-6" {
   scale 1.25
 }
 
+// niri pops the hotkey overlay on every shell start by default; Mod+Shift+Slash
+// opens it on demand, so the login-time popup is noise.
+hotkey-overlay {
+  skip-at-startup
+}
+
 layout {
   // Noctalia draws the wallpaper, so the gaps between windows must be
   // transparent for it to show through.
@@ -54,12 +60,6 @@ overview {
 window-rule {
   geometry-corner-radius 20
   clip-to-geometry true
-}
-
-// Every new window opens filling the desktop (gaps included), one column per
-// window — the dynamic-tiling default, equivalent to Mod+F's maximize-column.
-window-rule {
-  open-maximized true
 }
 
 window-rule {
@@ -208,6 +208,12 @@ binds {
   Print { spawn-sh "noctalia msg screenshot-region"; }
   Ctrl+Print { spawn-sh "noctalia msg screenshot-fullscreen monitor"; }
   Alt+Print { spawn-sh "noctalia msg screenshot-fullscreen all"; }
+
+  // Recording: the noctalia/screen_recorder plugin (gpu-screen-recorder
+  // backend; its service exists only from shell start — config.toml
+  // enables the plugin, not a runtime toggle).
+  Mod+Print { spawn-sh "noctalia msg plugin noctalia/screen_recorder:service all toggle"; }
+  Mod+Shift+Print { spawn-sh "noctalia msg plugin noctalia/screen_recorder:service all start focused"; }
 
   // allow-when-locked so volume keeps working on the lock screen.
   XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "noctalia msg volume-up"; }
