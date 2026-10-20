@@ -41,15 +41,17 @@
   # After=plymouth-quit-wait.service, so the splash ends exactly when the
   # greeter takes the display.
   boot.plymouth.enable = true;
-  # spinner: dark background with a visible white spinner. The Catppuccin
-  # theme was rejected after a real boot: two-step with a near-black
-  # background, no watermark and an invisible-by-design progress bar reads
-  # as a dead screen on the 4K panel.
   boot.plymouth.theme = "spinner";
+  # The 4K panel's DP link trains several seconds after amdgpu binds on cold
+  # boot; with the stock 8s device timeout plymouthd quits before any head
+  # initializes (debug log: query_device "Could not initialize heads", then
+  # an idle quit) and the splash never shows. 60s covers link training;
+  # plymouth-quit at greetd bounds it. extraConfig lands after the module's
+  # DeviceTimeout=8 and plymouth's key file keeps the last duplicate.
+  boot.plymouth.extraConfig = "DeviceTimeout=60";
   boot.kernelParams = [
     "quiet"
-    "plymouth.debug"
-  ]; # TEMP instrumentation: reads /var/log/plymouth-debug.log, remove once the invisible-splash cause is named
+  ];
   boot.consoleLogLevel = 3;
 
   # The first plymouth-era reboot froze at the final kernel restart — the
