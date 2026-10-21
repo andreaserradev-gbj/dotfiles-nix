@@ -106,16 +106,41 @@
   # with "Calling import-environment without a list of variable names is
   # deprecated", and niri-session runs with its stdout on the login VT, so
   # the warning prints on screen during login. Upstream fixed it (niri
-  # 4adbf00) but no release carries it yet, so the fix is applied as a
-  # patch instead of waiting for a release — and the unstable tree is
-  # dropped: its niri 26.04 ships the very same session script, so it never
-  # bought the fix it was adopted for.
+  # 4adbf00) but no release carries it yet, so the fixed script is carried
+  # in config/niri/niri-session and installed OVER the packaged one.
   #
-  # The patch stops applying once the channel's niri ships the fix, and that
-  # build failure is the signal to delete the patch and this override.
-  programs.niri.package = pkgs.niri.overrideAttrs {
-    patches = [ ../../patches/niri-session-import-environment.patch ];
-  };
+  # Installed after the build, not patched into the source: niri is a
+  # buildRustPackage, so patching its tree would invalidate the cargo build
+  # and rebuild niri from source on every CI run (~15 min). Replacing one
+  # installed script leaves the Rust build untouched and cache-substitutable
+  # (the join builds in seconds).
+  #
+  # The guard fails the build once the packaged script no longer has the
+  # blanket call — that is the signal that upstream shipped the fix, and this
+  # override and config/niri/niri-session should both be deleted.
+  programs.niri.package =
+    (pkgs.symlinkJoin {
+      name = "niri-session-fixed";
+      paths = [ pkgs.niri ];
+      postBuild = ''
+        if ! grep -q "systemctl --user import-environment" $out/bin/niri-session; then
+          echo "!! the packaged niri-session no longer has the blanket import:" >&2
+          echo "!! upstream shipped the fix — delete this override and" >&2
+          echo "!! config/niri/niri-session." >&2
+          exit 1
+        fi
+        rm -f $out/bin/niri-session
+        cp ${../../config/niri/niri-session} $out/bin/niri-session
+        chmod +x $out/bin/niri-session
+        patchShebangs $out/bin/niri-session
+      '';
+    }).overrideAttrs
+      (_: {
+        # The nixpkgs module puts this package in displayManager.sessionPackages,
+        # which asserts the package carries `providedSessions`; symlinkJoin does
+        # not inherit the passthru of the package it joins.
+        passthru.providedSessions = pkgs.niri.providedSessions;
+      });
   # Recording backend for Noctalia's screen_recorder plugin (config/noctalia/
   # config.toml): the module wraps gsr-kms-server with cap_sys_admin+ep, so
   # capture is promptless — the xdg-desktop-portal-gnome chooser this avoids

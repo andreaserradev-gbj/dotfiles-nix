@@ -51,8 +51,8 @@ power → systemd → greetd (VT1)
   implements Mutter's ScreenCast API, so no portal-wlr), a PAM entry for
   `swaylock` and an XDG-autostart target. The same host file carries the
   explicit-enable assertions the GNOME defaults used to hide: ibus off, dconf
-  on, gnome-keyring on, and the niri package override that carries the
-  session-script patch (see the gotchas).
+  on, gnome-keyring on, and the niri package override that installs the fixed
+  session script (see the gotchas).
 - **Greeter** (`hosts/geekom/greeter.nix`): greetd + noctalia-greeter, the
   greetd command, the AccountsService daemon, and the tmpfiles-delivered
   `greeter.toml`. Host-local by import, like `usb-mouse-recovery.nix` —
@@ -61,8 +61,9 @@ power → systemd → greetd (VT1)
   `osConfig.programs.niri.enable` so hplaptop never sees them. The niri
   config is validated with `osConfig.programs.niri.package` — the same build
   the system runs, so the closure holds one niri and not two.
-- **Assets**: `config/niri/config.kdl` and `config/noctalia/config.toml`,
-  copied verbatim (edit the file, there is no generator).
+- **Assets**: `config/niri/config.kdl`, `config/noctalia/config.toml` and
+  `config/niri/niri-session`, copied verbatim (edit the file, there is no
+  generator).
 
 ## Recovery
 
@@ -146,14 +147,25 @@ session.
 - **Noctalia's niri theme integration cannot apply here.** It appends an
   `include` line to `~/.config/niri/config.kdl`, which is a read-only
   Home Manager symlink; keep niri colours hand-written.
-- **The niri package carries a patch.** niri 26.04's `niri-session` calls the
-  blanket `systemctl --user import-environment`, and systemd 260 answers that
-  with "Calling import-environment without a list of variable names is
-  deprecated". The session script's stdout is the login VT, so the warning
-  prints on screen during login. Upstream fixed it (niri `4adbf00`, not yet
-  released), so the fix is applied as
-  [patches/niri-session-import-environment.patch](../patches/niri-session-import-environment.patch)
-  and the host overrides the package with it. The patch stops applying once
-  the channel's niri ships the fix — that build failure is the signal to
-  delete the patch and the override. The patch is the only reason niri is
-  built from source here: the channel's binary is otherwise identical.
+- **The niri package carries a fixed session script.** niri 26.04's
+  `niri-session` calls the blanket `systemctl --user import-environment`, and
+  systemd 260 answers that with "Calling import-environment without a list of
+  variable names is deprecated". The session script's stdout is the login VT,
+  so the warning prints on screen during login. Upstream fixed it (niri
+  `4adbf00`, not yet released), so the fixed script is carried as
+  [config/niri/niri-session](../config/niri/niri-session) and the host
+  installs it over the packaged one.
+- **The script is swapped AFTER the build, never patched into the source.**
+  niri is a `buildRustPackage`: patching its tree changes the derivation
+  hash, which rebuilds niri from source — measured at ~15 minutes of extra CI
+  time per geekom build, for a change that touches no Rust code. Replacing
+  one installed script leaves the cargo build untouched and
+  cache-substitutable, so the whole system builds in seconds. The override
+  is a `symlinkJoin` with a `postBuild` that copies the script and re-patches
+  its shebang.
+- **The guard is what makes the override self-deleting.** The `postBuild`
+  fails the build if the packaged script no longer contains the blanket
+  call — that is the signal that upstream shipped the fix, and both the
+  override and `config/niri/niri-session` should be deleted. Without the
+  guard the override would silently keep shadowing a script that no longer
+  needs fixing.

@@ -83,8 +83,7 @@ modules/nixos/         system layer, shared by every host
 modules/home/          one module per tool (zsh, git, neovim, …) — Nix modules, pins in tool-pins.json
   maintenance.nix        `nrb`/`ngca` aliases for non-dev hosts (no `nh`)
 config/<tool>/…        verbatim assets referenced by the modules (nvim tree,
-                       bat theme, fastfetch, zellij) — 100% non-Nix
-patches/               carried patches for upstream packages (niri-session)
+                       bat theme, fastfetch, zellij, niri session script) — 100% non-Nix
 doc/                   the documentation set — see the index below
 scripts/changed-hosts.sh  which hosts moved since `verified` — CI's build matrix
 scripts/check-hosts.sh the multi-host regression gate
