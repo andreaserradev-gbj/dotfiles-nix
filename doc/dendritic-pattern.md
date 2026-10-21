@@ -228,10 +228,12 @@ message — the repo's own rule that a move you cannot name is the failure.
 
 The recipe for the registry layout this doc describes:
 
-1. Create `features/<name>/` and put the feature's modules there — one file
-   per module class, at the same depth as the modules they replace.
-2. Add the registry entry: a **path** for a single module, a **list of paths**
-   for several.
+1. Put the feature's modules where they belong — under `modules/nixos/` for
+   the system layer, `modules/home/` for the Home Manager layer, or
+   `features/<name>/` once a feature has its own directory. One file per
+   module class, at the same depth as the modules it replaces.
+2. Add the registry entry in `features/registry.nix`: a **path** for a single
+   module, a **list of paths** for several.
 3. Import it by name — from `commonModules` in `flake.nix` for a shared
    feature, or from the host file for a host-specific one. Keep the seam
    module in `commonModules` even if only one host enables it, so the option
@@ -239,6 +241,12 @@ The recipe for the registry layout this doc describes:
 4. Run the registry check, then `./scripts/check-hosts.sh` and compare against
    the recorded baseline. A host that moved without a named reason is a
    regression, not a curiosity.
+
+> **A registry entry nobody names is dead code.** `deadnix --fail` flags
+> unused `let` bindings and unused lambda patterns — it does **not** flag an
+> unused attrset entry, so an orphaned registry entry is invisible to it. That
+> is what `features/registry-check.nix` is for: it fails, naming the orphans,
+> when a registered feature is named by no consumer.
 
 ## See also
 
@@ -254,4 +262,8 @@ The recipe for the registry layout this doc describes:
   typed and a nested sub-option
 - [modules/home/desktop.nix](../modules/home/desktop.nix) — the Home Manager
   half of a seam, gated on the same option
+- [features/registry.nix](../features/registry.nix) — the registry itself: a
+  plain attrset of paths, the single place that knows where a feature lives
+- [features/registry-check.nix](../features/registry-check.nix) — the guard
+  `deadnix` cannot provide: a registered feature named by nobody
 - upstream: [the dendritic pattern](https://github.com/mightyiam/dendritic)

@@ -1,3 +1,9 @@
+let
+  # The feature registry: where each feature lives, by name. A plain attrset
+  # of paths, read as data — not a module system. See doc/dendritic-pattern.md
+  # for why the entries must be paths.
+  features = import ./features/registry.nix;
+in
 {
   ...
 }:
@@ -8,6 +14,12 @@
   # evaluates all of them to the empty config.
   #
   # Invariant: hplaptop's closure must not change unexplained; a dev-host move must be explained.
+  #
+  # The ORDER is load-bearing: the module system concatenates list-valued
+  # contributions in import order. A list-valued registry entry is spliced
+  # FLAT with `++` at the position it replaces — never nested inside the list,
+  # which is a hard evaluation error ("Module imports can't be nested lists"),
+  # not a quiet move.
   imports = [
     ./modules/home/starship.nix
     ./modules/home/shell.nix
@@ -21,10 +33,10 @@
     ./modules/home/neovim.nix
     ./modules/home/fonts.nix
     ./modules/home/foot.nix
-    ./modules/home/gtk.nix
-    ./modules/home/desktop.nix
-    ./modules/home/niri.nix
-    ./modules/home/mime.nix
+  ]
+  ++ features.home.desktop
+  ++ features.home.niri
+  ++ [
     ./modules/home/maintenance.nix
     ./modules/home/omp.nix
     ./modules/home/npm.nix
