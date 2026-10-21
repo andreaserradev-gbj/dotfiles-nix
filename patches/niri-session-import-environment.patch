@@ -1,0 +1,62 @@
+Carried patch, applied to the niri package until the channel ships it.
+
+Upstream: niri commit 4adbf0039308cd0667f33e60e09ae480eca64056
+https://github.com/YaLTeR/niri/commit/4adbf0039308cd0667f33e60e09ae480eca64056
+"niri-session: import login environment without the deprecated systemd call"
+
+Why: niri-session called `systemctl --user import-environment` with no
+variable list, which systemd 260 answers with the warning "Calling
+import-environment without a list of variable names is deprecated." The
+session script runs with its stdout on the login VT, so the warning
+prints on screen during login.
+
+The patch swaps that call for `dbus-update-activation-environment
+--systemd --all`, which imports the same environment into the systemd
+user manager and into D-Bus, and keeps the old call only as a fallback
+for systems without the dbus tools.
+
+Drop this file when the channel's niri is newer than 26.04: the fix is
+on niri's main branch and lands in the next release, and the patch then
+fails to apply, which is the signal to remove it.
+
+diff --git a/resources/niri-session b/resources/niri-session
+index a9a4d94..40296ab 100755
+--- a/resources/niri-session
++++ b/resources/niri-session
+@@ -33,14 +33,29 @@ if hash systemctl >/dev/null 2>&1; then
+     systemctl --user reset-failed
+ 
+     # Import the login manager environment.
+-    systemctl --user import-environment
+-
+-    # DBus activation environment is independent from systemd. While most of
+-    # dbus-activated services are already using `SystemdService` directive, some
+-    # still don't and thus we should set the dbus environment with a separate
+-    # command.
++    #
++    # We intentionally import *all* environment variables.
++    # It's unfortunately commonplace for distros to initialize
++    # things with shell scripts and set environment variables.
++    #
++    # For example, debuginfod is initialized this way, and sets the
++    # $DEBUGINFOD_URLS environment variable. If we don't export it,
++    # then programs started from a systemd service (e.g. from xdg-autostart)
++    # will be unable to use debuginfod.
++    #
++    # We cannot possibly know and list all variables like this, so
++    # we import all of them into the environment. This also covers
++    # any variables the user may have customized, such as $PATH.
+     if hash dbus-update-activation-environment 2>/dev/null; then
+-        dbus-update-activation-environment --all
++        # The `--systemd` flag also sets the variables for systemd user services,
++        # so we don't need a separate `systemctl --user import-environment` call.
++        #
++        # (This also avoids the deprecation warning printed by
++        # a blanket `systemctl --user import-environment` that
++        # some people find very annoying.)
++        dbus-update-activation-environment --systemd --all
++    else
++        systemctl --user import-environment
+     fi
+ 
+     # Start niri and wait for it to terminate.

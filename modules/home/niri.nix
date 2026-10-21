@@ -26,10 +26,17 @@ let
       ${validate} ${src}
       cp ${src} $out
     '';
+
+  # The SAME niri the system runs, not `pkgs.niri`: the host may override the
+  # package (geekom carries a patch into it), and validating with a different
+  # build pulls a second niri into the closure — two niri binaries for one
+  # session. The validator only needs the `validate` subcommand, so it works
+  # with any build of the same version.
+  niri = osConfig.programs.niri.package;
 in
 lib.mkIf osConfig.programs.niri.enable {
   xdg.configFile."niri/config.kdl".source =
-    checked "niri-config.kdl" "${pkgs.niri}/bin/niri validate -c"
+    checked "niri-config.kdl" "${niri}/bin/niri validate -c"
       ../../config/niri/config.kdl;
   xdg.configFile."noctalia/config.toml".source =
     checked "noctalia-config.toml" "${pkgs.noctalia}/bin/noctalia config validate"
