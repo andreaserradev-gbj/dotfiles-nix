@@ -85,6 +85,7 @@ modules/home/          one module per tool (zsh, git, neovim, …) — Nix modul
 config/<tool>/…        verbatim assets referenced by the modules (nvim tree,
                        bat theme, fastfetch, zellij, niri session script) — 100% non-Nix
 doc/                   the documentation set — see the index below
+  dendritic-pattern.md  features and `local.*` seams, the feature registry, and the import-order property
 scripts/changed-hosts.sh  which hosts moved since `verified` — CI's build matrix
 scripts/check-hosts.sh the multi-host regression gate
 scripts/pre-commit     git hook: `nixfmt --check` on staged .nix — self-installed by .envrc
@@ -122,6 +123,7 @@ bootstrap.sh           one-command install of any host, from a live ISO
 | [doc/local-llm.md](doc/local-llm.md)               | Local LLM inference on geekom: hardware budget, tuning decisions, measured baselines, future-model protocol |
 | [doc/herdr.md](doc/herdr.md)                       | herdr (agent workspace manager): zellij coexistence, what Nix owns, tag-bump checklist (`nfb`), keymap and state gotchas |
 | [doc/omp.md](doc/omp.md)                           | omp / oh-my-pi (coding agent): Nix-owned vs stateful, MCP servers, per-host API key |
+| [doc/dendritic-pattern.md](doc/dendritic-pattern.md) | The dendritic pattern: features and `local.*` seams, the feature registry, and why the import ORDER moves `drvPath`s |
 | [doc/troubleshooting.md](doc/troubleshooting.md)   | Gotchas that are not tied to one workflow |
 
 ## Quickstart pointers
