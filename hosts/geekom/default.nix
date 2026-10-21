@@ -101,12 +101,21 @@
   #                        logs "error spawning xwayland-satellite".
   local.desktop.session = "niri";
   programs.niri.enable = true;
-  # Unstable, like the greeter above (flake guard rule): unstable's niri is
-  # tracked for a released niri-session that stops calling the blanket
-  # `systemctl --user import-environment` — systemd deprecates it and its
-  # yellow warning prints onto the login VT until niri's first frame.
-  # Revert to the channel package once it carries the fix.
-  programs.niri.package = unstablePkgs.niri;
+  # The channel's niri 26.04 still ships a niri-session that calls the
+  # blanket `systemctl --user import-environment`; systemd 260 answers that
+  # with "Calling import-environment without a list of variable names is
+  # deprecated", and niri-session runs with its stdout on the login VT, so
+  # the warning prints on screen during login. Upstream fixed it (niri
+  # 4adbf00) but no release carries it yet, so the fix is applied as a
+  # patch instead of waiting for a release — and the unstable tree is
+  # dropped: its niri 26.04 ships the very same session script, so it never
+  # bought the fix it was adopted for.
+  #
+  # The patch stops applying once the channel's niri ships the fix, and that
+  # build failure is the signal to delete the patch and this override.
+  programs.niri.package = pkgs.niri.overrideAttrs {
+    patches = [ ../../patches/niri-session-import-environment.patch ];
+  };
   # Recording backend for Noctalia's screen_recorder plugin (config/noctalia/
   # config.toml): the module wraps gsr-kms-server with cap_sys_admin+ep, so
   # capture is promptless — the xdg-desktop-portal-gnome chooser this avoids
