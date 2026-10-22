@@ -45,14 +45,14 @@ in
     # values for any graphical session — greetd sets
     # services.displayManager.enable, which keeps that chain alive with
     # services.xserver.enable off. GNOME's per-user input sources are
-    # declarative in modules/home/desktop.nix.
+    # declarative in features/desktop/home.nix.
     services.xserver.xkb.layout = user.keyboardLayout or "us";
 
     services.displayManager.gdm.enable = lib.mkIf (cfg.session == "gnome") true;
     services.desktopManager.gnome.enable = lib.mkIf (cfg.session == "gnome") true;
 
     # GDM theming deliberately NOT applied: the one piece worth styling (the
-    # cursor) is blocked by the packaging issue in modules/home/gtk.nix, and the
+    # cursor) is blocked by the packaging issue in features/desktop/gtk.nix, and the
     # rest is not worth the regret-risk — the login screen is up for ~2s per
     # boot, and a failed greeter means a black screen recovered via TTY.
 
@@ -191,7 +191,7 @@ in
     # Files (nautilus) plus gvfs, the Trash/mount backend no file manager has
     # built in — niri session only; hplaptop gets both from GNOME. loupe and
     # celluloid are the session's double-click viewers, targeted by the MIME
-    # defaults in modules/home/mime.nix via these desktop-file IDs:
+    # defaults in features/niri/mime.nix via these desktop-file IDs:
     # org.gnome.Loupe.desktop, io.github.celluloid_player.Celluloid.desktop.
     ++ lib.optionals (cfg.session == "niri") [
       pkgs.nautilus

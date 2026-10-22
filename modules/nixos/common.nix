@@ -34,7 +34,7 @@
   console.keyMap = user.keyboardLayout or "us";
 
   # Optional (hosts without `locale` keep the nixpkgs default); the config below
-  # must stay byte-identical on those hosts — same rule as modules/home/desktop.nix.
+  # must stay byte-identical on those hosts — same rule as features/desktop/home.nix.
   i18n.defaultLocale = user.locale or "en_US.UTF-8";
   i18n.supportedLocales = lib.mkIf (user ? locale) [ "all" ];
 

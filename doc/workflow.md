@@ -50,7 +50,7 @@ text**.
 > and it matters more on `geekom`, where recovery costs a physical trip.
 
 > **The loopback exception.** On hosts with the `loopbackRebuild` seam enabled
-> (`modules/nixos/loopback-rebuild.nix` — geekom today), `nrs` and `nrt` are
+> (`features/loopback-rebuild/nixos.nix` — geekom today), `nrs` and `nrt` are
 > shell aliases carrying `--target-host andrea@localhost --hostname <this host>`
 > (built in `modules/home/shell.nix`), so the activation runs through SSH to
 > `localhost`. sshd's session scope is outside the display stack, so the

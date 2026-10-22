@@ -111,19 +111,19 @@ Log in from the Mac over SSH with your key — next.
 
 ## 3. SSH from the Mac
 
-Access is **key-only**: `modules/nixos/dev.nix` sets
+Access is **key-only**: `features/dev/nixos.nix` sets
 `services.openssh.settings.PasswordAuthentication = false`, so the key in `user.nix`
 is the _only_ way in over the network — there is no password fallback.
 
 > **sshd is gated behind `local.dev.enable`, not in `common.nix`.** sshd, the
 > password-auth lockout and your public key are declared in
-> `modules/nixos/dev.nix` and apply to every host that flips `local.dev.enable =
+> `features/dev/nixos.nix` and apply to every host that flips `local.dev.enable =
 > true` (`nixos` and `geekom`; `hplaptop` leaves it off — no sshd there). A new
 > dev host needs nothing added for SSH — verify rather than re-implement:
 > `nix eval .#nixosConfigurations.<host>.config.services.openssh.enable`.
 
 > **`sshKey` is optional — and is currently ABSENT.** `user.nix` owns the field
-> and says why the absence is deliberate: `modules/nixos/dev.nix` treats it as
+> and says why the absence is deliberate: `features/dev/nixos.nix` treats it as
 > optional, so dev hosts build with an empty authorized-keys list instead of
 > failing evaluation. Combined with the line above — SSH is the only way in over
 > the network — **a dev host is reachable only from its own console** until a key
@@ -139,7 +139,7 @@ is the _only_ way in over the network — there is no password fallback.
     ```
 
 2. **Put its public half in `user.nix`** as `sshKey = "ssh-ed25519 …";` and commit.
-   `modules/nixos/dev.nix` installs it into every dev host's `authorizedKeys` at
+   `features/dev/nixos.nix` installs it into every dev host's `authorizedKeys` at
    build time, so it must be in the repo _before_ the install in section 2.
    The private half never leaves the machine that generated it and never enters
    this repo — see the same rule in
@@ -147,7 +147,7 @@ is the _only_ way in over the network — there is no password fallback.
 
 3. **Re-enrol the VM as a sops recipient.** The key that unwraps the secret
    ciphertext is the machine's own SSH host key (`sops.age.sshKeyPaths` in
-   `modules/nixos/dev.nix`), and a fresh VM has a new one that `.sops.yaml` does
+   `features/dev/nixos.nix`), and a fresh VM has a new one that `.sops.yaml` does
    not list — until it does, activation on that VM cannot unwrap the data key.
    Take the pubkey off the VM's console with
    `ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub`; [doc/secrets.md](secrets.md)

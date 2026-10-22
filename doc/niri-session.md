@@ -44,20 +44,20 @@ power → systemd → greetd (VT1)
 
 ## What owns what
 
-- **Session** (`hosts/geekom/default.nix`): `programs.niri.enable` plus
-  `pkgs.noctalia` and `pkgs.xwayland-satellite` in
-  `environment.systemPackages`. The nixpkgs module adds the session package,
-  the `niri.service` user unit, `xdg.portal.config.niri` (gnome+gtk — niri
-  implements Mutter's ScreenCast API, so no portal-wlr), a PAM entry for
-  `swaylock` and an XDG-autostart target. The same host file carries the
-  explicit-enable assertions the GNOME defaults used to hide: ibus off, dconf
-  on, gnome-keyring on, and the niri package override that installs the fixed
-  session script (see the gotchas).
+- **Session** (`features/niri/nixos.nix`, imported by name from
+  `hosts/geekom/default.nix`): `programs.niri.enable` plus the session's
+  packages in `environment.systemPackages`. The nixpkgs module adds the
+  session package, the `niri.service` user unit, `xdg.portal.config.niri`
+  (gnome+gtk — niri implements Mutter's ScreenCast API, so no portal-wlr), a
+  PAM entry for `swaylock` and an XDG-autostart target. The same feature
+  carries the explicit-enable assertions the GNOME defaults used to hide:
+  ibus off, dconf on, gnome-keyring on, and the niri package override that
+  installs the fixed session script (see the gotchas).
 - **Greeter** (`hosts/geekom/greeter.nix`): greetd + noctalia-greeter, the
   greetd command, the AccountsService daemon, and the tmpfiles-delivered
   `greeter.toml`. Host-local by import, like `usb-mouse-recovery.nix` —
   hplaptop keeps GDM and never evaluates it.
-- **Home** (`modules/home/niri.nix`): the session's two config files, gated on
+- **Home** (`features/niri/home.nix`): the session's two config files, gated on
   `osConfig.programs.niri.enable` so hplaptop never sees them. The niri
   config is validated with `osConfig.programs.niri.package` — the same build
   the system runs, so the closure holds one niri and not two.
@@ -138,7 +138,7 @@ session.
   deliberate. Diff it against upstream's `default-config.kdl` at the pinned tag
   when nixpkgs moves.
 - **`config/niri/config.kdl` and `config/noctalia/config.toml` are validated at
-  build time** (`modules/home/niri.nix`). niri falls back to defaults on a bad
+  build time** (`features/niri/home.nix`). niri falls back to defaults on a bad
   config and Noctalia ignores one it cannot parse, so without the gate a typo
   would only show up as a session with no bar.
 - **`xwayland-satellite` is required.** The nixpkgs niri module passes
@@ -153,7 +153,7 @@ session.
   variable names is deprecated". The session script's stdout is the login VT,
   so the warning prints on screen during login. Upstream fixed it (niri
   `4adbf00`, not yet released), so the fixed script is carried as
-  [config/niri/niri-session](../config/niri/niri-session) and the host
+  [config/niri/niri-session](../config/niri/niri-session) and the feature
   installs it over the packaged one.
 - **The script is swapped AFTER the build, never patched into the source.**
   niri is a `buildRustPackage`: patching its tree changes the derivation

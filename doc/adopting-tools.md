@@ -80,7 +80,7 @@ project toolchain, stop here and template it instead.
 A global tool lands in the dev-gated layer (`local.dev.enable`), in one of
 two spots:
 
-- **System layer** — `environment.systemPackages` in `modules/nixos/dev.nix`.
+- **System layer** — `environment.systemPackages` in `features/dev/nixos.nix`.
   For tools that are system-wide or service-shaped (like `ollama`).
 - **Home layer** — a small HM module modeled on `modules/home/zellij.nix` (a
   flake-sourced tool adds the `imports`/`config` split of
@@ -104,7 +104,7 @@ threading. Add `pkgs.<name>` to the gated list and you are done.
    `user` (shape: `flake.nix`, inside `commonModules`) — HM modules cannot see
    flake inputs directly. The system layer reaches a flake value the same way
    through `specialArgs` on each `nixosSystem` — that is how `unstablePkgs`
-   arrives at `modules/nixos/dev.nix`:
+   arrives at `features/dev/nixos.nix`:
 
    ```nix
    home-manager.extraSpecialArgs = {

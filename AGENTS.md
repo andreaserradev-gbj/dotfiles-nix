@@ -27,6 +27,17 @@ Start from the [README](README.md) for the model and the
 4. **`nix flake check` does not evaluate `nixosConfigurations`.** The gate is
    `./scripts/check-hosts.sh`, and its untracked-file warning comes first for a
    reason: a green result on a stale tree is worse than a red one.
+5. **The import graph's SHAPE is load-bearing for `drvPath`.** The module
+   system computes the final module list with `builtins.genericClosure`
+   (breadth-first, `lib/modules.nix:570`) and `lib.types.listOf`
+   (`lib/types.nix:743-790`) concatenates list-valued contributions in that
+   order — so `environment.systemPackages` (six contributors here) is ordered
+   by traversal, and that order propagates `system.path` → `dbus-1` → `etc` →
+   the toplevel. Reordering the imports, or adding a level to the graph (a
+   wrapper module, a merged file), moves `drvPath`s with **zero content
+   change**. A path-valued entry adds no level and is safe; a module-valued
+   one is not. A move is acceptable only when it is named —
+   [doc/dendritic-pattern.md](doc/dendritic-pattern.md) has the measurements.
 
 ## Working rules
 
@@ -47,6 +58,19 @@ Start from the [README](README.md) for the model and the
   documentation, use the `context7` MCP tools (resolve the library, then query
   its docs) instead of relying on training data — the config lives in
   `modules/home/omp.nix`.
+- **A feature registry holds PATHS, read as plain data.** No `lib.evalModules`,
+  no `deferredModule`, no `apply` shim, no `flake-parts`, no `import-tree`: a
+  path is not a module, so it adds no level to the import graph and the
+  traversal — and every `drvPath` derived from it — is unchanged. A
+  module-valued entry adds a level and moves `drvPath`s.
+- **A list-valued registry entry is spliced FLAT with `++`**, at the position
+  it replaces — never nested inside the import list, which fails evaluation
+  with "Module imports can't be nested lists" rather than moving anything
+  quietly.
+- **A feature name is not an option.** The registry says where a feature
+  lives; the import lists say which features a host gets. A seam module stays
+  in `commonModules` even when only one host enables it, because it *defines*
+  `local.<name>` — a host that cannot see the option cannot set it to `false`.
 
 ## Release cycle — branch → PR → CI → squash merge → cleanup → verify on main
 
@@ -83,7 +107,8 @@ topic to the doc that owns it — rebuilds and release upgrades
 plus the two bare-metal docs), dev shells
 ([doc/dev-environments.md](doc/dev-environments.md)), adopting a tool
 ([doc/adopting-tools.md](doc/adopting-tools.md)), the VM console
-([doc/vm-console.md](doc/vm-console.md)), and gotchas
+([doc/vm-console.md](doc/vm-console.md)), feature layout and the import-order
+property ([doc/dendritic-pattern.md](doc/dendritic-pattern.md)), and gotchas
 ([doc/troubleshooting.md](doc/troubleshooting.md)).
 
 ## Verification before claiming success

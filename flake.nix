@@ -51,6 +51,11 @@
     let
       users = import ./user.nix;
 
+      # The feature registry: where each feature lives, by name. A plain
+      # attrset of paths, read as data — not a module system. See
+      # doc/dendritic-pattern.md for why the entries must be paths.
+      features = import ./features/registry.nix;
+
       # The systems that get developer-facing outputs (`formatter`, `devShells`),
       # NOT the systems that get hosts. aarch64-darwin is listed because the Mac
       # is where this repo is edited: without it `nix develop` fails, which makes
@@ -73,13 +78,21 @@
       # option in order to leave it off. `user` is resolved per-host below, so
       # each host sees its own identity attrset via specialArgs; HM gets the same
       # attrset through extraSpecialArgs.
+      #
+      # The paths come from the feature registry (features/registry.nix), which
+      # is a plain attrset of paths read as data. The ORDER is load-bearing:
+      # the module system concatenates list-valued contributions in import
+      # order, so `environment.systemPackages` — and through it system.path,
+      # etc, dbus-1 and the toplevel derivation — depends on this list being
+      # exactly as it is. A registry entry is a PATH because a path adds no
+      # level to the import graph; see doc/dendritic-pattern.md.
       commonModules = [
-        ./modules/nixos/common.nix
-        ./modules/nixos/desktop.nix
-        ./modules/nixos/gaming.nix
-        ./modules/nixos/docker.nix
-        ./modules/nixos/dev.nix
-        ./modules/nixos/loopback-rebuild.nix
+        features.nixos.common
+        features.nixos.desktop
+        features.nixos.gaming
+        features.nixos.docker
+        features.nixos.dev
+        features.nixos.loopbackRebuild
         # Inert on a host that declares no `sops.*`: its config block is
         # `mkIf (cfg.secrets != {})`, and hplaptop is deliberately not a recipient.
         # Kept here so a host opting in later is a one-line change.

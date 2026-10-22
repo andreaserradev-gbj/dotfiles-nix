@@ -32,7 +32,7 @@
   # Intel box — the AMD counterpart would do nothing here.
   hardware.cpu.intel.updateMicrocode = true;
 
-  # GDM + plain GNOME (modules/nixos/desktop.nix, imported everywhere, enabled
+  # GDM + plain GNOME (features/desktop/nixos.nix, imported everywhere, enabled
   # on the desktop hosts): `session` defaults to "gnome", so nothing to set.
   local.desktop.enable = true;
   local.desktop.libreoffice.enable = true; # Elisa needs Word/Excel for HR work

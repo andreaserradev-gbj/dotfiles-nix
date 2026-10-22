@@ -11,7 +11,7 @@ let
   # `packages.${pkgs.stdenv.hostPlatform.system}.default`) changes nothing about
   # the settings below. The version of record is the tag in
   # modules/home/tool-pins.json, which `nfb` bumps together with this. The
-  # prebuilt binary needs nix-ld (dev-gated, modules/nixos/dev.nix).
+  # prebuilt binary needs nix-ld (dev-gated, features/dev/nixos.nix).
   ompPkg = pkgs.callPackage ./omp-prebuilt.nix {
     system = pkgs.stdenv.hostPlatform.system;
   };

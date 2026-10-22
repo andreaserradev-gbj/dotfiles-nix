@@ -3,7 +3,6 @@
 # usable), 2 TB NVMe, MediaTek MT7925 Wi-Fi 7 + Bluetooth. Shared settings
 # live in modules/nixos/common.nix.
 {
-  pkgs,
   # nixos-unstable nixpkgs; the guard rule for referencing it is in flake.nix
   # (specialArgs).
   unstablePkgs,
@@ -23,6 +22,12 @@
     # dropped GDM. Host-local like usb-mouse-recovery.nix: hplaptop keeps GDM
     # and must not see greetd.
     ./greeter.nix
+
+    # The niri session's NixOS half — the compositor, its packages and the
+    # services GNOME used to provide. A feature, imported BY NAME from the
+    # registry: the session belongs to any host that opts in, not to this
+    # file.
+    (import ../../features/registry.nix).nixos.niri
   ];
 
   networking.hostName = "geekom";
@@ -74,95 +79,28 @@
   };
 
   # The desktop seam — pipewire, Brave, Bluetooth, ghostty — defined in
-  # modules/nixos/desktop.nix, which every host imports but only this one
+  # features/desktop/nixos.nix, which every host imports but only this one
   # switches on.
   local.desktop.enable = true;
 
   # niri is THE session, not one of two: `session = "niri"` drops the X
-  # server, GDM and GNOME (modules/nixos/desktop.nix), and ./greeter.nix makes
+  # server, GDM and GNOME (features/desktop/nixos.nix), and ./greeter.nix makes
   # greetd + noctalia-greeter the only path in. niri 26.04 with the Noctalia
   # shell (config/niri/, config/noctalia/); Noctalia's config is HM-owned
-  # behind the same switch (modules/home/niri.nix).
+  # behind the same switch (features/niri/home.nix); the session's NixOS half
+  # is the feature imported above.
   #
   # No session chooser and no autologin: noctalia-greeter asks for the password and
   # starts the one session there is. Getting out is Noctalia's Log out
   # (`niri msg action quit`), which lands back in the greeter.
-  #
-  # The two packages that make that session usable live in the systemPackages
-  # list below, next to Vial:
-  #   noctalia           — the shell. From nixpkgs, not upstream's flake: the
-  #                        flake pins its own nixpkgs (a second glibc, pipewire
-  #                        and systemd generation, ~805 MiB marginal) or, with
-  #                        `follows`, builds from source and misses its cache.
-  #                        Revisit when nixos-26.05 carries 5.3.x.
-  #   xwayland-satellite — niri's X11 integration needs this ON PATH; the
-  #                        nixpkgs module passes enableXWayland = false, so
-  #                        without it every X11 app is unavailable and niri
-  #                        logs "error spawning xwayland-satellite".
   local.desktop.session = "niri";
-  programs.niri.enable = true;
-  # The channel's niri 26.04 still ships a niri-session that calls the
-  # blanket `systemctl --user import-environment`; systemd 260 answers that
-  # with "Calling import-environment without a list of variable names is
-  # deprecated", and niri-session runs with its stdout on the login VT, so
-  # the warning prints on screen during login. Upstream fixed it (niri
-  # 4adbf00) but no release carries it yet, so the fixed script is carried
-  # in config/niri/niri-session and installed OVER the packaged one.
-  #
-  # Installed after the build, not patched into the source: niri is a
-  # buildRustPackage, so patching its tree would invalidate the cargo build
-  # and rebuild niri from source on every CI run (~15 min). Replacing one
-  # installed script leaves the Rust build untouched and cache-substitutable
-  # (the join builds in seconds).
-  #
-  # The guard fails the build once the packaged script no longer has the
-  # blanket call — that is the signal that upstream shipped the fix, and this
-  # override and config/niri/niri-session should both be deleted.
-  programs.niri.package =
-    (pkgs.symlinkJoin {
-      name = "niri-session-fixed";
-      paths = [ pkgs.niri ];
-      postBuild = ''
-        if ! grep -q "systemctl --user import-environment" $out/bin/niri-session; then
-          echo "!! the packaged niri-session no longer has the blanket import:" >&2
-          echo "!! upstream shipped the fix — delete this override and" >&2
-          echo "!! config/niri/niri-session." >&2
-          exit 1
-        fi
-        rm -f $out/bin/niri-session
-        cp ${../../config/niri/niri-session} $out/bin/niri-session
-        chmod +x $out/bin/niri-session
-        patchShebangs $out/bin/niri-session
-      '';
-    }).overrideAttrs
-      (_: {
-        # The nixpkgs module puts this package in displayManager.sessionPackages,
-        # which asserts the package carries `providedSessions`; symlinkJoin does
-        # not inherit the passthru of the package it joins.
-        passthru.providedSessions = pkgs.niri.providedSessions;
-      });
-  # Recording backend for Noctalia's screen_recorder plugin (config/noctalia/
-  # config.toml): the module wraps gsr-kms-server with cap_sys_admin+ep, so
-  # capture is promptless — the xdg-desktop-portal-gnome chooser this avoids
-  # does not render under niri (xdg-desktop-portal#2039).
-  programs.gpu-screen-recorder.enable = true;
-
-  # Explicit-enable trio for the niri session, each currently a GNOME
-  # `mkDefault` the greetd cutover would otherwise silently remove with GNOME:
-  # ibus off kills the keyboard-notification autostart entry (its NotShowIn
-  # fires under niri), dconf serves HM `dconf.settings`, gnome-keyring backs
-  # the lock screen's PAM unlock. Same pattern as bluetooth in
-  # modules/nixos/desktop.nix.
-  i18n.inputMethod.enable = false;
-  programs.dconf.enable = true;
-  services.gnome.gnome-keyring.enable = true;
 
   # Steam + Vulkan (RADV for the Radeon 890M), same pattern — defined in
-  # modules/nixos/gaming.nix.
+  # features/gaming/nixos.nix.
   local.gaming.enable = true;
 
   # nix-ld, ollama, nodejs, uv, jq, sshd — gated behind `local.dev.enable` in
-  # modules/nixos/dev.nix.
+  # features/dev/nixos.nix.
   local.dev.enable = true;
 
   # `nrs`/`nrt` activate over SSH to THIS machine, so phase 1 cannot be killed
@@ -214,33 +152,18 @@
 
   services.fwupd.enable = true;
 
-  # Dockerd + compose for development — defined in modules/nixos/docker.nix,
+  # Dockerd + compose for development — defined in features/docker/nixos.nix,
   # which every host imports but only this one switches on. It also puts this
   # user in the `docker` group, which is root-equivalent; the module says what
   # that does and does not cost.
   local.docker.enable = true;
 
-  # Vial — GUI for configuring QMK/VIA keyboards in real time. Here and not in
-  # modules/nixos/desktop.nix: it is for a physical keyboard on this box, not a
-  # general desktop app. The package's own rule is MODE=0666 on EVERY hidraw
+  # Vial's udev rule — the package itself rides the niri feature's
+  # systemPackages. The package's own rule is MODE=0666 on EVERY hidraw
   # device, so it is not installed; this is that rule narrowed to Vial
   # controllers by the serial their firmware reports, with an ACL for the
-  # active session instead of world-write.
-  environment.systemPackages = [
-    # Vial, above.
-    pkgs.vial
-
-    # The niri session's shell and its X11 bridge, for the reasons given at
-    # `programs.niri.enable`.
-    pkgs.noctalia
-    # TRIAL (uncommitted): greeter packages on PATH for the greeter user and
-    # the polkit action under /share/polkit-1 (pkexec appearance sync).
-    pkgs.noctalia-greeter
-    pkgs.xwayland-satellite
-
-    # Region picker for the screen_recorder plugin's default (region) source.
-    pkgs.slurp
-  ];
+  # active session instead of world-write. The serial is this box's keyboard,
+  # so the rule stays with the host.
   services.udev.extraRules = ''KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{serial}=="*vial:f64c2b3c*", MODE="0660", TAG+="uaccess"'';
 
   # Set once at install; never bump (doc/workflow.md).
