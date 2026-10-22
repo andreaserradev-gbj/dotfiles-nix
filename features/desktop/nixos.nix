@@ -45,14 +45,14 @@ in
     # values for any graphical session — greetd sets
     # services.displayManager.enable, which keeps that chain alive with
     # services.xserver.enable off. GNOME's per-user input sources are
-    # declarative in modules/home/desktop.nix.
+    # declarative in features/desktop/home.nix.
     services.xserver.xkb.layout = user.keyboardLayout or "us";
 
     services.displayManager.gdm.enable = lib.mkIf (cfg.session == "gnome") true;
     services.desktopManager.gnome.enable = lib.mkIf (cfg.session == "gnome") true;
 
     # GDM theming deliberately NOT applied: the one piece worth styling (the
-    # cursor) is blocked by the packaging issue in modules/home/gtk.nix, and the
+    # cursor) is blocked by the packaging issue in features/desktop/gtk.nix, and the
     # rest is not worth the regret-risk — the login screen is up for ~2s per
     # boot, and a failed greeter means a black screen recovered via TTY.
 

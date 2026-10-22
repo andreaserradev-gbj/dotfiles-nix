@@ -28,7 +28,7 @@
 {
   nixos = {
     common = ../modules/nixos/common.nix;
-    desktop = ../modules/nixos/desktop.nix;
+    desktop = ./desktop/nixos.nix;
     gaming = ./gaming/nixos.nix;
     docker = ./docker/nixos.nix;
     dev = ./dev/nixos.nix;
@@ -37,8 +37,8 @@
 
   home = {
     desktop = [
-      ../modules/home/gtk.nix
-      ../modules/home/desktop.nix
+      ./desktop/gtk.nix
+      ./desktop/home.nix
     ];
     niri = [
       ../modules/home/niri.nix

@@ -74,12 +74,12 @@
   };
 
   # The desktop seam — pipewire, Brave, Bluetooth, ghostty — defined in
-  # modules/nixos/desktop.nix, which every host imports but only this one
+  # features/desktop/nixos.nix, which every host imports but only this one
   # switches on.
   local.desktop.enable = true;
 
   # niri is THE session, not one of two: `session = "niri"` drops the X
-  # server, GDM and GNOME (modules/nixos/desktop.nix), and ./greeter.nix makes
+  # server, GDM and GNOME (features/desktop/nixos.nix), and ./greeter.nix makes
   # greetd + noctalia-greeter the only path in. niri 26.04 with the Noctalia
   # shell (config/niri/, config/noctalia/); Noctalia's config is HM-owned
   # behind the same switch (modules/home/niri.nix).
@@ -152,7 +152,7 @@
   # ibus off kills the keyboard-notification autostart entry (its NotShowIn
   # fires under niri), dconf serves HM `dconf.settings`, gnome-keyring backs
   # the lock screen's PAM unlock. Same pattern as bluetooth in
-  # modules/nixos/desktop.nix.
+  # features/desktop/nixos.nix.
   i18n.inputMethod.enable = false;
   programs.dconf.enable = true;
   services.gnome.gnome-keyring.enable = true;
@@ -221,7 +221,7 @@
   local.docker.enable = true;
 
   # Vial — GUI for configuring QMK/VIA keyboards in real time. Here and not in
-  # modules/nixos/desktop.nix: it is for a physical keyboard on this box, not a
+  # features/desktop/nixos.nix: it is for a physical keyboard on this box, not a
   # general desktop app. The package's own rule is MODE=0666 on EVERY hidraw
   # device, so it is not installed; this is that rule narrowed to Vial
   # controllers by the serial their firmware reports, with an ACL for the

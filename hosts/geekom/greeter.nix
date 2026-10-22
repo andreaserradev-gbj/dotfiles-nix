@@ -1,6 +1,6 @@
 # The only path in: greetd + noctalia-greeter on VT1. Lives with this host like
 # usb-mouse-recovery.nix — hplaptop keeps GDM and must not see greetd. The
-# session option that dropped GDM lives in modules/nixos/desktop.nix.
+# session option that dropped GDM lives in features/desktop/nixos.nix.
 #
 # noctalia-greeter bundles its own compositor, so this file is hand-wired: the
 # NixOS module is missing from the pinned channel (it exists in unstable,
@@ -92,7 +92,7 @@
   # restrictions (upstream docs: wallpaper works with builtins like
   # Catppuccin). Host-local reference — the flake guard rule allows
   # `unstablePkgs` from hosts/geekom/. Keyboard: the session reads its layout
-  # from systemd-localed (modules/nixos/desktop.nix sets it from
+  # from systemd-localed (features/desktop/nixos.nix sets it from
   # user.keyboardLayout = "it"); this compositor reads ITS OWN keymap from
   # greeter.toml and would fall back to "us" — so "it" here is not cosmetic,
   # it is the IT password keys. numlock matches config/niri/config.kdl.

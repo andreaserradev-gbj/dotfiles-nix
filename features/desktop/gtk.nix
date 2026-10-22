@@ -1,11 +1,11 @@
 # The niri session's GTK-side theming: the Papirus icon theme (Mocha folder
 # colors). Gated on the same option
-# as modules/nixos/desktop.nix AND on `session == "niri"` — hplaptop runs plain
+# as features/desktop/nixos.nix AND on `session == "niri"` — hplaptop runs plain
 # GNOME, and the VM's cage+foot kiosk must not pick it up. The GTK3 THEME died
 # with the variant world: catppuccin-gtk was archived in 2024 because GTK
 # theming has no stable API, and its failure mode was a buggy theme in a
 # shrinking set of apps as they move to GTK4. Libadwaita surfaces were never
-# reachable by it anyway (desktop.nix's `accent-color` is the lever there).
+# reachable by it anyway (nixos.nix's `accent-color` is the lever there).
 {
   lib,
   osConfig,

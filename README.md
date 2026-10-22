@@ -78,13 +78,13 @@ hosts/hplaptop/        the x86_64 HP laptop (non-technical user, no dev tooling)
   disk-config.nix        disko layout — read by bootstrap.sh only, never imported
 modules/nixos/         system layer, shared by every host
   common.nix             users, shell, system packages
-  desktop.nix            defines AND consumes the `local.desktop` option
 modules/home/          one module per tool (zsh, git, neovim, …) — Nix modules, pins in tool-pins.json
   maintenance.nix        `nrb`/`ngca` aliases for non-dev hosts (no `nh`)
 features/              the feature registry — where each feature lives, by name
   registry.nix           plain attrset of paths; a path adds no level to the import graph
   registry-check.nix     fails when a registered feature is named by no consumer
   <name>/nixos.nix       docker, gaming, dev, loopback-rebuild — one seam each
+  desktop/               nixos.nix, home.nix, gtk.nix — the desktop feature
 config/<tool>/…        verbatim assets referenced by the modules (nvim tree,
                        bat theme, fastfetch, zellij, niri session script) — 100% non-Nix
 doc/                   the documentation set — see the index below
@@ -99,7 +99,7 @@ AGENTS.md              orientation for AI agents working in this repo
 bootstrap.sh           one-command install of any host, from a live ISO
 ```
 
-> **`modules/nixos/desktop.nix` is imported by every host, not just `geekom`.**
+> **`features/desktop/nixos.nix` is imported by every host, not just `geekom`.**
 > It defines the `local.desktop` option as well as consuming it, so every host
 > has to see it in order to leave it switched off. A host that cannot see an
 > option cannot set it to `false`.
@@ -107,7 +107,7 @@ bootstrap.sh           one-command install of any host, from a live ISO
 > **`local.desktop.session` selects the login session.** `"gnome"` (default)
 > keeps GDM + GNOME — hplaptop's unchanged setup; `"niri"` drops the X server,
 > GDM and GNOME for a greetd → noctalia-greeter login with Noctalia (geekom).
-> The session-specific reasoning lives in `modules/nixos/desktop.nix` and the
+> The session-specific reasoning lives in `features/desktop/nixos.nix` and the
 > host files.
 
 ## Documentation index

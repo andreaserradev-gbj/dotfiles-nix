@@ -274,7 +274,7 @@ Host geekom
 > which the alias, and every `known_hosts` entry, points at whatever device took
 > the address over. If the router is not yours to configure, the declarative
 > alternative is mDNS: avahi is already on for printer and scanner discovery
-> (`modules/nixos/desktop.nix`), but with publishing disabled, so `<host>.local`
+> (`features/desktop/nixos.nix`), but with publishing disabled, so `<host>.local`
 > resolves nowhere today — `services.avahi.publish.enable = true` is what makes
 > `publish.addresses = true` take effect, which is a config change plus a
 > rebuild, not just a router setting.

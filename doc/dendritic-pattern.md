@@ -68,15 +68,15 @@ to express blast radius, not file type — but it is **per-path in fact**. A
 feature that straddles the two directories has no single home, and the reader
 has to know both halves to understand it.
 
-Two features are split today:
+One feature is split today:
 
-- **desktop** — the NixOS half in `modules/nixos/desktop.nix` (214 lines) and
-  the Home Manager half in `modules/home/desktop.nix` (158 lines), plus the
-  niri-only theming in `modules/home/gtk.nix` (40): 412 lines across two
-  directories.
 - **niri** — the session's NixOS half scattered through
   `hosts/geekom/default.nix` and its Home Manager half in
   `modules/home/niri.nix` and `modules/home/mime.nix`.
+
+**desktop** was the other — 412 lines across two directories — until its
+three files moved into `features/desktop/`: `nixos.nix` (214 lines),
+`home.nix` (158) and `gtk.nix` (40) now share one directory and one name.
 
 The payoff is deliberately narrow, and worth stating plainly: a registry gives
 **stable feature names** and **one place that knows where a feature lives**.
@@ -255,12 +255,12 @@ The recipe for the registry layout this doc describes:
 - [doc/workflow.md](workflow.md) — the rebuild cycle and the `drvPath`
   comparison discipline
 - [doc/adopting-tools.md](adopting-tools.md) — how a tool becomes a feature
-- [doc/niri-session.md](niri-session.md) — the niri feature, the second of the
-  two split features
+- [doc/niri-session.md](niri-session.md) — the niri feature, the one remaining
+  split feature
 - [features/dev/nixos.nix](../features/dev/nixos.nix) — the canonical seam
-- [modules/nixos/desktop.nix](../modules/nixos/desktop.nix) — a seam with a
+- [features/desktop/nixos.nix](../features/desktop/nixos.nix) — a seam with a
   typed and a nested sub-option
-- [modules/home/desktop.nix](../modules/home/desktop.nix) — the Home Manager
+- [features/desktop/home.nix](../features/desktop/home.nix) — the Home Manager
   half of a seam, gated on the same option
 - [features/registry.nix](../features/registry.nix) — the registry itself: a
   plain attrset of paths, the single place that knows where a feature lives
