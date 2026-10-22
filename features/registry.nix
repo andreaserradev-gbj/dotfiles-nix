@@ -29,10 +29,10 @@
   nixos = {
     common = ../modules/nixos/common.nix;
     desktop = ../modules/nixos/desktop.nix;
-    gaming = ../modules/nixos/gaming.nix;
-    docker = ../modules/nixos/docker.nix;
-    dev = ../modules/nixos/dev.nix;
-    loopbackRebuild = ../modules/nixos/loopback-rebuild.nix;
+    gaming = ./gaming/nixos.nix;
+    docker = ./docker/nixos.nix;
+    dev = ./dev/nixos.nix;
+    loopbackRebuild = ./loopback-rebuild/nixos.nix;
   };
 
   home = {

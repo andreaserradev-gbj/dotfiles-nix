@@ -158,11 +158,11 @@
   services.gnome.gnome-keyring.enable = true;
 
   # Steam + Vulkan (RADV for the Radeon 890M), same pattern — defined in
-  # modules/nixos/gaming.nix.
+  # features/gaming/nixos.nix.
   local.gaming.enable = true;
 
   # nix-ld, ollama, nodejs, uv, jq, sshd — gated behind `local.dev.enable` in
-  # modules/nixos/dev.nix.
+  # features/dev/nixos.nix.
   local.dev.enable = true;
 
   # `nrs`/`nrt` activate over SSH to THIS machine, so phase 1 cannot be killed
@@ -214,7 +214,7 @@
 
   services.fwupd.enable = true;
 
-  # Dockerd + compose for development — defined in modules/nixos/docker.nix,
+  # Dockerd + compose for development — defined in features/docker/nixos.nix,
   # which every host imports but only this one switches on. It also puts this
   # user in the `docker` group, which is root-equivalent; the module says what
   # that does and does not cost.

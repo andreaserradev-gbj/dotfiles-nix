@@ -21,7 +21,7 @@ second nixpkgs.
 
 > **Documented exceptions to "no global installs":** `nodejs`, `uv` and
 > `python3` sit on every dev host's *system* profile as agent runtimes, not
-> project toolchains — the reasoning is the comment in `modules/nixos/dev.nix`.
+> project toolchains — the reasoning is the comment in `features/dev/nixos.nix`.
 > None of this replaces a devshell for project code: global `pip install` fails
 > by design on NixOS, and a project needing a flake-pinned Python uses
 > `templates/python-devshell/` (`nfp`), which shadows the system interpreter.
@@ -53,7 +53,7 @@ ssh -L 5173:[::1]:5173 nixos    # then open http://localhost:5173
   security boundary, since an `.envrc` runs arbitrary shell.
 - **Non-interactive SSH gets no dev shell.** direnv's auto-load hooks the
   _interactive_ prompt only, so `ssh nixos 'cd proj && node …'` picks up the
-  global `node` from `modules/nixos/dev.nix`, not the project's pinned one.
+  global `node` from `features/dev/nixos.nix`, not the project's pinned one.
   Enter the shell explicitly: `nix develop --command node …`.
 - **Gitignore `.direnv/`.** nix-direnv caches the evaluated environment there;
   it's machine-local and must never be committed.

@@ -22,7 +22,7 @@ The canonical shape is a **seam module**: a module that *defines* an option
 and *consumes* it.
 
 ```nix
-# modules/nixos/dev.nix — the canonical seam
+# features/dev/nixos.nix — the canonical seam
 {
   config,
   lib,
@@ -94,7 +94,7 @@ is easy to misread.
 
 A host that cannot see an option cannot set it to `false`. So every seam
 module stays in `commonModules` — including the ones only one host switches
-on — because that is where the option is defined. `modules/nixos/gaming.nix`
+on — because that is where the option is defined. `features/gaming/nixos.nix`
 is imported by `hplaptop` and the VM even though neither enables it.
 
 The cross-class case is the same fact seen from the other side. A Home Manager
@@ -257,7 +257,7 @@ The recipe for the registry layout this doc describes:
 - [doc/adopting-tools.md](adopting-tools.md) — how a tool becomes a feature
 - [doc/niri-session.md](niri-session.md) — the niri feature, the second of the
   two split features
-- [modules/nixos/dev.nix](../modules/nixos/dev.nix) — the canonical seam
+- [features/dev/nixos.nix](../features/dev/nixos.nix) — the canonical seam
 - [modules/nixos/desktop.nix](../modules/nixos/desktop.nix) — a seam with a
   typed and a nested sub-option
 - [modules/home/desktop.nix](../modules/home/desktop.nix) — the Home Manager

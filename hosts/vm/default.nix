@@ -24,7 +24,7 @@
   # Local graphical console
   services.spice-vdagentd.enable = true;
 
-  # Turns on the dev tooling that modules/nixos/dev.nix gates.
+  # Turns on the dev tooling that features/dev/nixos.nix gates.
   local.dev.enable = true;
 
   # cage kiosk: the compositor IS the login, launching one full-screen foot

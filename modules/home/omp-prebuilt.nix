@@ -16,7 +16,7 @@
 # rewrites the interpreter string, shifts the section header table, and
 # invalidates those offsets — the binary then silently degrades to a plain `bun`
 # runtime. The stock /lib64 loader works only because NixOS's nix-ld provides it
-# (modules/nixos/dev.nix); this derivation does not make the binary run on a
+# (features/dev/nixos.nix); this derivation does not make the binary run on a
 # NixOS without nix-ld. The glibc (not musl) asset is used: musl would add
 # libstdc++/libgcc NEEDEDs that stock NixOS does not ship.
 #

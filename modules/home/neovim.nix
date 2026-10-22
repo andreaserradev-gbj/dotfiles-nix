@@ -22,7 +22,7 @@ lib.mkIf osConfig.local.dev.enable {
     tree-sitter
 
     # LSP servers, Nix-provided instead of Mason (why: the nix-ld note in
-    # modules/nixos/dev.nix). Names must match nvim-lspconfig's launchers:
+    # features/dev/nixos.nix). Names must match nvim-lspconfig's launchers:
     # bashls -> bash-language-server, cssls/html/jsonls ->
     # vscode-langservers-extracted, yamlls -> yaml-language-server, lua_ls ->
     # lua-language-server, marksman, vtsls -> vtsls (bundles its own node).

@@ -79,12 +79,12 @@ hosts/hplaptop/        the x86_64 HP laptop (non-technical user, no dev tooling)
 modules/nixos/         system layer, shared by every host
   common.nix             users, shell, system packages
   desktop.nix            defines AND consumes the `local.desktop` option
-  dev.nix                defines AND consumes the `local.dev` option
 modules/home/          one module per tool (zsh, git, neovim, …) — Nix modules, pins in tool-pins.json
   maintenance.nix        `nrb`/`ngca` aliases for non-dev hosts (no `nh`)
 features/              the feature registry — where each feature lives, by name
   registry.nix           plain attrset of paths; a path adds no level to the import graph
   registry-check.nix     fails when a registered feature is named by no consumer
+  <name>/nixos.nix       docker, gaming, dev, loopback-rebuild — one seam each
 config/<tool>/…        verbatim assets referenced by the modules (nvim tree,
                        bat theme, fastfetch, zellij, niri session script) — 100% non-Nix
 doc/                   the documentation set — see the index below
@@ -151,13 +151,13 @@ _before_ installing — the install walkthroughs pull the config from git:
   any clone exists.
 - `.sops.yaml` — the age recipients. `secrets/andrea/secrets.yaml` is encrypted
   to my key and geekom's, so either add yours (`sops updatekeys`) or drop the
-  secrets directory and the `sops.*` lines in `modules/nixos/dev.nix`
+  secrets directory and the `sops.*` lines in `features/dev/nixos.nix`
   ([doc/secrets.md](doc/secrets.md) owns that workflow).
 - `hosts/*/disk-config.nix` (the disk device) and
   `hosts/*/hardware-configuration.nix` (initrd modules, by-label mounts) —
   facts about _my_ machines, captured on them.
 - `hosts/geekom/default.nix` — `local.loopbackRebuild`'s two keys are per-host
-  literals; `modules/nixos/loopback-rebuild.nix` says why.
+  literals; `features/loopback-rebuild/nixos.nix` says why.
 
 ## License
 

@@ -81,7 +81,7 @@ The boundary is enforced at **two independent layers**:
    host key is not a recipient, so even the ciphertext copied there is
    opaque bytes.
 2. **Declaration layer** — the `sops.secrets` block lives inside the
-   `local.dev.enable` gate in `modules/nixos/dev.nix`. hplaptop (gate off)
+   `local.dev.enable` gate in `features/dev/nixos.nix`. hplaptop (gate off)
    never evaluates it: nothing is added to its activation script,
    `/run/secrets` stays empty, no sops binary is pulled into the closure.
    Belt to the braces: a secret nobody declares is never shipped at all.
@@ -127,7 +127,7 @@ Rules that have bitten once already:
   in the flake, and the error is `Path … is not tracked by Git` (the `git add`
   rule itself: [AGENTS.md](../AGENTS.md)).
 - **Adding a new secret key** is the same `sops` edit, plus one
-  `sops.secrets.<NAME>` entry in `modules/nixos/dev.nix` (and an export or
+  `sops.secrets.<NAME>` entry in `features/dev/nixos.nix` (and an export or
   consumer wherever it is read).
   **Caveat, verified 2026-09-18:** sops-nix's eval-time check
   (`validateSopsFiles`, default on) only throws when the declared sops *file* is
@@ -196,6 +196,6 @@ is filled from the committed ciphertext.
 ---
 
 - Recipient policy and the shamir trap, annotated in place: [.sops.yaml](../.sops.yaml)
-- The declaration gate (two-layer boundary, code side): [modules/nixos/dev.nix](../modules/nixos/dev.nix)
+- The declaration gate (two-layer boundary, code side): [features/dev/nixos.nix](../features/dev/nixos.nix)
 - Rebuild commands used after edits (`nrs`, `nrb`): [doc/workflow.md](workflow.md)
 - Common failure modes: [doc/troubleshooting.md](troubleshooting.md)

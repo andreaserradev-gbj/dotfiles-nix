@@ -14,7 +14,7 @@ let
   # Flags `nrs`/`nrt` carry on hosts with the loopback seam on (geekom): a
   # switch's phase 1 can restart the display stack and kill the session that
   # launched it, while an activation under sshd is outside that scope (the seam
-  # is owned by modules/nixos/loopback-rebuild.nix).
+  # is owned by features/loopback-rebuild/nixos.nix).
   #
   # --hostname is REQUIRED, not redundant: with --target-host set, nh otherwise
   # derives the flake attribute from the target ("localhost"), which is not a

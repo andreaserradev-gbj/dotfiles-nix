@@ -345,7 +345,7 @@ let
   #
   # The name must end at a non-identifier character, so `features.nixos.dev`
   # does not match the name `developer` — and it must not be preceded by a
-  # path separator, so `./modules/nixos/dev.nix` never counts as a reference
+  # path separator, so `./features/dev/nixos.nix` never counts as a reference
   # to the `dev` feature.
   referencePattern = cls: name: ".*\\." + cls + "\\." + name + "([^A-Za-z0-9_]|$).*";
 
