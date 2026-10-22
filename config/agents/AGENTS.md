@@ -40,18 +40,23 @@ is installed read-only, so edit it there, never in place.
 
 - Feature work: sharpen the design with `grill-me`/`grill-with-docs` BEFORE
   `/dev-plan` writes the PRD — grilling after the PRD exists means hand-folding
-  findings back into `00-master-plan.md`. grill-with-docs' ADRs and glossary go
-  in `.dev/<feature>/reference/`, never inside the PRD files whose status
-  markers the dev-workflow CLI parses.
+  findings back into `00-master-plan.md`.
+- Where a skill writes domain docs is the repo's call, not the skill's: consult
+  `docs/agents/domain.md`, then the repo's `AGENTS.md`, before the path the
+  skill hardcodes. Undeclared, vocabulary goes to `GLOSSARY.md` at the repo root
+  (that is where `pr` reads it) and decision records to
+  `.dev/<feature>/reference/` — never inside the PRD files whose status markers
+  the dev-workflow CLI parses. A decision that must outlive the feature belongs
+  in `docs/adr/`: `.dev/` is gitignored.
 - Per phase: accept `/dev-checkpoint`'s branch/worktree offer for features you
   intend to review and PR (an uncommitted trial gives `code-review` no diffable
-  base). Review the diff against the base ref with `code-review`, passing
-  `.dev/<feature>/00-master-plan.md` as the spec source; fix findings, then
-  `/dev-checkpoint`.
+  base). Review the diff against the base ref with `code-review`, naming both the
+  base ref and the spec source — the `.dev/<feature>/` directory, master plan
+  plus every sub-PRD (that skill discovers standards itself, but never looks
+  inside `.dev/`). Fix findings, then `/dev-checkpoint`.
 - Feature end: run `/dev-review` (PRD-vs-implementation alignment) before final
   testing; write the PR body (`skill://pr`, see Git & PRs) only after review is
-  clean. `teach` is a separate learning workspace — never part of feature
-  delivery.
+  clean.
 
 ## Architecture & Design Reviews
 
