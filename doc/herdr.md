@@ -96,7 +96,9 @@ the `tool-pins.json` entry is the pin of record.
 3. Re-run the skill install (`npx skills add herdrdev/herdr --skill herdr -g`) —
    still manual, and also needed on a new machine (`nfb` prints the reminder).
 4. `git add` everything, `./scripts/check-hosts.sh`: expect `vm` + `geekom`
-   drvPaths to move, `hplaptop` byte-identical.
+   drvPaths to move, `hplaptop` byte-identical. `nfb` re-records
+   `scripts/drvpath-baseline` itself, so the gate passes without a manual
+   `--update-baseline`.
 5. `nrp`, rebuild, then `herdr --version` and `herdr integration status` (expect
    `omp: current`) to confirm binary and asset moved together.
 6. PR → CI → squash merge per [workflow.md](workflow.md).

@@ -117,7 +117,10 @@ property ([doc/dendritic-pattern.md](doc/dendritic-pattern.md)), and gotchas
 2. Diff adds more comment lines than code lines? Cut before committing.
 3. `./scripts/check-hosts.sh` — every host must still evaluate, and the
    `drvPath` deltas must match your intent (shared change → all hosts move;
-   host change → exactly one moves).
+   host change → exactly one moves). The gate compares against
+   `scripts/drvpath-baseline`, so a named move also needs
+   `--update-baseline` in the same change. An input bump (`nfu`/`nfb`) does
+   that for you; any other move does not.
 4. Docs changed? Check every `](...)` link resolves and keep files under
    ~500 lines (split when a doc grows past that).
 5. **Push issued?** A commit whose CI fails cannot reach hplaptop, but fix or

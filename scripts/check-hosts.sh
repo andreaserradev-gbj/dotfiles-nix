@@ -9,12 +9,12 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-# Nix evaluates a flake from the git INDEX, not the working tree: an untracked
-# file is simply not there, so evaluation fails with "Path 'X' … is not tracked
-# by Git" — loud, but only if you get that far. Warn before the run, not after:
-# a green result on a stale tree is worse than a red one. The `-z` +
-# NUL-delimited read loop below keeps a path holding a space or a `*` from
-# splitting into bogus filenames.
+# Nix evaluates only git-TRACKED paths — a tracked file's working-tree edits
+# (staged or not) are seen, an untracked one is simply not there, so evaluation
+# fails with "Path 'X' … is not tracked by Git" — loud, but only if you get that
+# far. Warn before the run, not after: a green result on a stale tree is worse
+# than a red one. The `-z` + NUL-delimited read loop below keeps a path holding a
+# space or a `*` from splitting into bogus filenames.
 if [ -n "$(git ls-files --others --exclude-standard)" ]; then
   echo "!! WARNING: untracked files — nix will NOT see these:" >&2
   while IFS= read -r -d '' f; do
@@ -62,6 +62,30 @@ for host in $HOSTS; do
 done
 
 if [ "$update" = 1 ]; then
+  # A baseline written from a partial evaluation would silently STOP COVERING
+  # the hosts that failed: their lines are absent, so the next run sees nothing
+  # to compare. Refuse instead — an eval failure is the one thing this gate
+  # exists to catch, and it must not be able to erase itself from the record.
+  if [ "$status" != 0 ]; then
+    echo "!! baseline NOT updated: a host failed to evaluate (see above)." >&2
+    exit 1
+  fi
+  # Report what the record is about to say, so the diff is reviewable at the
+  # terminal too and not only in `git diff`.
+  if [ -f "$baseline_file" ]; then
+    while read -r host recorded; do
+      now="$(awk -v h="$host" '$1 == h { print $2 }' "$current")"
+      if [ -z "$now" ]; then
+        printf '   %s: dropped (no longer in the flake)\n' "$host"
+      elif [ "$now" != "$recorded" ]; then
+        printf '   %s: %s -> %s\n' "$host" "$recorded" "$now"
+      fi
+    done < "$baseline_file"
+    while read -r host drv; do
+      awk -v h="$host" '$1 == h { found = 1 } END { exit !found }' "$baseline_file" ||
+        printf '   %s: new -> %s\n' "$host" "$drv"
+    done < "$current"
+  fi
   mv "$current" "$baseline_file"
   trap - EXIT
   echo "baseline updated: $baseline_file"

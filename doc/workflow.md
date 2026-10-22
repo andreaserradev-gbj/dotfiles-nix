@@ -13,9 +13,9 @@ exception: with no checkout and no `nh`, her `nrb` and `ngca` come from
 | `nrs`                 | `nh os switch --ask`   | build, show diff, ask, then activate **and** set the boot default  |
 | `nrt`                 | `nh os test`           | activate now, don't touch the bootloader — a reboot reverts it     |
 | `nrb`                 | `nh os boot`           | stage for next boot, don't activate now                            |
-| `nfu`                 | `nix flake update`     | bump every input — rewrites `flake.lock`                           |
+| `nfu`                 | shell function         | bump every input, then re-record the drvPath baseline             |
 | `nfud`                | shell function         | dry run of `nfu`: diff the would-be lock update, write nothing     |
-| `nfb`                 | `scripts/nfb.sh`       | bump omp/herdr to upstream's latest release; re-locks omp's flake input only |
+| `nfb`                 | `scripts/nfb.sh`       | bump omp/herdr to upstream's latest release, then re-record the baseline |
 | `nfc`                 | `nix flake check`      | validate the flake without building a system                       |
 | `nfi` / `nfp`         | `nix flake init -t …`  | drop the devshell / python-devshell template into the current project |
 | `ngl` / `ngd` / `ngc` | shell functions        | list / diff / interactively delete generations                     |
@@ -105,6 +105,29 @@ Use the printed `drvPath` as a before/after reference around any change:
 
 That is the check that makes editing `modules/` safe. Touching a shared module
 should move every host's hash; touching `hosts/geekom/` should move exactly one.
+
+The comparison is mechanical, not a habit: [`scripts/drvpath-baseline`](../scripts/drvpath-baseline)
+records every host's `drvPath` in the repo, and a host whose evaluation moved
+while its recorded line did not **fails** the script. A move you intended is
+re-recorded in the same change, and the reason goes in the commit message next
+to it:
+
+```sh
+./scripts/check-hosts.sh --update-baseline
+```
+
+`nfu` and `nfb` move hosts whenever the bumped input reaches their closure —
+`nixpkgs` reaches most of them, the pinned omp/herdr prebuilts only the hosts
+that install them — so both run the recorder themselves
+([`scripts/record-baseline.sh`](../scripts/record-baseline.sh)): it re-records
+the baseline, prints each host's old → new drvPath, and stages the file with
+the bump. No separate step is needed. Any other intended move (a hand edit that
+shifts a host) still needs `./scripts/check-hosts.sh --update-baseline` in the
+same change.
+
+The baseline is not the `verified` ref in the CI section below — that one
+decides what CI *builds*; this file decides whether an evaluation *move* is
+expected.
 
 ## CI
 

@@ -47,6 +47,13 @@ nixos    /nix/store/xb90baxgk4fn1dg14mk6s1inl577r4y2-nixos-system-nixos-26.05…
 - Record the drvPaths. Around any change, a host you did not mean to touch must
   keep the SAME drvPath; the drvPath is the identity CI compares against the
   `verified` ref.
+- The comparison is enforced: `scripts/drvpath-baseline` holds every host's
+  recorded drvPath, and any host that moved without a baseline edit fails the
+  script (exit 1). When the move IS intended, re-record it in the same change
+  with `./scripts/check-hosts.sh --update-baseline` (or
+  `scripts/record-baseline.sh`, which does that and stages the file) and name
+  the reason in the commit message. `nfu` and `nfb` do this already, so an
+  input bump needs no manual step.
 
 ## 2. Lint — exactly what CI's `evaluate` job runs
 
