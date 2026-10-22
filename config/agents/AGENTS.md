@@ -48,12 +48,23 @@ is installed read-only, so edit it there, never in place.
   `.dev/<feature>/reference/` — never inside the PRD files whose status markers
   the dev-workflow CLI parses. A decision that must outlive the feature belongs
   in `docs/adr/`: `.dev/` is gitignored.
+- Resolve the active feature before asking. In this order, take the first step
+  that yields exactly one match: (1) a current branch named `feature/<name>`
+  → `.dev/<name>/`; (2) a `.dev/*/checkpoint.md` whose frontmatter `branch:`
+  equals the current branch; (3) the only directory under `.dev/` containing
+  `00-master-plan.md` or `checkpoint.md`. Two matches at the same step, or
+  none anywhere, means ask which feature — never pick one. `.dev-archive/`
+  is never a candidate.
 - Per phase: accept `/dev-checkpoint`'s branch/worktree offer for features you
   intend to review and PR (an uncommitted trial gives `code-review` no diffable
-  base). Review the diff against the base ref with `code-review`, naming both the
-  base ref and the spec source — the `.dev/<feature>/` directory, master plan
-  plus every sub-PRD (that skill discovers standards itself, but never looks
-  inside `.dev/`). Fix findings, then `/dev-checkpoint`.
+  base). Then review the diff against the base ref with `code-review`, naming
+  the base ref and the active feature's `.dev/<feature>/` directory — master
+  plan plus every sub-PRD — because that skill discovers standards itself but
+  never looks inside `.dev/`. Fix findings, then `/dev-checkpoint`.
+- The review base ref is the merge-base with the branch the feature came from:
+  `git merge-base main HEAD` (or `master`). On a detached HEAD, a worktree with
+  no recorded base, or when the feature sits on the base branch itself, ask for
+  the ref instead of reviewing against `HEAD`.
 - Feature end: run `/dev-review` (PRD-vs-implementation alignment) before final
   testing; write the PR body (`skill://pr`, see Git & PRs) only after review is
   clean.
