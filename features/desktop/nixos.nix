@@ -191,7 +191,7 @@ in
     # Files (nautilus) plus gvfs, the Trash/mount backend no file manager has
     # built in — niri session only; hplaptop gets both from GNOME. loupe and
     # celluloid are the session's double-click viewers, targeted by the MIME
-    # defaults in modules/home/mime.nix via these desktop-file IDs:
+    # defaults in features/niri/mime.nix via these desktop-file IDs:
     # org.gnome.Loupe.desktop, io.github.celluloid_player.Celluloid.desktop.
     ++ lib.optionals (cfg.session == "niri") [
       pkgs.nautilus

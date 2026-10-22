@@ -1,6 +1,6 @@
 # Double-click defaults for the niri session, in the user layer (HM) so they
 # survive a future GNOME return; gated on the same NixOS option as
-# modules/home/niri.nix — hplaptop keeps GNOME's defaults and evaluates this
+# features/niri/home.nix — hplaptop keeps GNOME's defaults and evaluates this
 # file to nothing. Keys are MIME types, values desktop-file IDs: the
 # direction mimeapps.list reads (key = type to open, value = app to open it
 # with). The IDs match the packages added to the niri optionals in

@@ -33,6 +33,9 @@
     docker = ./docker/nixos.nix;
     dev = ./dev/nixos.nix;
     loopbackRebuild = ./loopback-rebuild/nixos.nix;
+    # Host-imported: no `local.*` option; a host that wants the niri session
+    # imports this entry by name (geekom today).
+    niri = ./niri/nixos.nix;
   };
 
   home = {
@@ -41,8 +44,8 @@
       ./desktop/home.nix
     ];
     niri = [
-      ../modules/home/niri.nix
-      ../modules/home/mime.nix
+      ./niri/home.nix
+      ./niri/mime.nix
     ];
   };
 }

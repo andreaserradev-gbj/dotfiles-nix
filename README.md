@@ -85,6 +85,7 @@ features/              the feature registry — where each feature lives, by nam
   registry-check.nix     fails when a registered feature is named by no consumer
   <name>/nixos.nix       docker, gaming, dev, loopback-rebuild — one seam each
   desktop/               nixos.nix, home.nix, gtk.nix — the desktop feature
+  niri/                  nixos.nix, home.nix, mime.nix — the niri session (host-imported)
 config/<tool>/…        verbatim assets referenced by the modules (nvim tree,
                        bat theme, fastfetch, zellij, niri session script) — 100% non-Nix
 doc/                   the documentation set — see the index below
@@ -107,8 +108,8 @@ bootstrap.sh           one-command install of any host, from a live ISO
 > **`local.desktop.session` selects the login session.** `"gnome"` (default)
 > keeps GDM + GNOME — hplaptop's unchanged setup; `"niri"` drops the X server,
 > GDM and GNOME for a greetd → noctalia-greeter login with Noctalia (geekom).
-> The session-specific reasoning lives in `features/desktop/nixos.nix` and the
-> host files.
+> The session-specific reasoning lives in `features/desktop/nixos.nix` (GNOME)
+> and `features/niri/nixos.nix` (niri).
 
 ## Documentation index
 

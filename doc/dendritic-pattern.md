@@ -68,15 +68,11 @@ to express blast radius, not file type — but it is **per-path in fact**. A
 feature that straddles the two directories has no single home, and the reader
 has to know both halves to understand it.
 
-One feature is split today:
-
-- **niri** — the session's NixOS half scattered through
-  `hosts/geekom/default.nix` and its Home Manager half in
-  `modules/home/niri.nix` and `modules/home/mime.nix`.
-
-**desktop** was the other — 412 lines across two directories — until its
-three files moved into `features/desktop/`: `nixos.nix` (214 lines),
-`home.nix` (158) and `gtk.nix` (40) now share one directory and one name.
+No feature is split today. **desktop** was 412 lines across two directories
+until its three files moved into `features/desktop/`; **niri** was the
+session's NixOS half scattered through `hosts/geekom/default.nix` until it
+moved to `features/niri/` (`nixos.nix`, `home.nix`, `mime.nix`), which the
+host imports by name.
 
 The payoff is deliberately narrow, and worth stating plainly: a registry gives
 **stable feature names** and **one place that knows where a feature lives**.
@@ -193,8 +189,8 @@ error: Module imports can't be nested lists. Perhaps you meant to remove one
 level of lists? Definitions:
 - In `/nix/store/…-source/flake.nix':
     [
-      /nix/store/…-source/modules/home/niri.nix
-      /nix/store/…-source/modules/home/mime.nix
+      /nix/store/…-source/features/niri/home.nix
+      /nix/store/…-source/features/niri/mime.nix
     ]
 ```
 
@@ -255,8 +251,8 @@ The recipe for the registry layout this doc describes:
 - [doc/workflow.md](workflow.md) — the rebuild cycle and the `drvPath`
   comparison discipline
 - [doc/adopting-tools.md](adopting-tools.md) — how a tool becomes a feature
-- [doc/niri-session.md](niri-session.md) — the niri feature, the one remaining
-  split feature
+- [doc/niri-session.md](niri-session.md) — the niri feature: session, greeter
+  and Noctalia
 - [features/dev/nixos.nix](../features/dev/nixos.nix) — the canonical seam
 - [features/desktop/nixos.nix](../features/desktop/nixos.nix) — a seam with a
   typed and a nested sub-option
