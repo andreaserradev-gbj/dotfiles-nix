@@ -45,6 +45,12 @@ jobs:
       # hook runs nixfmt alone. `--fail` is what makes deadnix a gate at all.
       - run: nix develop -c statix check .
       - run: nix develop -c deadnix --fail
+      # The registry's dead-code hazard: deadnix flags unused let bindings and
+      # lambda patterns but NOT unused attrset entries, so an orphaned feature
+      # entry passes every other gate (doc/dendritic-pattern.md, "A registry
+      # entry nobody names is dead code"). The check throws, so a non-zero exit
+      # fails the job unchanged.
+      - run: nix eval --json --impure --expr 'import ./features/registry-check.nix'
       - run: ./scripts/check-hosts.sh
       # The candidates are named HERE, not in changed-hosts.sh, so this file
       # stays the one place that says what CI builds. The baseline fetch needs a

@@ -224,19 +224,18 @@ message — the repo's own rule that a move you cannot name is the failure.
 
 The recipe for the registry layout this doc describes:
 
-1. Put the feature's modules where they belong — under `modules/nixos/` for
-   the system layer, `modules/home/` for the Home Manager layer, or
-   `features/<name>/` once a feature has its own directory. One file per
-   module class, at the same depth as the modules it replaces.
+1. Create the feature's directory — `features/<name>/` — with one file per
+   module class (`nixos.nix`, `home.nix`), at depth 2 so `../../config/…` and
+   `../../secrets/…` keep resolving.
 2. Add the registry entry in `features/registry.nix`: a **path** for a single
    module, a **list of paths** for several.
 3. Import it by name — from `commonModules` in `flake.nix` for a shared
    feature, or from the host file for a host-specific one. Keep the seam
    module in `commonModules` even if only one host enables it, so the option
    stays visible everywhere.
-4. Run the registry check, then `./scripts/check-hosts.sh` and compare against
-   the recorded baseline. A host that moved without a named reason is a
-   regression, not a curiosity.
+4. Run the registry check, then `./scripts/check-hosts.sh`: the recorded
+   baseline (`scripts/drvpath-baseline`) makes an unnamed host move fail the
+   gate; update the baseline in the same change when a move is named.
 
 > **A registry entry nobody names is dead code.** `deadnix --fail` flags
 > unused `let` bindings and unused lambda patterns — it does **not** flag an
