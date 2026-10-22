@@ -109,7 +109,9 @@ which is why the pin file cannot feed `inputs.*.url` — see the comment on the 
 2. `git diff` — `tool-pins.json` (three fields) + `flake.nix` + `flake.lock`,
    nothing else.
 3. `git add` everything, `./scripts/check-hosts.sh`: expect the dev hosts to move,
-   `hplaptop` byte-identical (dev-gated).
+   `hplaptop` byte-identical (dev-gated). `nfb` re-records
+   `scripts/drvpath-baseline` itself, so the gate passes without a manual
+   `--update-baseline`.
 4. **No compile happens** — CI substitutes the ~263 MiB prebuilt, so a FOD failure
    here means the hash or URL is wrong, not a build issue.
 5. `nrp`, rebuild, then `omp --version` on the host to confirm the binary moved

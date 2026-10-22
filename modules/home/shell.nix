@@ -79,7 +79,6 @@ lib.mkIf osConfig.local.dev.enable {
       nrp = "nh os build";
       nrs = "nh os switch --ask${loop}";
       nrt = "nh os test${loop}";
-      nfu = "nix flake update --flake ${repo}";
       nfb = "${repo}/scripts/nfb.sh";
       nfc = "nix flake check ${repo}";
       nfi = "nix flake init -t ${repo}#devshell";
@@ -138,6 +137,15 @@ lib.mkIf osConfig.local.dev.enable {
           NR>1 { printf "%-5s %s %s   kernel %s%s\n", $1, $2, $3, $5, ($8=="True" ? "   <- current" : "") }'
       }
       ngl() { _gens; }
+
+      # nfu — bump every input, then re-record the drvPath baseline. The lock
+      # bump moves whatever hosts those inputs reach, so the move is intended by
+      # construction and needs no manual `--update-baseline`; the recorder
+      # (scripts/record-baseline.sh) records it and stages the file with the bump.
+      nfu() {
+        nix flake update --flake "${repoAbs}" || return
+        "${repoAbs}/scripts/record-baseline.sh"
+      }
 
       # nfud — the dry-run twin of nfu: resolve every input, write the would-be
       # flake.lock to a temp file, print what moved, discard it. `nix flake

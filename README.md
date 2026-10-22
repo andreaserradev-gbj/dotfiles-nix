@@ -92,6 +92,7 @@ doc/                   the documentation set — see the index below
   dendritic-pattern.md  features and `local.*` seams, the feature registry, and the import-order property
 scripts/changed-hosts.sh  which hosts moved since `verified` — CI's build matrix
 scripts/check-hosts.sh the multi-host regression gate
+scripts/record-baseline.sh  re-record the drvPath baseline after an input bump (`nfu`/`nfb`)
 scripts/pre-commit     git hook: `nixfmt --check` on staged .nix — self-installed by .envrc
 statix.toml            statix (Nix linter) config — applies in CI and devShell
 templates/devshell/    per-project dev shell template

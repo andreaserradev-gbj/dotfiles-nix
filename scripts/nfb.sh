@@ -138,8 +138,9 @@ rewrite_ref() {
 # relock TOOL TAG — re-resolve just that input, and only when the lock does not
 # already name TAG (so a routine run is silent, and a run interrupted between the
 # pin write and the lock heals itself next time). Skipped for a tool with no flake
-# input (herdr). Staging first is load-bearing: flakes read the git INDEX, so the
-# new pin table and `?ref=` must be added before `nix flake update` sees them.
+# input (herdr). Staging is for the review surface, not visibility: nix reads a
+# tracked file's working-tree edits either way, so the pin table and `?ref=` are
+# added only to keep the bump one reviewable, committable set.
 relock() {
   local tool="$1" tag="$2" locked
   [ -n "${flake_input[$tool]:-}" ] || return 0
@@ -201,6 +202,7 @@ write_vendored_assets() {
 }
 
 failed=0
+applied=0
 
 for tool in "${tools[@]}"; do
   cur="$(jq -r --arg t "$tool" '.[$t].version' "$pins_file")"
@@ -302,11 +304,18 @@ for tool in "${tools[@]}"; do
 
   printf 'nfb: %s %s -> %s applied (pin file + flake.nix ref + flake.lock re-locked)\n' \
     "$tool" "$cur" "$new"
+  applied=1
   git status --short
   if [ "$tool" = herdr ]; then
     printf '!! manual: npx skills add herdrdev/herdr --skill herdr -g   (the herdr skill is npx-managed, not vendored)\n'
   fi
 done
+
+# A bump is an intended move, so re-record the baseline here instead of leaving
+# the user to notice the gate failing. The recorder stages it with the bump.
+if [ "$applied" = 1 ] && [ "$failed" = 0 ]; then
+  "$repo_root/scripts/record-baseline.sh" || failed=1
+fi
 
 printf 'next: git diff -> ./scripts/check-hosts.sh -> nrp -> PR per doc/workflow.md\n'
 exit "$failed"
