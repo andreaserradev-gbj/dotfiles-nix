@@ -49,10 +49,11 @@
         # not inherit the passthru of the package it joins.
         passthru.providedSessions = pkgs.niri.providedSessions;
       });
-  # Recording backend for Noctalia's screen_recorder plugin (config/noctalia/
-  # config.toml): the module wraps gsr-kms-server with cap_sys_admin+ep, so
-  # capture is promptless — the xdg-desktop-portal-gnome chooser this avoids
-  # does not render under niri (xdg-desktop-portal#2039).
+  # Recording backend for the fullscreen paths of the screen-toolkit plugin
+  # (config/noctalia/config.toml): the module wraps gsr-kms-server with
+  # cap_sys_admin+ep, so capture is promptless — the
+  # xdg-desktop-portal-gnome chooser this avoids does not render under niri
+  # (xdg-desktop-portal#2039). Region recording uses wl-screenrec instead.
   programs.gpu-screen-recorder.enable = true;
 
   # Explicit-enable trio for the niri session, each currently a GNOME
@@ -94,7 +95,8 @@
     pkgs.noctalia-greeter
     pkgs.xwayland-satellite
 
-    # Region picker for the screen_recorder plugin's default (region) source.
+    # Region picker for screen-toolkit's region recording and its
+    # Annotate Window click waiter.
     pkgs.slurp
 
     # PATH tools for the community capture plugin alexander/screen-toolkit

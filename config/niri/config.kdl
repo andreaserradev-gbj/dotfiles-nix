@@ -213,11 +213,12 @@ binds {
   Ctrl+Print { spawn-sh "noctalia msg screenshot-fullscreen monitor"; }
   Alt+Print { spawn-sh "noctalia msg screenshot-fullscreen all"; }
 
-  // Recording: the noctalia/screen_recorder plugin (gpu-screen-recorder
-  // backend; its service exists only from shell start — config.toml
-  // enables the plugin, not a runtime toggle).
-  Mod+Print { spawn-sh "noctalia msg plugin noctalia/screen_recorder:service all toggle"; }
-  Mod+Shift+Print { spawn-sh "noctalia msg plugin noctalia/screen_recorder:service all start focused"; }
+  // Recording: the alexander/screen-toolkit plugin (gpu-screen-recorder
+  // backend; its service exists only from shell start — config.toml enables
+  // the plugin, not a runtime toggle). recordToggle starts a fullscreen MP4
+  // or stops the active recording; the result panel then offers Save/Play.
+  Mod+Print { spawn-sh "noctalia msg plugin alexander/screen-toolkit:service all recordToggle"; }
+  Mod+Shift+Print { spawn-sh "noctalia msg plugin alexander/screen-toolkit:service all recordFullscreenMp4"; }
 
   // allow-when-locked so volume keeps working on the lock screen.
   XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "noctalia msg volume-up"; }
