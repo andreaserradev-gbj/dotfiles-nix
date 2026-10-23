@@ -78,8 +78,14 @@ directory = "~/Pictures/Screenshots"
 # at shell STARTUP only — enabling here (not via the Settings UI at runtime)
 # is what gets it spawned at all. Region is the default source (slurp picker);
 # fullscreen recording targets the focused monitor (Mod+Shift+Print).
+# TRIAL (uncommitted): community capture toolkit panel (see
+# .dev/capture-ui/reference/noctalia-plugin-feasibility.md). Its PATH tools
+# ride features/niri/nixos.nix. Panel: noctalia msg panel-toggle
+# alexander/screen-toolkit:panel. Markup/annotate buttons need the shell's
+# annotate IPC — absent in nixpkgs 5.0.1, they toast "capture failed" until
+# the nixpkgs bump (record/OCR/QR/color/measure work on 5.0.1).
 [plugins]
-enabled = ["noctalia/screen_recorder"]
+enabled = ["noctalia/screen_recorder", "alexander/screen-toolkit"]
 
 [plugin_settings."noctalia/screen_recorder"]
 video_source = "region"
@@ -97,10 +103,16 @@ replay_enabled = false
 [widget.screen-recorder]
 type = "noctalia/screen_recorder:recorder"
 
+# TRIAL (uncommitted): screen-toolkit's bar entry (crosshair glyph; left
+# click opens its tool panel, right click picks a color — plugin.toml).
+[widget.screen-toolkit]
+type = "alexander/screen-toolkit:widget"
+
 [bar.default]
 end = [
   "screenshot",
   "screen-recorder",
+  "screen-toolkit",
   "media",
   "tray",
   "notifications",
