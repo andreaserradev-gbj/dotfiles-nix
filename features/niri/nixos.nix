@@ -96,5 +96,21 @@
 
     # Region picker for the screen_recorder plugin's default (region) source.
     pkgs.slurp
+
+    # TRIAL (uncommitted): PATH tools for the community capture plugin
+    # alexander/screen-toolkit (config/noctalia/config.toml), which degrades
+    # features individually when a tool is missing. pulseaudio is here only
+    # for pactl; translate-shell (optional upstream) and hyprctl
+    # (Hyprland-only) are deliberately omitted.
+    pkgs.hyprpicker
+    pkgs.tesseract
+    pkgs.imagemagick
+    pkgs.zbar
+    pkgs.bc
+    pkgs.wl-screenrec
+    pkgs.wf-recorder
+    pkgs.ffmpeg
+    pkgs.mpv
+    pkgs.pulseaudio
   ];
 }
