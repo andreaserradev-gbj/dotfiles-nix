@@ -67,6 +67,12 @@ text**.
 > rebooting after a phase-1-only activation silently reverts it, which is
 > indistinguishable from the switch never having happened.
 
+> **herdr runs as a user unit on geekom.** A herdr bump — or any edit that
+> touches the unit — restarts the server at the next switch, and that kills
+> every pane's processes ([herdr.md](herdr.md), "The unit" and the gotchas).
+> Do not bump mid-agent-run; a config change needs `herdr server
+> reload-config`, not a restart.
+
 > **What phase 1 validates, and what it does not.** The `test` activation catches
 > broken services and activation scripts. It does **not** validate booting: a
 > config can activate perfectly and still fail on a bad
