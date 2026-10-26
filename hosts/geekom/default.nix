@@ -132,8 +132,7 @@
     # `tailscale serve` (doc/ovis.md) writes its config as this user; without an
     # operator that write is root-only and fails with "Access denied: serve
     # config denied". The module runs this as one `tailscale set` at boot, which
-    # only touches the settings it names. Verified on a logged-out node: exit 0,
-    # OperatorUser set — a fresh install does not need the tailnet first.
+    # only touches the settings it names, so it is safe before the tailnet join.
     extraSetFlags = [ "--operator=${user.username}" ];
   };
 

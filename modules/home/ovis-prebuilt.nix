@@ -9,17 +9,8 @@
 # Ovis (devswha/ovis) — the herdr web/phone client — built from the pinned tag
 # into the plugin directory `herdr plugin link` points at. Same shape as
 # herdr-reviewr-prebuilt.nix, but from source: upstream ships no server asset.
-#
-# Why two dependency FODs. `bun install` needs the network, and a sandboxed
-# derivation has not got it (`DNSResolveFailed` under `sandbox = true`).
-# Fixed-output derivations are the only class Nix exempts from the network
-# namespace, so each tree is fetched as one:
-#   dev  (441 MiB x86_64 / 434 MiB aarch64) — the whole lock; vite and
-#                                             typescript-api for the build.
-#   prod (2.0 MiB either arch)             — the runtime allowlist; ships.
-# The production tree is NOT `bun install --production`: that resolves 302 MiB
-# (mermaid, lucide-react, katex…), none of which the server or the built client
-# loads. The allowlist is what the closure gate below proves sufficient.
+# The build shape, the two dependency trees and the three traps are in
+# doc/ovis.md, "Build shape".
 #
 # Neither FOD output is a plugin root: they are bare dependency trees, so the
 # recursive hash is the tree's own NAR (no extra `node_modules/` level), which

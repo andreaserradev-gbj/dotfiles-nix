@@ -191,22 +191,23 @@ its probe, panes fall back to mirrored repaints and the log says
 
 ### The manifest's `[[build]]` entries are inert here
 
-The vendored manifest still carries its six upstream `[[build]]` entries —
-`preflight.sh`, `with-bun.sh install`, `with-bun.sh run build`, and the
-`pty-sidecar.ts install` that the Node fallback would need. Only the two
-`[[startup]]` and the action commands are rewritten, because they are the ones
-herdr runs against a linked plugin. The rest cannot run:
+The substitution rewrites **every** `["sh", "scripts/with-bun.sh", …]` occurrence —
+three `[[build]]`, one `[[startup]]`, three `[[actions]]` and one `[[panes]]`. What
+survives untouched are the entries that name a script this build does not ship:
+`scripts/preflight.sh`, `scripts/preflight.ps1` and `scripts/plugin.ps1` (the
+powershell forms). So the manifest still carries seven `[[build]]` entries, three of
+them naming a path absent from the store root. They cannot run:
 
 - `herdr plugin link` parses the entries and never executes them (measured: a
   build entry that touches a file creates nothing on link).
 - `herdr plugin update` refuses a linked plugin outright — `plugin is locally
   linked and cannot be updated` — so there is no update path that would run them.
 
-Both `scripts/preflight.sh` and `scripts/pty-sidecar.ts` are absent from the store
-root, so if a future herdr version did run them they would fail loudly rather
-than half-succeed. Stripping the block instead was rejected: a TOML block-skipper
-in `installPhase` would have to parse the manifest, and the assertions that matter
-(`id`, `version`, `min_herdr_version`, no `with-bun.sh`) are already there.
+If a future herdr version did run them, they would fail loudly on the missing
+script rather than half-succeed. Stripping the block instead was rejected: a TOML
+block-skipper in `installPhase` would have to parse the manifest, and the
+assertions that matter (`id`, `version`, `min_herdr_version`, no `with-bun.sh`)
+are already there.
 
 ### `bun` comes from `nixpkgs-unstable`
 

@@ -7,9 +7,7 @@
 # Reversible by editing this line; DO_NOT_TRACK=1 would have the same effect.
 OVIS_TELEMETRY=0
 
-# No OVIS_TOKEN, and never add one here. /nix/store is world-readable (0444) and
-# this repository is public, so a store symlink can never hold a credential —
-# `git add` would publish it and every user on the machine could read it. The
-# access model does not need one: the bind stays 127.0.0.1 and `tailscale serve`
-# admits the node owner's devices by login. A token, if ever wanted, takes the
-# sops.templates route at this same path with mode 0400 (doc/ovis.md).
+# No OVIS_TOKEN, and never add one here. This file is a symlink into a
+# world-readable store from a public repository, so anything in it is published.
+# The access model does not need one; doc/ovis.md, "Configuration surfaces", says
+# what a token would take instead.

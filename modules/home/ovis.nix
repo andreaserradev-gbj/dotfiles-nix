@@ -13,17 +13,15 @@
 # scripts/nfb.sh bumps it together with the vendored manifest. doc/ovis.md
 # carries the ownership table, the access model and the tailnet runbook.
 let
-  # bun from the UNSTABLE tree, not `pkgs`: pinned 26.05 ships 1.3.13 and
-  # upstream's scripts/preflight.sh rejects 1.0–1.3, while unstable ships 1.4.2.
-  # It is the interpreter the manifest's commands name by absolute path and the
-  # one that builds the client, so a stable bun would be rejected at install time
-  # and would build a client the preflight never blessed.
+  # bun from the UNSTABLE tree, not `pkgs`: pinned stable is below the floor
+  # upstream's scripts/preflight.sh enforces, and unstable is above it. It is the
+  # interpreter the manifest's commands name by absolute path and the one that
+  # builds the client, so a stable bun would be rejected at install time. The
+  # floor and the two trees are in doc/ovis.md, "bun comes from nixpkgs-unstable".
   #
   # Referenced only from inside the dev gate, per the rule at the bottom of
-  # flake.nix: the second tree is forced only on a host that enables it, so
-  # hplaptop's closure does not move. The binding itself is in the module's
-  # `let` (it has to be — an option cannot introduce one); what keeps the
-  # closure still is that nothing outside the gate forces it.
+  # flake.nix; the binding sits in the module `let` because an option body cannot
+  # introduce one, and stays unforced on a host that never enables the gate.
   bun = unstablePkgs.bun;
 
   ovisPlugin = pkgs.callPackage ./ovis-prebuilt.nix {
@@ -41,11 +39,10 @@ lib.mkIf osConfig.local.dev.enable {
     }/bin/herdr plugin link ${ovisPlugin}
   '';
 
-  # Non-secret settings, verbatim from the repo (config/ovis/env). A store
-  # symlink into herdr's plugin config dir: Ovis reads `env` there before it
-  # starts, and herdr keeps that directory outside Nix's ~/.config ownership.
-  # Safe ONLY because the file holds no credential — /nix/store is 0444 and this
-  # repo is public. A token, if ever wanted, takes the sops.templates route at
-  # this same path with mode 0400, replacing this symlink (doc/ovis.md).
+  # Non-secret settings, verbatim from the repo (config/ovis/env), symlinked into
+  # herdr's plugin config dir — Ovis reads `env` there before it starts, and herdr
+  # keeps that directory outside Nix's ~/.config ownership. No credential may
+  # live there; doc/ovis.md, "Configuration surfaces", says why and what a token
+  # would take instead.
   xdg.configFile."herdr/plugins/config/devswha.ovis/env".source = ../../config/ovis/env;
 }
