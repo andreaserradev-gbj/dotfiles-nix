@@ -24,17 +24,20 @@ version_check = false
 [theme]
 name = "catppuccin"
 
+# Each action's trailing prefix+* entry is herdr's own default, re-declared for
+# Alt-less keyboards — a configured list replaces that action's default. Why:
+# doc/herdr.md.
 [keys]
-focus_pane_left  = ["prefix+alt+h", "alt+left"]
-focus_pane_down  = ["prefix+alt+j", "alt+down"]
-focus_pane_up    = ["prefix+alt+k", "alt+up"]
-focus_pane_right = ["prefix+alt+l", "alt+right"]
-split_vertical   = ["alt+n"]
-split_horizontal = ["alt+d"]
-zoom             = ["alt+f"]
-new_tab          = ["alt+t"]
-next_tab         = ["alt+shift+right"]
-previous_tab     = ["alt+shift+left"]
+focus_pane_left  = ["prefix+alt+h", "alt+left", "prefix+h"]
+focus_pane_down  = ["prefix+alt+j", "alt+down", "prefix+j"]
+focus_pane_up    = ["prefix+alt+k", "alt+up", "prefix+k"]
+focus_pane_right = ["prefix+alt+l", "alt+right", "prefix+l"]
+split_vertical   = ["alt+n", "prefix+v"]
+split_horizontal = ["alt+d", "prefix+minus"]
+zoom             = ["alt+f", "prefix+z"]
+new_tab          = ["alt+t", "prefix+c"]
+next_tab         = ["alt+shift+right", "prefix+n"]
+previous_tab     = ["alt+shift+left", "prefix+p"]
 
 # prefix+d is free (prefix+shift+d closes a workspace) and a bare alt-letter
 # would swallow that key inside pane apps.
