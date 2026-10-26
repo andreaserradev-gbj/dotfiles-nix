@@ -10,6 +10,7 @@ herdr unit alive ([doc/herdr.md](herdr.md), "The unit").
 |---|---|---|
 | LAN | sshd on :22, open on every interface | [features/dev/nixos.nix](../features/dev/nixos.nix) (`local.dev.enable`) |
 | tailnet | WireGuard, UDP 41641, nothing opened on the router | [hosts/geekom/default.nix](../hosts/geekom/default.nix) (`services.tailscale`) |
+| HTTPS to the app | `tailscale serve` → `127.0.0.1:7317`, tailnet-only | **manual**, once per host: enable Serve in the admin console, then `sudo tailscale set --operator=$USER`, then `tailscale serve --bg --https=443 http://127.0.0.1:7317` — runbook in [ovis.md](ovis.md) |
 
 LAN :22 stays open on purpose: it is the only recovery path when the tailnet
 is down. The control on who can use it is the key scope, not the port.

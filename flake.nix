@@ -101,6 +101,7 @@
         (
           {
             user,
+            unstablePkgs,
             ...
           }:
           {
@@ -114,6 +115,13 @@
               # already defaults to self.packages.<system>.default — threading
               # the package too would be a second path to the same drv.
               inherit omp;
+              # The unstable tree, for modules/home/ovis.nix's bun. Home Manager
+              # is a second module system with its own args: this binding is what
+              # makes the escape hatch reachable from a HM module at all. Same
+              # rule as the NixOS side (see the comment below the host list):
+              # reference it behind the dev gate, never from shared code every
+              # host evaluates.
+              inherit unstablePkgs;
             };
             home-manager.users.${user.username} = import ./home.nix;
           }

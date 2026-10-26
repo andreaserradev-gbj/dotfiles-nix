@@ -27,6 +27,7 @@ evaluates it to the empty config.
 | `~/.omp/agent/extensions/herdr-omp-agent-state.ts` | Nix | `home.file` from the vendored byte-for-byte copy [config/omp/herdr-omp-agent-state.ts](../config/omp/herdr-omp-agent-state.ts) — omp's base directory is `~/.omp/agent/`, not `~/.config/omp/` |
 | agent skill (`~/.agents/skills/herdr/SKILL.md`) | **npx, manual** | `npx skills add herdrdev/herdr --skill herdr -g` |
 | reviewr plugin (`persiyanov.reviewr`, `~/.config/herdr/plugins`) | Nix | musl release tarball + vendored manifest [reviewr-herdr-plugin.toml](../config/herdr/plugins/reviewr-herdr-plugin.toml) assembled by [herdr-reviewr-prebuilt.nix](../modules/home/herdr-reviewr-prebuilt.nix) into a store dir; `home.activation` in [herdr.nix](../modules/home/herdr.nix) runs `herdr plugin link` on it every switch |
+| ovis plugin (`devswha.ovis`, `~/.config/herdr/plugins`) | Nix | built from the pinned tag by [ovis-prebuilt.nix](../modules/home/ovis-prebuilt.nix) (no server asset is released, so this one is not a prebuilt FOD); `home.activation` in [ovis.nix](../modules/home/ovis.nix) links it, dev-gated. Ownership, the access model and the tailnet runbook: [ovis.md](ovis.md) |
 | `~/.config/systemd/user/herdr.service` | Nix | user unit from [herdr.nix](../modules/home/herdr.nix) (dev-gated); geekom's host file sets `users.users.<name>.linger`, which keeps the user manager alive at boot |
 
 The agent extension is deployed by [modules/home/herdr.nix](../modules/home/herdr.nix),
