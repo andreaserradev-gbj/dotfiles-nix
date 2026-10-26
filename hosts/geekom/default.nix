@@ -123,6 +123,14 @@
     hostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINr69uM9JxAJZ0bldSEP3wdIQsyfa9n7jBKTERXEHQF/ root@geekom";
   };
 
+  # Remote access from outside the LAN. The module starts tailscaled; joining
+  # the tailnet is a one-time `sudo tailscale up` whose node state persists in
+  # /var/lib/tailscale/tailscaled.state (doc/remote-access.md).
+  services.tailscale = {
+    enable = true;
+    openFirewall = true; # UDP 41641: direct connections instead of DERP relays
+  };
+
   # Stated here, not inherited from the gaming module: the Vulkan userspace
   # driver (RADV, via mesa) reaches userspace through this option, and GPU
   # inference must not depend on whether this box also games. Same value the
