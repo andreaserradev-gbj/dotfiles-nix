@@ -58,10 +58,11 @@ failed the very login it was written for. A scope rejection shows in the sshd
 journal as `correct key but not from a permitted host` → `Refused by key
 options`, distinct from an unknown key.
 
-| key | `from=` scope | authorises |
+| `from=` scope | key | authorises |
 |---|---|---|
-| phone key ([user.nix](../user.nix)) | `100.64.0.0/10,192.168.68.0/22` | the phone, from the tailnet or the LAN |
-| loopback-rebuild key ([features/loopback-rebuild/nixos.nix](../features/loopback-rebuild/nixos.nix)) | `127.0.0.1,::1` | the host SSHing into itself, for `nrs`/`nrt` over SSH |
+| `100.64.0.0/10` | phone key ([user.nix](../user.nix)) | the phone, over the tailnet |
+| `192.168.68.0/22` | phone key ([user.nix](../user.nix)) | the phone, over the LAN |
+| `127.0.0.1,::1` | loopback-rebuild key ([features/loopback-rebuild/nixos.nix](../features/loopback-rebuild/nixos.nix)) | this host SSHing into itself, for `nrs`/`nrt` over SSH |
 
 Narrowing LAN :22 to `tailscale0` only is a named follow-up, deliberately not
 part of the tailnet work: the LAN path is the recovery path.
@@ -82,9 +83,10 @@ key is fewer moving parts.
   wrong host fails hard instead of falling back to a prompt.
 - **Termux** is the diagnostic fallback only — its mouse reporting is partial
   (modes 1003/1015 are ignored).
-- Truecolour over SSH needs `COLORTERM` forwarded: NixOS's `AcceptEnv` default
-  forwards nothing but `TERM`, so [features/dev/nixos.nix](../features/dev/nixos.nix)
-  accepts `COLORTERM` (Termux and the Mac send it; Termius cannot).
+- Truecolour over SSH needs `COLORTERM` to survive the hop: `TERM` always
+  travels with the PTY, but nothing else is forwarded by default, so
+  [features/dev/nixos.nix](../features/dev/nixos.nix) accepts `COLORTERM`
+  (Termux and the Mac send it; Termius cannot).
 
 ## Troubleshooting
 
