@@ -55,11 +55,17 @@ Assets are verbatim — edit the asset, not a generator (there is none).
   is inert under Nix — on a store binary it refuses with "self-update is disabled
   for Nix installs", and there is no "disable self-updater" setting to make.
 
-**Keymap.** Every binding is array-form; each focus binding carries BOTH a herdr
-prefix chord and a bare single, and the rest one key each — the whole set mirrors
-zellij's navigation
+**Keymap.** Every binding is array-form, desktop entries first: each focus
+binding carries a herdr prefix chord and a bare single, and every built-in
+action ends with a prefix-mode alternate (`prefix+h/j/k/l` pane focus, `prefix+v` /
+`prefix+minus` splits, `prefix+z` zoom, `prefix+c` new tab, `prefix+n`/`prefix+p`
+tab switching) — the whole set mirrors zellij's navigation
 ([config/zellij/config.kdl](../config/zellij/config.kdl); the asset is the source
-of truth for the list). The bare singles are **arrows**, not `alt+hjkl`: neovim
+of truth for the list). The alternates are herdr's own defaults re-declared, not
+invented — a configured list **replaces** that action's default, so the desktop
+entries must stay — and they exist for keyboards with no Alt and no arrows (the
+phone over SSH). `prefix+d` is deliberately not among them: reviewr owns it
+below. The bare singles are **arrows**, not `alt+hjkl`: neovim
 claims `alt+h` (toggle-hidden in grep/fzf pickers), and any bare alt-letter here
 swallows it before it reaches the pane. Arrows leave hjkl to the app inside the
 pane, and zellij already trains the Alt-arrow habit. Two upstream gaps worth
@@ -69,8 +75,11 @@ deliberately left out of the asset — extend it after testing, don't ship
 unverified keymap claims. Plugin actions bind as `[[keys.command]]` with
 `type = "plugin_action"` and the qualified `plugin.id.action`; reviewr's toggle
 lives on `prefix+d` (`prefix+r` is resize_mode, and bare alt-letters would
-swallow keys inside panes). `herdr config check` validates the asset (it prints
-`config: ok`).
+swallow keys inside panes). `herdr config check` validates the asset and is a real gate, not a formality:
+a bad binding is reported and disabled (`invalid keybinding: … disabling
+binding`), a bogus key prints `unknown config key …; ignoring key`, and the
+exit is 1 either way (negative control measured on a throwaway copy via
+`HERDR_CONFIG_PATH`).
 
 ## Update checklist (per nfb bump)
 
