@@ -279,6 +279,12 @@ Host geekom
 > `publish.addresses = true` take effect, which is a config change plus a
 > rebuild, not just a router setting.
 
+> **The LAN is not the only way in.** geekom is also on a Tailscale tailnet, so
+> this block is the fallback rather than the primary path — a `100.x` address
+> cannot move, needs no reservation, and works from outside the house. Which
+> one to prefer, the one-time join and the key scopes that cover both:
+> [doc/remote-access.md](remote-access.md).
+
 **Outbound, to GitHub.** Generate the box its own keypair and add the public half
 to your account:
 

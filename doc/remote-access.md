@@ -27,6 +27,13 @@ tailscale status --json | jq -r .BackendState     # → Running
 tailscale ip -4                                   # → 100.x.y.z
 ```
 
+If that state file is gone — a reinstall, `rm -rf /var/lib/tailscale`,
+`tailscale logout`, a rolled-back snapshot — the node comes up not logged in,
+and the same `sudo tailscale up` prints a fresh login URL. That needs the LAN
+path or the console. Carrying the auth key as sops ciphertext would let a
+rebuild re-join unattended; that is deliberately not done, because those losses
+are exactly the ones the LAN path still covers.
+
 ## Addressing
 
 Prefer the raw `100.x` address in an SSH `Host` block: it cannot fail because
@@ -94,5 +101,7 @@ key is fewer moving parts.
   blocked outbound, connections fall back to DERP relays (working, slow).
 - **`BackendState` is `Running`, but inbound SSH is dropped**: reverse-path
   filtering can reject packets arriving on `tailscale0`. The remedy is
-  `services.tailscale.checkReversePath = "loose";` in the host file — a
-  documented fallback, not the default.
+  `networking.firewall.checkReversePath = "loose";` in the host file — a
+  documented fallback, not the default. Note the option is the firewall's:
+  `services.tailscale` has no `checkReversePath`, and naming it there fails
+  evaluation.
