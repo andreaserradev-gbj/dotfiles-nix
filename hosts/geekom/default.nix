@@ -6,6 +6,8 @@
   # nixos-unstable nixpkgs; the guard rule for referencing it is in flake.nix
   # (specialArgs).
   unstablePkgs,
+  # Same specialArgs; names the account in the linger setting below.
+  user,
   ...
 }:
 
@@ -102,6 +104,12 @@
   # nix-ld, ollama, nodejs, uv, jq, sshd — gated behind `local.dev.enable` in
   # features/dev/nixos.nix.
   local.dev.enable = true;
+
+  # Linger keeps andrea's user manager alive with nobody logged in — without
+  # it a reboot leaves no user manager, and the herdr unit
+  # (modules/home/herdr.nix) nothing to run in. `users.manageLingering`
+  # (default on) makes this the declarative `loginctl enable-linger`.
+  users.users.${user.username}.linger = true;
 
   # `nrs`/`nrt` activate over SSH to THIS machine, so phase 1 cannot be killed
   # by the display stack restarting (doc/workflow.md, "never run nrs from the

@@ -56,4 +56,33 @@ lib.mkIf osConfig.local.dev.enable {
   home.activation.linkHerdrReviewr = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     $DRY_RUN_CMD ${herdrPkg}/bin/herdr plugin link ${herdrReviewrPlugin}
   '';
+
+  # The server as a systemd USER unit. Linger (geekom's host file) keeps the
+  # user manager alive at boot — see the linger comment there for the why.
+  systemd.user.services.herdr = {
+    Unit = {
+      Description = "herdr background server";
+      StartLimitIntervalSec = 60;
+      StartLimitBurst = 3;
+    };
+    Service = {
+      # exec, not forking: `herdr server` stays in the foreground, so a
+      # forking unit would report a dead MainPID.
+      Type = "exec";
+      # Two servers cannot share one socket: without the guard, a
+      # terminal-launched server makes the unit exit 1 and on-failure retries
+      # into failed/start-limit-hit. String match — `herdr status server`
+      # exits 0 in both states; an exit-1 skip is inactive, not failed.
+      # ExecCondition belongs in [Service]: ignored silently in [Unit].
+      ExecCondition = "/bin/sh -c '! ${herdrPkg}/bin/herdr status server | grep -q \"^status: running\"'";
+      ExecStart = "${herdrPkg}/bin/herdr server";
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
+    # default.target, not graphical-session.target: the server must exist
+    # without a session.
+    Install.WantedBy = [ "default.target" ];
+  };
+  # No HERDR_STARTUP_CWD: a client attach to a workspace-less server creates
+  # the workspace itself (cwd $HOME) — exactly what happens at boot.
 }

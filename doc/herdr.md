@@ -27,6 +27,7 @@ evaluates it to the empty config.
 | `~/.omp/agent/extensions/herdr-omp-agent-state.ts` | Nix | `home.file` from the vendored byte-for-byte copy [config/omp/herdr-omp-agent-state.ts](../config/omp/herdr-omp-agent-state.ts) — omp's base directory is `~/.omp/agent/`, not `~/.config/omp/` |
 | agent skill (`~/.agents/skills/herdr/SKILL.md`) | **npx, manual** | `npx skills add herdrdev/herdr --skill herdr -g` |
 | reviewr plugin (`persiyanov.reviewr`, `~/.config/herdr/plugins`) | Nix | musl release tarball + vendored manifest [reviewr-herdr-plugin.toml](../config/herdr/plugins/reviewr-herdr-plugin.toml) assembled by [herdr-reviewr-prebuilt.nix](../modules/home/herdr-reviewr-prebuilt.nix) into a store dir; `home.activation` in [herdr.nix](../modules/home/herdr.nix) runs `herdr plugin link` on it every switch |
+| `~/.config/systemd/user/herdr.service` | Nix | user unit from [herdr.nix](../modules/home/herdr.nix) (dev-gated); geekom's host file sets `users.users.<name>.linger`, which keeps the user manager alive at boot |
 
 The agent extension is deployed by [modules/home/herdr.nix](../modules/home/herdr.nix),
 **not** by omp.nix: the herdr↔agent coupling stays in one
@@ -81,6 +82,22 @@ binding`), a bogus key prints `unknown config key …; ignoring key`, and the
 exit is 1 either way (negative control measured on a throwaway copy via
 `HERDR_CONFIG_PATH`).
 
+## The unit
+
+The server is a systemd **user** unit ([modules/home/herdr.nix](../modules/home/herdr.nix)),
+`WantedBy=default.target`: it starts with the user manager, which `linger`
+(geekom's host file) keeps alive with nobody logged in — after a reboot there
+is still a server to attach to over SSH.
+
+The unit **yields instead of failing**: `ExecCondition` skips the start when
+another server already owns the socket (a terminal-launched one, say), taking
+the unit to `inactive` — never `failed`, no restart loop. The guard must
+string-match `status: running`, because `herdr status server` exits 0 in both
+states.
+
+The manual restart is `systemctl --user restart herdr.service` — mind the
+restart cost under [Operational gotchas](#operational-gotchas) first.
+
 ## Update checklist (per nfb bump)
 
 **`nfb`** (`scripts/nfb.sh`, alias in [shell.nix](../modules/home/shell.nix)) does
@@ -127,6 +144,9 @@ boundary widens from "herdr's build recipe" to "upstream's release CI"
 
 ## Operational gotchas
 
+- Restarting the unit (`systemctl --user restart herdr.service`) kills every
+  pane's processes: the default `KillMode` takes the whole cgroup. The layout
+  comes back from `session.json`; the agents do not.
 - State lives under `~/.config/herdr/` (config, sockets, `session.json`).
   `XDG_CONFIG_HOME` relocates all of it; `HERDR_HOME`/`HERDR_CONFIG_DIR` do
   **not** work, `HERDR_CONFIG_PATH` (single file) does.
