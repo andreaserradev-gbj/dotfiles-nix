@@ -1,0 +1,13 @@
+# Ovis plugin settings, read by scripts/plugin.ts before it starts the server.
+# Deployed as a store symlink at
+# ~/.config/herdr/plugins/config/devswha.ovis/env (modules/home/ovis.nix).
+#
+# OVIS_TELEMETRY=0 silences the only outbound traffic besides updates: install
+# and update events, plus a daily "active" message naming which agent kinds run.
+# Reversible by editing this line; DO_NOT_TRACK=1 would have the same effect.
+OVIS_TELEMETRY=0
+
+# No OVIS_TOKEN, and never add one here. This file is a symlink into a
+# world-readable store from a public repository, so anything in it is published.
+# The access model does not need one; doc/ovis.md, "Configuration surfaces", says
+# what a token would take instead.

@@ -129,6 +129,11 @@
   services.tailscale = {
     enable = true;
     openFirewall = true; # UDP 41641: direct connections instead of DERP relays
+    # `tailscale serve` (doc/ovis.md) writes its config as this user; without an
+    # operator that write is root-only and fails with "Access denied: serve
+    # config denied". The module runs this as one `tailscale set` at boot, which
+    # only touches the settings it names, so it is safe before the tailnet join.
+    extraSetFlags = [ "--operator=${user.username}" ];
   };
 
   # Stated here, not inherited from the gaming module: the Vulkan userspace

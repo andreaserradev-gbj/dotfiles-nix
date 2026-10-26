@@ -30,6 +30,7 @@ in
     ./modules/home/fastfetch.nix
     ./modules/home/zellij.nix
     ./modules/home/herdr.nix
+    ./modules/home/ovis.nix
     ./modules/home/neovim.nix
     ./modules/home/fonts.nix
     ./modules/home/foot.nix

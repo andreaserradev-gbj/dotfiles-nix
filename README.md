@@ -128,6 +128,7 @@ bootstrap.sh           one-command install of any host, from a live ISO
 | [doc/local-llm.md](doc/local-llm.md)               | Local LLM inference on geekom: hardware budget, tuning decisions, measured baselines, future-model protocol |
 | [doc/herdr.md](doc/herdr.md)                       | herdr (agent workspace manager): zellij coexistence, what Nix owns, tag-bump checklist (`nfb`), keymap and state gotchas |
 | [doc/omp.md](doc/omp.md)                           | omp / oh-my-pi (coding agent): Nix-owned vs stateful, MCP servers, per-host API key |
+| [doc/ovis.md](doc/ovis.md)                         | ovis (herdr's web and phone client): what Nix owns, the no-credential env rule, the unstable-bun floor |
 | [doc/dendritic-pattern.md](doc/dendritic-pattern.md) | The dendritic pattern: features and `local.*` seams, the feature registry, and why the import ORDER moves `drvPath`s |
 | [doc/remote-access.md](doc/remote-access.md)       | Reaching geekom over SSH: the LAN and tailnet layers, the one-time join, key scopes, why not Tailscale SSH, the phone recipe |
 | [doc/troubleshooting.md](doc/troubleshooting.md)   | Gotchas that are not tied to one workflow |

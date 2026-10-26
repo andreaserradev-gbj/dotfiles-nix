@@ -13,5 +13,21 @@
     "version": "0.48.0",
     "x86_64-linux": "sha256-RwB5d9uEAWA2RYcecyXZW9KW/jCFm6oRCVrndiEztlo=",
     "aarch64-linux": "sha256-M733eZoFjxhoSKZJRb5cmSVgdpUMOnYOuSnj4Qoy8TY="
+  },
+  "ovis": {
+    "version": "0.4.18",
+    "source": "sha256-BQU7V3ngKpbCq2uPfu+swXauWwz80NbKOo4T/3XscVM=",
+    "nodeModulesDev": {
+      "x86_64-linux": "sha256-qz+qufZxQANhot3MkAiZuRH+ENu8ouCBPe8le5p9wS4=",
+      "aarch64-linux": "sha256-Tcyr4hFZ9ve5zeqNTwlvlhztj4moBjb72YbqYrLqPOk="
+    },
+    "nodeModulesProd": {
+      "x86_64-linux": "sha256-+2oDdGjYvJNqjJQYKORQj5TYAQC62P93BgQZ6aAxPas=",
+      "aarch64-linux": "sha256-+2oDdGjYvJNqjJQYKORQj5TYAQC62P93BgQZ6aAxPas="
+    },
+    "ptyHost": {
+      "x86_64-linux": "sha256-6gneAxc05jCiORTjfKY9Ix/QEKocQh7WjSGsMd4NYMk=",
+      "aarch64-linux": "sha256-cnztNui4kvPHoYR2PFLLH/c+Xbp85jJ405Qs85oh2oY="
+    }
   }
 }
