@@ -234,9 +234,9 @@ bluetoothctl
 
 **Inbound, from the Mac.** sshd and the password-auth lockout come from the dev
 gate, and the authorized key from `sshKey` in `user.nix` — documented once in
-[doc/install-vm.md](install-vm.md), section 3. That field is **absent** today, so
-a freshly installed geekom has an empty authorized-keys list and is reachable
-only from its own console until a key is enrolled there.
+[doc/install-vm.md](install-vm.md), section 3. That field is a **list** whose
+entries each carry a `from=` scope; it currently holds the phone's key, so a
+freshly installed geekom inherits it at build time.
 What you also need is to clear the stale host key:
 
 ```sh
