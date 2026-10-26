@@ -16,10 +16,18 @@ let
     email = "andreaserradev-gbj@users.noreply.github.com";
     timeZone = "Europe/Rome";
 
-    # No `sshKey` — a DELIBERATE absence, not an oversight: dev.nix treats the
-    # field as optional, so nothing breaks without it. Consequence: geekom's sshd
-    # has an empty authorized-keys list until a key is enrolled by adding
-    # `sshKey = "<its public key>";` here, generated ON that machine.
+    # `sshKey` is OPTIONAL — dev.nix treats it as optional, so a host whose
+    # user.nix entry omits it still builds (sshd with an empty key list).
+    # The value is a LIST, and each entry MUST carry its own `from=` scope: an
+    # unscoped key is valid from every address sshd is reachable on, which is
+    # exactly what the scope is meant to prevent. `/22` rather than a single
+    # address because DHCP hands out a different lease per interface and per
+    # renewal; the scope is the network, and the tailnet CGNAT range is inert
+    # until Phase 4.
+    sshKey = [
+      ''from="100.64.0.0/10,192.168.68.0/22" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHvurFqssVcB/zISvASNgcqzTfeWIw44Hj7mSs0wFvXI phone''
+    ];
+
     homeDirectory = "/home/${username}"; # rec: this interpolates username
     inherit repo; # `inherit` inside `rec` reads the enclosing let, not the set
   };

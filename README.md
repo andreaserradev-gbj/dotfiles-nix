@@ -147,8 +147,10 @@ bootstrap.sh           one-command install of any host, from a live ISO
 _before_ installing — the install walkthroughs pull the config from git:
 
 - [`user.nix`](user.nix) — `username`, `fullName`, `email`, `timeZone`, optional
-  `sshKey` (omit it and dev hosts get sshd with no authorized key), and `repo`,
-  the flake `nrb` updates from: leave it and your fork keeps pulling mine.
+  `sshKey` (a string or a list; omit it and dev hosts get sshd with no
+  authorized key — every entry needs its `from=` scope, or that key is valid from
+  every address), and `repo`, the flake `nrb` updates from: leave it and your
+  fork keeps pulling mine.
 - `bootstrap.sh` — `REPO=`, the URL spelled out because the script runs before
   any clone exists.
 - `.sops.yaml` — the age recipients. `secrets/andrea/secrets.yaml` is encrypted

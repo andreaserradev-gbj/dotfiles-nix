@@ -28,9 +28,10 @@ in
     # services.openssh below). `lib.optionals` rather than a bare list: a dev host
     # whose user.nix entry has no `sshKey` gets sshd with an empty key list, while
     # a bare list fails evaluation with `error: attribute 'sshKey' missing`.
-    users.users.${user.username}.openssh.authorizedKeys.keys = lib.optionals (user ? sshKey) [
-      user.sshKey
-    ];
+    # `lib.toList` accepts both shapes, so a single-key host needs no migration.
+    users.users.${user.username}.openssh.authorizedKeys.keys = lib.optionals (user ? sshKey) (
+      lib.toList user.sshKey
+    );
 
     # On `nodejs`, `uv` and `python3` being GLOBAL, which looks like it violates
     # the per-project-devshell rule: they are AGENT RUNTIMES, not project
@@ -60,6 +61,12 @@ in
         # that inference — a future root key added for some unrelated reason would
         # otherwise open root SSH, with a default nobody wrote down in the way.
         PermitRootLogin = "no";
+
+        # `TERM` is always forwarded with a PTY, but nothing else is: NixOS's
+        # `AcceptEnv` defaults to null. A client that sets `COLORTERM` (Termux
+        # does; Termius cannot) needs this line for truecolour to reach herdr's
+        # panes.
+        AcceptEnv = [ "COLORTERM" ];
       };
     };
 

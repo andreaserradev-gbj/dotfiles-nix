@@ -122,13 +122,14 @@ is the _only_ way in over the network — there is no password fallback.
 > dev host needs nothing added for SSH — verify rather than re-implement:
 > `nix eval .#nixosConfigurations.<host>.config.services.openssh.enable`.
 
-> **`sshKey` is optional — and is currently ABSENT.** `user.nix` owns the field
-> and says why the absence is deliberate: `features/dev/nixos.nix` treats it as
-> optional, so dev hosts build with an empty authorized-keys list instead of
-> failing evaluation. Combined with the line above — SSH is the only way in over
-> the network — **a dev host is reachable only from its own console** until a key
-> is enrolled. Step 1 below is the re-enrolment procedure, not just
-> first-install setup.
+> **`sshKey` is optional, and is currently SET.** `user.nix` owns the field as a
+> list, and `features/dev/nixos.nix` normalises it with `lib.toList` — so it
+> accepts either one string or a list, and a dev host whose entry omits it still
+> builds (sshd with an empty authorized-keys list instead of an evaluation
+> failure). Each entry carries its own `from=` scope. Without a key, SSH — the
+> only way in over the network — leaves a dev host reachable only from its own
+> console. Step 1 below is the re-enrolment procedure, not just first-install
+> setup.
 
 1. **Generate a key on the machine that will connect** — not on the host you are
    installing, and not on a machine you are about to hand back (skip if that
@@ -138,11 +139,25 @@ is the _only_ way in over the network — there is no password fallback.
     ssh-keygen -t ed25519 -C "you@example.com"
     ```
 
-2. **Put its public half in `user.nix`** as `sshKey = "ssh-ed25519 …";` and commit.
-   `features/dev/nixos.nix` installs it into every dev host's `authorizedKeys` at
-   build time, so it must be in the repo _before_ the install in section 2.
-   The private half never leaves the machine that generated it and never enters
-   this repo — see the same rule in
+2. **Put its public half in `user.nix`** as one element of the `sshKey` list, and
+   commit:
+
+    ```nix
+    sshKey = [
+      ''from="192.168.68.0/22" ssh-ed25519 … you@example.com''
+    ];
+    ```
+
+   A plain string still works — `features/dev/nixos.nix` normalises with
+   `lib.toList` — but **the `from=` scope is mandatory here**: an unscoped entry
+   is valid from every address sshd is reachable on, which defeats the point of
+   scoping. A phone may well be the first enrolled client; the scope is what
+   keeps that key inert on a foreign network.
+
+   `features/dev/nixos.nix` installs every entry into each dev host's
+   `authorizedKeys` at build time, so it must be in the repo _before_ the install
+   in section 2. The private half never leaves the machine that generated it and
+   never enters this repo — see the same rule in
    [bare-metal-geekom.md](bare-metal-geekom.md).
 
 3. **Re-enrol the VM as a sops recipient.** The key that unwraps the secret
