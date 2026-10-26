@@ -60,8 +60,7 @@ problem.
 into `/nix/store` (0444) from a public repository, so anything in it is
 world-readable and published. A token, if ever wanted, takes the
 `sops.templates` route at the same path with mode `0400`, replacing the
-symlink; that route is recorded in [config/ovis/env](../config/ovis/env) and in
-the PRD's deferred table rather than built.
+symlink; the PRD's deferred table records that route rather than building it.
 
 `OVIS_TELEMETRY=0` is the one setting that ships. It silences install and update
 events plus a daily "active" message naming which agent kinds run — the only
