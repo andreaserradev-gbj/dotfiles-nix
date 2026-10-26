@@ -57,12 +57,10 @@ let
     }
     .${system} or (throw "ovis-prebuilt: unsupported system ${system}");
 
-  ptyHostHash =
-    {
-      x86_64-linux = "sha256-6gneAxc05jCiORTjfKY9Ix/QEKocQh7WjSGsMd4NYMk=";
-      aarch64-linux = "sha256-cnztNui4kvPHoYR2PFLLH/c+Xbp85jJ405Qs85oh2oY=";
-    }
-    .${system} or (throw "ovis-prebuilt: unsupported system ${system}");
+  # From the pin, like the source and both trees: `nfb` writes it, and a hash
+  # nothing reads would make a bump look applied while the build fetched the
+  # previous sidecar.
+  ptyHostHash = pins.ptyHost.${system} or (throw "ovis-prebuilt: unsupported system ${system}");
 
   # Both trees are installed for the TARGET arch, never the builder's: `--os`
   # and `--cpu` make an aarch64 tree resolvable on an x86_64 host and vice

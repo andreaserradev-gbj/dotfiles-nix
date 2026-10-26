@@ -20,7 +20,7 @@ usage() {
 nfb — bump the pinned tool tags (omp, herdr, herdr-reviewr, ovis) to their
 latest upstream release.
 
-usage: nfb.sh [--help]
+usage: nfb.sh [--help] [--verify-ovis-hashes]
 
 For each tool in turn: reports whether a newer release exists and, on a TTY,
 asks before writing. A bump updates modules/home/tool-pins.json (version + both
@@ -33,14 +33,24 @@ ovis is the one source build: besides the two PTY-host assets it records the
 source tree's hash and two dependency trees per arch, which costs a bun install
 per arch. Its vendored manifest is rewritten by the derivation, so the copy in
 config/ovis/ stays the pristine upstream file.
+
+--verify-ovis-hashes re-measures ovis's four committed hashes and compares them
+with tool-pins.json, then exits: no API call, no prompt, no write. The bump path
+reaches that measurement only when a newer tag exists and the user answers y, so
+this is the only non-interactive way to re-check the invariant.
 EOF
 }
 
+verify_ovis=0
 case "${1:-}" in
   --help | -h)
     usage
     exit 0
     ;;
+  # Re-measure ovis's committed hashes without a release. The bump path reaches
+  # ovis_dep_hashes only after a newer tag prompts `y`, so this is the only way
+  # to re-check that the pins are the trees the FODs produce.
+  --verify-ovis-hashes) verify_ovis=1 ;;
   "") ;;
   *)
     usage >&2
@@ -91,12 +101,6 @@ declare -A asset=(
 # rewrite_ref/relock have nothing to touch for it.
 declare -A flake_input=([omp]=1)
 systems=(x86_64-linux aarch64-linux)
-
-# The subset of tools that also have a flake input whose `?ref=` this script owns.
-# herdr is absent by design: its input was removed (nothing bound it — the package
-# is the prebuilt FOD), so its pin lives only in tool-pins.json and
-# rewrite_ref/relock have nothing to touch for it.
-declare -A flake_input=([omp]=1)
 
 # Vendored assets, in lockstep with each tool's binary: upstream path at the
 # tag -> this repo's copy -> a guard regex the fetched file must match (catches
@@ -292,6 +296,38 @@ ovis_dep_hashes() {
 
 failed=0
 applied=0
+
+if [ "$verify_ovis" = 1 ]; then
+  # The same four values a bump would write, against the committed ones. The
+  # comparison is what makes this a check rather than a print: a mismatch means
+  # the derivation would resolve a different tree than the pin records.
+  vtag="v$(jq -r '.ovis.version' "$pins_file")"
+  vx="$(ovis_dep_hashes "$vtag" x86_64-linux)" || exit 1
+  read -r vsrc vdev_x86 vprod_x86 <<<"$vx"
+  va="$(ovis_dep_hashes "$vtag" aarch64-linux)" || exit 1
+  read -r vsrc_arm vdev_arm vprod_arm <<<"$va"
+
+  mismatch=0
+  expect() {
+    local key="$1" got="$2" want="$3"
+    if [ "$got" = "$want" ]; then
+      printf 'ok   %s\n' "$key"
+    else
+      printf 'FAIL %s\n       pinned %s\n       built  %s\n' "$key" "$want" "$got"
+      mismatch=1
+    fi
+  }
+  expect ovis.source "$vsrc" "$(jq -r '.ovis.source' "$pins_file")"
+  expect 'ovis.nodeModulesDev.x86_64-linux' "$vdev_x86" "$(jq -r '.ovis.nodeModulesDev["x86_64-linux"]' "$pins_file")"
+  expect 'ovis.nodeModulesDev.aarch64-linux' "$vdev_arm" "$(jq -r '.ovis.nodeModulesDev["aarch64-linux"]' "$pins_file")"
+  expect 'ovis.nodeModulesProd.x86_64-linux' "$vprod_x86" "$(jq -r '.ovis.nodeModulesProd["x86_64-linux"]' "$pins_file")"
+  expect 'ovis.nodeModulesProd.aarch64-linux' "$vprod_arm" "$(jq -r '.ovis.nodeModulesProd["aarch64-linux"]' "$pins_file")"
+  # The two invariants the bump path asserts, re-checked here: the source FOD is
+  # arch-independent, and the allowlist holds nothing platform-specific.
+  expect 'source is arch-independent' "$vsrc_arm" "$vsrc"
+  expect 'prod tree is arch-independent' "$vprod_arm" "$vprod_x86"
+  exit "$mismatch"
+fi
 
 for tool in "${tools[@]}"; do
   cur="$(jq -r --arg t "$tool" '.[$t].version' "$pins_file")"

@@ -111,6 +111,7 @@ access table.
 | `~/.config/ovis/telemetry.json` | install id, the UI switch, the notice marker |
 | `~/.config/ovis/http-requests.jsonl` | the request log the UI's diagnostics read |
 | `~/.config/ovis/bridges/*.json` | one bridge record per paired device, `+ .guard` |
+| `~/.config/ovis/devices.json` | the pairing registry: paired devices and `gateClosedAt`. **Its presence is what closes the access gate** — delete it and row 8 reopens on the next start |
 | `~/.config/ovis/updates/<id>/supervisor.lock/` | the single-supervisor lock (`owner.json`, `pid`) |
 | `~/.local/state/herdr/plugins/devswha.ovis/server.log` | the server's stdout/stderr — **first place to look when it will not start** |
 | `~/.local/state/herdr/plugins/devswha.ovis/server.pid` | the launcher's pid record |
@@ -118,6 +119,13 @@ access table.
 Safe to delete the whole of `~/.config/ovis` on a clean re-install: it costs the
 pairing, the preferences and the install id, nothing else. `server.log` is worth
 reading before deleting anything.
+
+**The one deletion with a security consequence is `devices.json`.** The gate is
+closed while that file holds a device or a `gateClosedAt` (`server/devices.ts`,
+`get gated`), which is the `gated` flag in access row 8. Delete it and the next
+start is an ungated store, so an unpaired caller that can reach the port gets a
+drive-level session. Harmless today because the bind is `127.0.0.1`; not harmless
+if you ever set `HOST=0.0.0.0` or put a proxy in front.
 
 ## Build shape
 
@@ -181,6 +189,25 @@ Node, and upstream marks the arm64 `node-pty` "not tested". If the host ever fai
 its probe, panes fall back to mirrored repaints and the log says
 `PTY host: none … panes are mirrored`.
 
+### The manifest's `[[build]]` entries are inert here
+
+The vendored manifest still carries its six upstream `[[build]]` entries —
+`preflight.sh`, `with-bun.sh install`, `with-bun.sh run build`, and the
+`pty-sidecar.ts install` that the Node fallback would need. Only the two
+`[[startup]]` and the action commands are rewritten, because they are the ones
+herdr runs against a linked plugin. The rest cannot run:
+
+- `herdr plugin link` parses the entries and never executes them (measured: a
+  build entry that touches a file creates nothing on link).
+- `herdr plugin update` refuses a linked plugin outright — `plugin is locally
+  linked and cannot be updated` — so there is no update path that would run them.
+
+Both `scripts/preflight.sh` and `scripts/pty-sidecar.ts` are absent from the store
+root, so if a future herdr version did run them they would fail loudly rather
+than half-succeed. Stripping the block instead was rejected: a TOML block-skipper
+in `installPhase` would have to parse the manifest, and the assertions that matter
+(`id`, `version`, `min_herdr_version`, no `with-bun.sh`) are already there.
+
 ### `bun` comes from `nixpkgs-unstable`
 
 Pinned 26.05 ships 1.3.13, and upstream's `scripts/preflight.sh` rejects
@@ -191,22 +218,25 @@ inside the dev gate — the rule at the bottom of [flake.nix](../flake.nix).
 
 ## Tailnet runbook
 
-Getting a phone in. Both prerequisites are manual and one-time; the server
-cannot do either for you (`tailscale serve` is not in the nixpkgs module, and no
-Nix option exists for the tailnet's Serve setting).
+Getting a phone in. One prerequisite is manual and one-time, and the server
+cannot do it for you: the nixpkgs module has no option for the tailnet's Serve
+setting. The operator half — which used to be a manual `tailscale set` — is now
+Nix-owned ([hosts/geekom/default.nix](../hosts/geekom/default.nix),
+`services.tailscale.extraSetFlags`).
 
 **1. Enable Serve for the tailnet** — admin console, once per tailnet. Without
-it, the command in step 3 answers `Serve is not enabled on your tailnet` and
+it, the command in step 2 answers `Serve is not enabled on your tailnet` and
 prints a `https://login.tailscale.com/f/serve?node=…` link.
 
-**2. Let your user drive `tailscale serve`** — once per host:
+**2. Confirm the operator** — no action expected; this checks the Nix side:
 
 ```sh
-sudo tailscale set --operator=$USER
-tailscale serve reset           # → silent; before the change: "Access denied: serve config denied"
+tailscale debug prefs | grep OperatorUser      # → "OperatorUser": "<you>"
+tailscale serve reset                          # → silent; without the operator: "Access denied: serve config denied"
 ```
 
-`OperatorUser` is null by default, so a non-root `serve` **write** is refused.
+`extraSetFlags` runs `tailscale set --operator=<user>` as root at boot, which
+sets `OperatorUser`; without it a non-root `serve` **write** is refused.
 Read-only `serve status` succeeds either way and is not a test of this step —
 `serve reset` is, and it is harmless with no config.
 
@@ -267,6 +297,18 @@ different native bindings), so both are measured even from a single host: the
 FOD passes `--cpu=<arch>` on either host, which makes an `--cpu=arm64` install
 the same tree an aarch64 host would produce.
 
+That measurement is also reachable without a release, which matters because the
+bump path only gets there once a newer tag exists and you answer `y`:
+
+```sh
+./scripts/nfb.sh --verify-ovis-hashes
+```
+
+It re-measures the source hash, both dev trees and both prod trees plus the two
+arch invariants, prints `ok` or `FAIL` with both hashes, writes nothing, calls no
+API, and exits non-zero on a mismatch. Run it after a hand-edited pin, or to
+confirm the recorded trees still match after a `nixpkgs` change.
+
 ## Troubleshooting
 
 | symptom | first check |
@@ -276,5 +318,5 @@ the same tree an aarch64 host would produce.
 | `server did not answer …/api/health` | `~/.local/state/herdr/plugins/devswha.ovis/server.log`, last lines |
 | the plugin is missing from herdr | `herdr plugin list --json`; a failed link fails the switch, so a switch that went through linked it |
 | `Serve is not enabled on your tailnet` | step 1 above |
-| `Access denied: serve config denied` | step 2 above (`tailscale serve reset` is the one-command test) |
+| `Access denied: serve config denied` | step 2 above — `OperatorUser` is unset, so `extraSetFlags` did not apply; `tailscale serve reset` is the one-command test |
 | a rebuild wants a new hash | `nfb`; a manual `bun install` in the wrong HOME produces a different tree |

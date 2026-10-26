@@ -19,9 +19,11 @@ let
   # one that builds the client, so a stable bun would be rejected at install time
   # and would build a client the preflight never blessed.
   #
-  # Referenced INSIDE the dev gate, per the rule at the bottom of flake.nix: the
-  # second tree must not be forced on a host that does not enable it, and
-  # hplaptop's closure must not move.
+  # Referenced only from inside the dev gate, per the rule at the bottom of
+  # flake.nix: the second tree is forced only on a host that enables it, so
+  # hplaptop's closure does not move. The binding itself is in the module's
+  # `let` (it has to be — an option cannot introduce one); what keeps the
+  # closure still is that nothing outside the gate forces it.
   bun = unstablePkgs.bun;
 
   ovisPlugin = pkgs.callPackage ./ovis-prebuilt.nix {
