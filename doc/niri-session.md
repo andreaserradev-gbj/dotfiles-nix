@@ -101,18 +101,29 @@ locker. Hyprland is seven times niri's footprint. Niri adds the compositor and
 nothing else, which is what makes Noctalia viable: the shell owns every surface,
 so a second bar and launcher would be duplication.
 
-## Why Noctalia comes from nixpkgs
+## Where Noctalia comes from
 
-Your pinned nixpkgs carries `noctalia-5.0.1`, which accepts every key the
-config uses. Upstream's flake is 5.3.0 and pins its own nixpkgs:
+Two sources, deliberately split:
 
-- without `follows`, a second glibc, pipewire, gcc and systemd generation,
-  805 MiB marginal over this system;
-- with `follows`, a from-source build (~5 min here) that misses its own cache;
-- either way, `disabledModules` replaces the nixpkgs module and adds a KDE
-  polkit agent that this setup does not need.
+- **the shell** — `unstablePkgs.noctalia`, wired as a `nixpkgs.overlays` entry in
+  [hosts/geekom/default.nix](../hosts/geekom/default.nix). The channel's 5.0.1
+  stops at plugin API 30; unstable's 5.3.0 reaches 34, which is what the
+  screen-toolkit plugin's `annotate` and the newer shell IPC need. An overlay,
+  not a package substitution, because `pkgs.noctalia` has two consumers — the
+  feature's `systemPackages` and the build-time `noctalia config validate` gate
+  in [features/niri/home.nix](../features/niri/home.nix) — and `useGlobalPkgs`
+  makes them share one `pkgs`. Measured cost of the swap on geekom: +149 store
+  paths (560.8 MiB) added, 21 (66.6 MiB) removed, all of it substitution from
+  `cache.nixos.org` — nothing is built. The marginal tree is the second
+  pipewire/glib generation the two trees carry; it is what buys the version.
+- **upstream's flake is still not used**, for the reasons that have not changed:
+  without `follows` it pins a whole nixpkgs generation of its own, with
+  `follows` it builds from source and misses its cache, and either way
+  `disabledModules` replaces the nixpkgs module and adds a KDE polkit agent this
+  session does not need.
 
-Revisit when nixos-26.05 carries 5.3.x.
+`nfu` carries later versions with no edit: the overlay names a package, not a
+version.
 
 ## What Noctalia replaces
 
