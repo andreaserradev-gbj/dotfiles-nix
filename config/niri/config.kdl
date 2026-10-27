@@ -25,9 +25,10 @@ input {
   }
 }
 
-// The 4K panel reads at 1.25 and DP-6 is the only output. Declared here so the
-// scale is config, not runtime state Noctalia happens to set.
-output "DP-6" {
+// The 4K panel reads at 1.25. Matched by manufacturer/model/serial, not the
+// connector: the panel enumerates as HDMI-A-1, so the DP-6 this block once
+// named never matched and Noctalia set the scale at runtime instead.
+output "PNP(BNQ) BenQ PD3220U A9P02916019" {
   scale 1.25
 }
 

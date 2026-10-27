@@ -120,8 +120,10 @@
       fill_mode = "crop"
       [output]
       # Same panel and scale as the user session, so the handoff does not
-      # rescale the display (DP-6 4K at 1.25, as greeter.kdl did).
-      name = "DP-6"
+      # rescale the display. The name is the greeter's stable identifier
+      # (`noctalia-greeter outputs --details`); the DP-6 this once named never
+      # matched, so the greeter ran at the compositor default.
+      name = "PNP(BNQ) - BenQ PD3220U - HDMI-A-1"
       scale = 1.25
     ''}
   '';

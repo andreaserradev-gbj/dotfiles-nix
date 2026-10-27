@@ -19,7 +19,18 @@ in
     # Steam is unfree and needs TWO entries in common.nix's allowUnfreePredicate:
     # `lib.getName` returns the pname, which is both `steam` and `steam-unwrapped`
     # — allowing one fails eval on the other, naming only that one.
-    programs.steam.enable = true;
+    programs.steam = {
+      enable = true;
+      package = pkgs.steam.override {
+        # Steam's CEF is X11-only and reads no scale from satellite's 96-DPI X
+        # screen (GTK/Qt do, via Xsettings), so niri stretches its 1x buffer by
+        # the output scale and the fonts blur. Render at that scale directly.
+        # Must match `scale 1.25` in config/niri/config.kdl.
+        extraEnv = {
+          STEAM_FORCE_DESKTOPUI_SCALING = "1.25";
+        };
+      };
+    };
 
     # Vulkan userspace drivers (RADV for the Radeon 890M) via mesa; the kernel
     # side (amdgpu) comes from the geekom host.
