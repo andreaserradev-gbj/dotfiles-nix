@@ -99,6 +99,18 @@ states.
 The manual restart is `systemctl --user restart herdr.service` — mind the
 restart cost under [Operational gotchas](#operational-gotchas) first.
 
+Starting on `default.target` means the server's environment is frozen at boot,
+**before** `niri-session` imports the session environment
+(`dbus-update-activation-environment --systemd --all`). Its panes therefore
+carry no `WAYLAND_DISPLAY`, and every clipboard tool in them fails —
+lazygit answers `y` with "No clipboard utilities available" (its
+`atotto/clipboard` only looks at `wl-copy` when that variable is non-empty),
+nvim's `"+` register is empty. [shell.nix](../modules/home/shell.nix) repairs it
+per pane: when `HERDR_ENV=1` and `WAYLAND_DISPLAY` is empty, it re-reads those
+variables from the user manager. Binding the unit to `graphical-session.target`
+instead would fix the environment and lose the headless server ovis depends on
+([ovis.md](ovis.md)).
+
 ## Update checklist (per nfb bump)
 
 **`nfb`** (`scripts/nfb.sh`, alias in [shell.nix](../modules/home/shell.nix)) does

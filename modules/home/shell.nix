@@ -112,6 +112,22 @@ lib.mkIf osConfig.local.dev.enable {
     # for a low-value, rate-limit-scoped key; anything else — SSH keys, cloud
     # tokens, passwords — belongs in /run/secrets, read at the point of use.
     initContent = ''
+      # herdr panes start from the server's environment, and that server is a
+      # systemd user unit on default.target (modules/home/herdr.nix): it starts
+      # at boot, before niri-session imports the session environment, so its
+      # panes carry no WAYLAND_DISPLAY and every clipboard tool in them fails
+      # (lazygit "No clipboard utilities available", nvim's "+ register).
+      # Re-read the session's copy from the user manager instead of hardcoding
+      # it: the socket name depends on what the greeter consumed first. Guarded
+      # on HERDR_ENV so SSH and tty shells stay untouched, and on the empty
+      # variable so a terminal-launched server keeps its inherited environment
+      # and a boot-time pane (nothing imported yet) is a no-op.
+      if [[ $HERDR_ENV == 1 && -z $WAYLAND_DISPLAY ]]; then
+        eval "$(systemctl --user show-environment 2>/dev/null \
+          | grep -E '^(WAYLAND_DISPLAY|DISPLAY|NIRI_SOCKET|XDG_SESSION_TYPE|XDG_CURRENT_DESKTOP)=' \
+          | sed 's/^/export /')"
+      fi
+
       # CONTEXT7_API_KEY — runtime secret for the context7 MCP server
       # (expanded from the environment by ~/.omp/agent/mcp.json;
       # modules/home/omp.nix). Provisioned by sops-nix on dev-enabled hosts
