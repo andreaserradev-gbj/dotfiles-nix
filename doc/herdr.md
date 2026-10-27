@@ -107,9 +107,16 @@ lazygit answers `y` with "No clipboard utilities available" (its
 `atotto/clipboard` only looks at `wl-copy` when that variable is non-empty),
 nvim's `"+` register is empty. [shell.nix](../modules/home/shell.nix) repairs it
 per pane: when `HERDR_ENV=1` and `WAYLAND_DISPLAY` is empty, it re-reads those
-variables from the user manager. Binding the unit to `graphical-session.target`
-instead would fix the environment and lose the headless server ovis depends on
-([ovis.md](ovis.md)).
+variables from the user manager. The read runs at shell start **and, if it comes
+back empty, again from `precmd`**: a pane the server *restores* at boot is
+spawned ~10 s before `niri-session` imports, so a one-shot start-time read finds
+the user manager empty and that shell would keep the hole for its whole life —
+including the agent resume herdr types into it. The hook unhooks itself once the
+variables land, or after 23 prompts, so a headless pane does not fork
+`systemctl` forever; a pane created after login is repaired at start and never
+hooks. Binding the unit to
+`graphical-session.target` instead would fix the environment and lose the
+headless server ovis depends on ([ovis.md](ovis.md)).
 
 ## Update checklist (per nfb bump)
 
