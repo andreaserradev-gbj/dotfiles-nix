@@ -97,6 +97,17 @@
   # (`niri msg action quit`), which lands back in the greeter.
   local.desktop.session = "niri";
 
+  # Noctalia from nixos-unstable. An OVERLAY, not a substitution in the package
+  # list: `pkgs.noctalia` also feeds the build-time `noctalia config validate`
+  # gate in features/niri/home.nix, and home-manager.useGlobalPkgs makes both
+  # consumers share one `pkgs` (doc/niri-session.md, "Where Noctalia comes
+  # from").
+  nixpkgs.overlays = [
+    (_: _: {
+      noctalia = unstablePkgs.noctalia;
+    })
+  ];
+
   # Steam + Vulkan (RADV for the Radeon 890M), same pattern — defined in
   # features/gaming/nixos.nix.
   local.gaming.enable = true;

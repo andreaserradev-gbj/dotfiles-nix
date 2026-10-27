@@ -303,15 +303,17 @@ The input exists in [flake.nix](../flake.nix) today, and the binding is
 **passed to every host**: `specialArgs` on each `nixosConfigurations` entry
 carries `unstablePkgs = nixpkgs-unstable.legacyPackages.<system>`. What keeps
 the blast radius small is the *lazy forcing*: the second tree is evaluated
-only on first reference, and today the only referencing site is
-`ollama-vulkan` in [hosts/geekom/default.nix](../hosts/geekom/default.nix).
+only on first reference, and every referencing site lives in a geekom file:
+`ollama-vulkan` and the `noctalia` overlay in
+[hosts/geekom/default.nix](../hosts/geekom/default.nix), and the greeter's
+package in [hosts/geekom/greeter.nix](../hosts/geekom/greeter.nix).
 hplaptop receives the binding and her closure is byte-identical
 (`check-hosts.sh` is the proof: her drvPath has never moved across this
 refactor). So the rule for new code is: reference `unstablePkgs` from a host
 file, or from a shared module **behind the dev gate** — never from shared
 code every host evaluates unconditionally.
 
-Adopted for one package so far:
+Adopted for two packages so far:
 
 - `ollama-vulkan` on geekom
   ([hosts/geekom/default.nix](../hosts/geekom/default.nix), 2026-09-11): 0.32.15+
@@ -322,6 +324,16 @@ Adopted for one package so far:
   [doc/local-llm.md](local-llm.md)). The older caution against pulling ollama
   from unstable mid-cycle was written without measurements and is superseded by
   that doc.
+- `noctalia` on geekom ([hosts/geekom/default.nix](../hosts/geekom/default.nix)),
+  as an **overlay**, not a package swap: the shell has two consumers — the
+  session's `systemPackages` in [features/niri/nixos.nix](../features/niri/nixos.nix)
+  and the Home Manager validator in [features/niri/home.nix](../features/niri/home.nix)
+  that runs `noctalia config validate` at build time — and `useGlobalPkgs` makes
+  them share one `pkgs`, so an `nixpkgs.overlays` entry moves both and a package
+  substitution would move only one. The channel's 5.0.1 stops at plugin API 30;
+  unstable's 5.3.0 reaches 34 and `nfu` carries later ones with no edit here.
+  Prebuilt on `cache.nixos.org`, so this costs substitution, not a build — the
+  measured closure delta is in [doc/niri-session.md](niri-session.md).
 
 For any NEW tool: the trade-off is a second nixpkgs evaluation (lazy, but a
 daily-moving lock entry) versus a version the stable branch will not carry

@@ -70,11 +70,11 @@
   # `environment.systemPackages` order is load-bearing
   # (doc/dendritic-pattern.md), so the list keeps the importing host's
   # original order:
-  #   noctalia           — the shell. From nixpkgs, not upstream's flake: the
-  #                        flake pins its own nixpkgs (a second glibc, pipewire
-  #                        and systemd generation, ~805 MiB marginal) or, with
-  #                        `follows`, builds from source and misses its cache.
-  #                        Revisit when nixos-26.05 carries 5.3.x.
+  #   noctalia           — the shell. `pkgs.noctalia` is overlayed to
+  #                        `unstablePkgs.noctalia` by the importing host
+  #                        (hosts/geekom/default.nix); the overlay rather than a
+  #                        swap here because the Home Manager validator below
+  #                        runs the same `pkgs` (features/niri/home.nix).
   #   xwayland-satellite — niri's X11 integration needs this ON PATH; the
   #                        nixpkgs module passes enableXWayland = false, so
   #                        without it every X11 app is unavailable and niri
@@ -101,8 +101,9 @@
 
     # PATH tools for the community capture plugin alexander/screen-toolkit
     # (config/noctalia/config.toml); a missing tool degrades single features.
-    # satty serves markup until the shell ships `annotate`, notify-send the
-    # recording toast (the plugin's own notify API is text-only).
+    # satty serves markup while the shell's own annotate IPC (5.3.0+) is not
+    # what the installed plugin release asks for, notify-send the recording
+    # toast (the plugin's own notify API is text-only).
     # translate-shell (optional upstream) and hyprctl (Hyprland-only) are
     # omitted; pulseaudio is here only for pactl.
     pkgs.hyprpicker

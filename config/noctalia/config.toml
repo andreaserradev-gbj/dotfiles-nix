@@ -34,11 +34,12 @@ enabled = false
 enabled = true
 
 # One session, one user: the lock screen's session switcher is dead UI. The
-# key lives on the login-box WIDGET in 5.0.1 (verified with `noctalia config
-# export`), not on [lockscreen]; `type` is required for the widget record to
-# be recognized at all. The Settings UI persists the same widget block in
-# ~/.local/state/noctalia/settings.toml, which merges after this file and
-# wins — clear its show_session_buttons key there to let this apply.
+# key lives on the login-box WIDGET (`noctalia config export` is where to
+# confirm it per version), not on [lockscreen]; `type` is required for the
+# widget record to be recognized at all. The Settings UI persists the same
+# widget block in ~/.local/state/noctalia/settings.toml, which merges after
+# this file and wins — clear its show_session_buttons key there to let this
+# apply.
 [lockscreen_widgets.widget."lockscreen-login-box@DP-6"]
 type = "login_box"
 
@@ -82,8 +83,10 @@ directory = "~/Pictures/Screenshots"
 # The plugin service spawns at shell STARTUP only — enabling here (not via the
 # Settings UI at runtime) is what gets it spawned at all. Panel:
 # noctalia msg panel-toggle alexander/screen-toolkit:panel. Markup/annotate
-# buttons need the shell's annotate IPC — absent in nixpkgs 5.0.1, they toast
-# a precise missing dependency until the nixpkgs bump.
+# buttons need the shell's annotate IPC, which exists from 5.3.0 (the overlay
+# that installs it is in hosts/geekom/default.nix). Plugin releases are pinned
+# by API level: the shell runs the newest release it supports and holds newer
+# ones back, so the plugin's current 43-level build needs a 5.4.0 shell.
 [plugins]
 enabled = ["alexander/screen-toolkit"]
 
