@@ -211,8 +211,8 @@ write_vendored_assets() {
     if cmp -s "$tmp" "$dest"; then
       printf '   %s: unchanged\n' "$dest"
     else
-      old="$(grep -m1E -- "${markers[$i]}" "$dest" || true)"
-      new="$(grep -m1E -- "${markers[$i]}" "$tmp" || true)"
+      old="$(grep -m1 -E -- "${markers[$i]}" "$dest" || true)"
+      new="$(grep -m1 -E -- "${markers[$i]}" "$tmp" || true)"
       cp "$tmp" "$dest"
       printf '   %s: re-vendored (%s -> %s)\n' "$dest" "${old:-<absent>}" "${new:-<absent>}"
     fi
@@ -441,14 +441,14 @@ for tool in "${tools[@]}"; do
       --arg v "$new" --arg src "$ovis_src" \
       --arg dx "$ovis_dev_x86" --arg da "$ovis_dev_arm" --arg pr "$ovis_prod" \
       --arg px "$sri_x86" --arg pa "$sri_arm" \
-      '.[ovis].version = $v
-       | .[ovis].source = $src
-       | .[ovis].nodeModulesDev["x86_64-linux"] = $dx
-       | .[ovis].nodeModulesDev["aarch64-linux"] = $da
-       | .[ovis].nodeModulesProd["x86_64-linux"] = $pr
-       | .[ovis].nodeModulesProd["aarch64-linux"] = $pr
-       | .[ovis].ptyHost["x86_64-linux"] = $px
-       | .[ovis].ptyHost["aarch64-linux"] = $pa' \
+      '.ovis.version = $v
+       | .ovis.source = $src
+       | .ovis.nodeModulesDev["x86_64-linux"] = $dx
+       | .ovis.nodeModulesDev["aarch64-linux"] = $da
+       | .ovis.nodeModulesProd["x86_64-linux"] = $pr
+       | .ovis.nodeModulesProd["aarch64-linux"] = $pr
+       | .ovis.ptyHost["x86_64-linux"] = $px
+       | .ovis.ptyHost["aarch64-linux"] = $pa' \
       "$pins_file" >"$tmp_pins"
   else
     jq --indent 2 \
