@@ -1,8 +1,8 @@
 {
   "omp": {
-    "version": "18.13.2",
-    "x86_64-linux": "sha256-3EmepjCCGBpHNOWhl9YfBDlOfMAZHve6GS0RCryg1sQ=",
-    "aarch64-linux": "sha256-Wl89RopOd7VXC1FqllBgRsFo7GSSLtodxPyNtyfSCNM="
+    "version": "18.14.0",
+    "x86_64-linux": "sha256-590rYGxOvp0ae8+tG4gg25aM1rBUCf7RxryNsLapWo8=",
+    "aarch64-linux": "sha256-26jRcEmXCbyHNZ4C5neCGqdqbvmYygJUV4/k6gev9bw="
   },
   "herdr": {
     "version": "0.9.5",
@@ -10,16 +10,16 @@
     "aarch64-linux": "sha256-F9dTby2lCFlSNoDvJ53/ysjkojX05G/o2mwuxEFBiXw="
   },
   "herdr-reviewr": {
-    "version": "0.48.0",
-    "x86_64-linux": "sha256-RwB5d9uEAWA2RYcecyXZW9KW/jCFm6oRCVrndiEztlo=",
-    "aarch64-linux": "sha256-M733eZoFjxhoSKZJRb5cmSVgdpUMOnYOuSnj4Qoy8TY="
+    "version": "0.49.0",
+    "x86_64-linux": "sha256-no1hwT/8sY763mmELC3d1+j9Br2Wz8OdtOOFrktTUwY=",
+    "aarch64-linux": "sha256-+owXJSZygOFhS6JBlH6babRc/Ky4ViIA+yOF9lrlByY="
   },
   "ovis": {
-    "version": "0.4.19",
-    "source": "sha256-0MKjG/i4GSqLQIISqCJi5PbyAsax2EGADsV9Spj6IzU=",
+    "version": "0.4.20",
+    "source": "sha256-GEJCpmJ76l+2Qxy8zZdJoaDZJdaxp5jm2bVZxzFRRtQ=",
     "nodeModulesDev": {
-      "x86_64-linux": "sha256-z+VixbLf06pkZDH5qYj8pukmVmhuafCWhMR8fUmdKPk=",
-      "aarch64-linux": "sha256-AFoRwtr6LA3ilTApgJ+4givH2sdYcW+ahhvYEU0PgOw="
+      "x86_64-linux": "sha256-qsp4ZE4qMDWqZ37t/AgYuEOXV7QMKS8coKj3nGzyRww=",
+      "aarch64-linux": "sha256-jmUDW7o6hURAlfIqENL6ncBPeU87ExV1yIvNRrvXRm4="
     },
     "nodeModulesProd": {
       "x86_64-linux": "sha256-+2oDdGjYvJNqjJQYKORQj5TYAQC62P93BgQZ6aAxPas=",
@@ -27,7 +27,7 @@
     },
     "ptyHost": {
       "x86_64-linux": "sha256-ROWJ+gTI9Ba8aR1rOfjpyxm3eWW0kLNRiFgIQQ0jZJs=",
-      "aarch64-linux": "sha256-cnztNui4kvPHoYR2PFLLH/c+Xbp85jJ405Qs85oh2oY="
+      "aarch64-linux": "sha256-1OwS9f/YdM6TaNarsXOFN9v25z4MtZP///j/4wvACd0="
     }
   }
 }
