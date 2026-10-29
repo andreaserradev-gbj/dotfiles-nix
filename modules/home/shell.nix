@@ -167,6 +167,25 @@ lib.mkIf osConfig.local.dev.enable {
       fcd() { cd "$(find . -type d -not -path '*/.*' | fzf)" && l; }
       fv()  { nvim "$(find . -type f -not -path '*/.*' | fzf)"; }
 
+      # vts — serve the current project's Vite dev server to the phone over the
+      # tailnet. Three flags are load-bearing, not taste: `--host 127.0.0.1`
+      # because Vite binds ::1 by default and `tailscale serve` proxies only to
+      # http://127.0.0.1 (the v6 loopback answers 500, localhost 403, nothing
+      # but this works); `--strictPort` because a drifted port leaves the serve
+      # entry pointing at nothing; and the allowlist because serve forwards the
+      # ORIGINAL Host header, so Vite's DNS-rebinding guard rejects the tailnet
+      # name with 403 until it is named. The name is read from tailscaled at run
+      # time rather than written here: this repo is public, and a node FQDN does
+      # not need to be in it. `--no-install` keeps npx from fetching a vite the
+      # project did not pin. Runbook: doc/dev-environments.md.
+      vts() {
+        local fqdn
+        fqdn=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' | sed 's/\.$//')
+        [ -n "$fqdn" ] || { print -ru2 -- 'vts: tailscale is not running — `sudo tailscale up` first'; return 1; }
+        __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="$fqdn" \
+          npx --no-install vite --host 127.0.0.1 --port 5173 --strictPort "$@"
+      }
+
       # _gens — aligned generation table (gen · date · kernel · "<- current"),
       # the single source of truth shared by ngl / ngd / ngc.
       _gens() {
