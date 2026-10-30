@@ -30,6 +30,14 @@ input {
 // named never matched and Noctalia set the scale at runtime instead.
 output "PNP(BNQ) BenQ PD3220U A9P02916019" {
   scale 1.25
+  position x=0 y=0
+}
+
+// 3072 = the BenQ's logical width (3840 at scale 1.25); without an explicit
+// position niri auto-places by name order, which put the BOE left of the main
+// panel ("BOE Display…" sorts before "PNP(BNQ)…").
+output "BOE Display L56051794302" {
+  position x=3072 y=688
 }
 
 // niri pops the hotkey overlay on every shell start by default; Mod+Shift+Slash
