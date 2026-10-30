@@ -111,6 +111,9 @@ is installed read-only, so edit it there, never in place.
   instead: `docker image prune -f` (dangling), `docker container prune -f`
   (stopped), `docker builder prune -af` (build cache). Remove volumes only with
   an explicit `docker volume rm <name>`.
+- Forks checked out for upstream contribution (e.g. nixpkgs, xwayland-satellite,
+  noctalia community-plugins) live under `~/Projects`, one directory per repo —
+  not in `~/code` (own projects) or `~/tmp`.
 - Secrets are sops-nix managed: plaintext exists only under `/run/secrets`
   (owned by the dev user, mode 0400, tmpfs — wiped at reboot). Never write a
   secret value into a repo file, a Nix file, or a shell command; the repo holds
