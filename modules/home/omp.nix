@@ -12,8 +12,22 @@ let
   # the settings below. The version of record is the tag in
   # modules/home/tool-pins.json, which `nfb` bumps together with this. The
   # prebuilt binary needs nix-ld (dev-gated, features/dev/nixos.nix).
-  ompPkg = pkgs.callPackage ./omp-prebuilt.nix {
+  ompPrebuilt = pkgs.callPackage ./omp-prebuilt.nix {
     system = pkgs.stdenv.hostPlatform.system;
+  };
+
+  # Wrapped with the herdr pane repair (config/omp/omp): a restored pane's
+  # first omp inherits the server's frozen boot environment, and the shell's
+  # precmd retry (modules/home/shell.nix) cannot fire while omp holds the
+  # foreground. Same wrap-a-prebuilt pattern as the niri-session override.
+  ompPkg = pkgs.symlinkJoin {
+    name = "omp-${ompPrebuilt.version}";
+    paths = [ ompPrebuilt ];
+    postBuild = ''
+      mv $out/bin/omp $out/bin/omp-unwrapped
+      install -m755 ${../../config/omp/omp} $out/bin/omp
+      patchShebangs $out/bin/omp
+    '';
   };
 in
 # omp (oh-my-pi) — the coding agent, adopted per doc/adopting-tools.md and
