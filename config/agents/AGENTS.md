@@ -114,6 +114,13 @@ is installed read-only, so edit it there, never in place.
 - Forks checked out for upstream contribution (e.g. nixpkgs, xwayland-satellite,
   noctalia community-plugins) live under `~/Projects`, one directory per repo —
   not in `~/code` (own projects) or `~/tmp`.
+- In those checkouts `origin` = your fork, `upstream` = the canonical repo; one
+  branch per PR, cut from a fresh `upstream` default.
+- Keep the fork while its PRs are open or automation writes to it (nixpkgs'
+  backport bot creates branches on your fork). For one-shot PRs, delete the
+  fork after merge — PR and merged history stay on the upstream repo. On
+  durable forks, delete merged and orphan branches; sync the default before
+  new work (`gh repo sync <fork> --source <upstream>`).
 - Secrets are sops-nix managed: plaintext exists only under `/run/secrets`
   (owned by the dev user, mode 0400, tmpfs — wiped at reboot). Never write a
   secret value into a repo file, a Nix file, or a shell command; the repo holds
