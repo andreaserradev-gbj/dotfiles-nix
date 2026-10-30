@@ -132,6 +132,11 @@ is installed read-only, so edit it there, never in place.
   and machine-local notes are gitignored work products — no commit decision
   needed. Don't ask "commit alongside?" for changes that aren't tracked.
 - NEVER include in commits, PR titles, PR descriptions, PR comments, or any
-  git-related output: AI-generated attribution (`Co-Authored-By`, "Generated
-  with …", references to any model vendor or its `noreply` address) or emojis in
-  commit messages.
+  git-related output: AI-generated attribution (`Co-Authored-By`, `Assisted-by`,
+  "Generated with …", references to any model vendor or its `noreply` address)
+  or emojis in commit messages. In third-party upstream projects, check the
+  project's AI-contribution policy before pushing and follow it there instead —
+  e.g. nixpkgs requires an `Assisted-by: <tool> (<model> <version>)` trailer,
+  with separate disclosure lines in issues/PRs/comments.
+- Keep commit messages terse: subject plus a short body that adds information
+  beyond the diff, nothing more; PR/issue comments a few sentences, not essays.
