@@ -108,37 +108,27 @@ measured on 2026-10-31:
    starts the server at `Reached target Main User Target` — measured 07:34:27,
    ~70 s before login.
 
-The repair is a separate **waiter** unit, `herdr-session-env`, also
-session-scoped. It polls `systemctl --user show-environment` every 200 ms for up
-to 10 s, and herdr names it in `Wants=`/`After=` so the server cannot start until
-the poll has finished — its exec then inherits the value the import landed.
+The repair is inside the one unit: on a desktop host its `ExecStart` is not the
+binary but a small store script ([herdr.nix](../modules/home/herdr.nix),
+`herdrStart`) that polls `systemctl --user show-environment` every 200 ms for up
+to 10 s and then **`exec`s the server with the value it read**. The child gets an
+environment its parent never had, which is the only way this can work — polling
+`$WAYLAND_DISPLAY` from `ExecCondition` or `ExecStartPre` reads just the copy the
+process was born with (measured: a unit started without the variable still saw it
+absent after the manager imported it 0.5 s later).
 
-Ordering is the whole trick, and it took three shapes to get right. Making both
-units `WantedBy` the target is **not** enough: they are then independent, and
-measured 08:14:29 herdr won the race by 0.4 s and started with the pre-import
-environment while the waiter's later `systemctl start` was a no-op on an
-already-active unit — clipboard dead on the very first reboot with the fix.
-Putting `Before=herdr.service` on the waiter instead is worse: herdr is
-`WantedBy` the same target, so the pair closes a loop
-(target → waiter → herdr → target) that systemd breaks by **deleting herdr's
-start job** (measured 08:02:05). Ordering from herdr's side, `Wants`+`After` on
-the waiter, gives the same guarantee with no cycle — but only if the waiter is
-**not** also `WantedBy` the target: that puts both units in one transaction and
-the loop returns (measured 08:20:38, `Job herdr.service/start deleted`). The waiter
-is `WantedBy=herdr.service`, so the transaction runs target → herdr → waiter in one
-direction. Verified by loading the generated pair under test names: the waiter
-finished, then the server started, no cycle reported.
+Three shapes were tried and abandoned before this one, and each failure is worth
+knowing because they all look reasonable:
 
-The wait **cannot** live inside the herdr unit — this is the other non-obvious
-part. A process inherits its environment at exec, so polling `$WAYLAND_DISPLAY`
-from `ExecCondition` or `ExecStartPre` keeps re-reading the copy it was born
-with: measured, a unit started with the variable absent still saw it absent after
-the manager imported it 0.5 s later. Only a *different* process, which waits and
-then lets the manager start the server, can see the new value.
+| shape | outcome |
+|---|---|
+| both units `WantedBy` the target | started in **parallel**; herdr won by 0.4 s, and the waiter's later `systemctl start` was a no-op on an active unit (08:14) |
+| `Before=herdr.service` on the waiter | ordering cycle `target → waiter → herdr → target`; systemd **deleted herdr's start job** (08:02) |
+| `Wants`/`After` on herdr, waiter still `WantedBy` the target | same cycle, reached from the other side; start job deleted again (08:20) |
 
-Both units are emitted only where `local.desktop.enable` is on. The VM's cage
-kiosk imports nothing into the user manager, so the poll could only time out;
-its herdr keeps starting on `default.target` as before.
+One unit has no second edge to cycle through, so none of those can recur. Do not
+re-introduce a second unit for this; if the wait ever has to move, it moves into
+the same `ExecStart`.
 
 The herdr unit **yields instead of failing**: `ExecCondition` skips the start
 when another server already owns the socket (a terminal-launched one, say),
