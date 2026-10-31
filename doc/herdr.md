@@ -111,11 +111,14 @@ measured on 2026-10-31:
 The repair is inside the one unit: on a desktop host its `ExecStart` is not the
 binary but a small store script ([herdr.nix](../modules/home/herdr.nix),
 `herdrStart`) that polls `systemctl --user show-environment` every 200 ms for up
-to 10 s and then **`exec`s the server with the value it read**. The child gets an
-environment its parent never had, which is the only way this can work — polling
+to 10 s, for `WAYLAND_DISPLAY` and `NIRI_SOCKET` together, and then **`exec`s
+the server with the values it read**. The child gets an environment its parent
+never had, which is the only way this can work — polling
 `$WAYLAND_DISPLAY` from `ExecCondition` or `ExecStartPre` reads just the copy the
 process was born with (measured: a unit started without the variable still saw it
-absent after the manager imported it 0.5 s later).
+absent after the manager imported it 0.5 s later). On timeout the server starts
+anyway — the `ExecCondition` gate below is what keeps a pre-login start from
+being that timeout case.
 
 Three shapes were tried and abandoned before this one, and each failure is worth
 knowing because they all look reasonable:
@@ -137,6 +140,14 @@ script would poll, time out after 10 s, and start the server without the value �
 the same failure by a slower route. Skipping instead leaves the unit `inactive`
 and the session target starts it later, once the import has landed.
 
+First boot carrying all of this (2026-10-31 15:16:58, geekom): niri and the
+unit-started server both exec'd inside the same second, and the server's
+`/proc/<pid>/environ` showed `WAYLAND_DISPLAY` — the reboot confirmation #81
+deferred. The same boot exposed the staged-import window above: the server had
+no `NIRI_SOCKET` or `DISPLAY`, which the manager gained moments later, and
+panes inherit the server's environment for its whole life. That measurement is
+why the poll waits for `NIRI_SOCKET` too.
+
 The herdr unit **yields instead of failing**: `ExecCondition` skips the start
 when another server already owns the socket (a terminal-launched one, say),
 taking the unit to `inactive` — never `failed`, no restart loop. The socket
@@ -154,11 +165,16 @@ restart it once the session is up, and it re-inherits the manager's environment.
 ### Why the session target, and why it must stay that way
 
 The server's environment is inherited by **every pane and every agent**, and it
-is fixed at the moment the unit starts. `niri-session` runs
+is fixed at the moment the server execs. `niri-session` runs
 `dbus-update-activation-environment --systemd --all` and only then starts
-niri, which is `Before=graphical-session.target`; so a server pulled in by that
-target already sees `WAYLAND_DISPLAY`, `NIRI_SOCKET`, `DISPLAY`,
-`XDG_SESSION_TYPE` and `XDG_CURRENT_DESKTOP`.
+niri, which is `Before=graphical-session.target` — but niri's own variables
+arrive in further stages around the target (measured 2026-10-31 15:16:58: the
+unit started with `WAYLAND_DISPLAY` already imported, `NIRI_SOCKET` and
+`DISPLAY` still missing). The ExecStart script therefore polls for
+`WAYLAND_DISPLAY` and `NIRI_SOCKET` together before exec'ing, so the server
+reliably sees those two plus `XDG_SESSION_TYPE` and `XDG_CURRENT_DESKTOP`.
+`DISPLAY` (`:0`, Xwayland, spawned on demand) is deliberately not awaited — a
+poll for it could wait forever on a session that never spawns an X client.
 
 Start it any earlier — `default.target`, i.e. at boot — and its environment is
 frozen *before* that import. Panes then carry no `WAYLAND_DISPLAY`, and every
