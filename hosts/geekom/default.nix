@@ -116,10 +116,12 @@
   # features/dev/nixos.nix.
   local.dev.enable = true;
 
-  # Linger keeps andrea's user manager alive with nobody logged in — without
-  # it a reboot leaves no user manager, and the herdr unit
-  # (modules/home/herdr.nix) nothing to run in. `users.manageLingering`
-  # (default on) makes this the declarative `loginctl enable-linger`.
+  # Linger keeps andrea's user manager alive with nobody logged in, so an SSH
+  # session after a logout still has one. It does NOT make herdr run at boot:
+  # the unit is pulled in by graphical-session.target (modules/home/herdr.nix),
+  # so the server starts at login and stops being *startable* until the next
+  # one. `users.manageLingering` (default on) makes this the declarative
+  # `loginctl enable-linger`.
   users.users.${user.username}.linger = true;
 
   # `nrs`/`nrt` activate over SSH to THIS machine, so phase 1 cannot be killed

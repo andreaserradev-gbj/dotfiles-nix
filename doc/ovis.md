@@ -28,7 +28,7 @@ config.
 | the manifest's launcher commands | Nix, at build time | `["sh","scripts/with-bun.sh",…]` is rewritten to `${bun}/bin/bun` in the store copy; the vendored [config/ovis/ovis-herdr-plugin.toml](../config/ovis/ovis-herdr-plugin.toml) stays pristine and `nfb` re-fetches it with the pin |
 | `~/.config/ovis/` | runtime state | written by the server on first start — see "State files" below |
 | `~/.local/state/herdr/plugins/devswha.ovis/` | runtime state | `server.log` and `server.pid`, written by the plugin launcher under the state dir herdr gives it |
-| the autostart hook | Nix, upstream | the plugin's `[[startup]]` entry runs `scripts/plugin.ts start` once per herdr start; herdr is already a linger-kept user unit ([herdr.md](herdr.md)), so nothing new supervises anything |
+| the autostart hook | Nix, upstream | the plugin's `[[startup]]` entry runs `scripts/plugin.ts start` once per herdr start; herdr is a session-scoped user unit ([herdr.md](herdr.md)), so ovis comes up with the session and nothing new supervises anything |
 
 **Nothing writes back into the store.** The plugin root is read-only, and that is
 deliberate: the update checker runs `git rev-parse HEAD`, fails because there is
@@ -254,6 +254,14 @@ tailscale serve status
 
 Then open `https://<host>.<tailnet>.ts.net` on the phone. The certificate is for
 the name, not the `100.x` address — opening the IP warns.
+
+Availability follows herdr: the plugin lives inside the server, and the server is
+pulled in by `graphical-session.target` ([herdr.md](herdr.md), "The unit"). So the
+port answers only while a graphical session exists. Locking the screen keeps it
+up; logging out (or rebooting without logging in) takes it down, and the phone
+then gets a connection error rather than a pairing prompt. That is deliberate:
+SSH alone needs no session, but the agents ovis shows need the keyring and the
+Wayland socket, both of which only a graphical login provides.
 
 **Phone setup inside herdr** (the `phone` action, or Settings → Phone) prints the
 same command in a pane, and — when Serve is still off — says so before you run

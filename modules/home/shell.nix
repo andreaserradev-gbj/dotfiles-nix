@@ -112,43 +112,6 @@ lib.mkIf osConfig.local.dev.enable {
     # for a low-value, rate-limit-scoped key; anything else — SSH keys, cloud
     # tokens, passwords — belongs in /run/secrets, read at the point of use.
     initContent = ''
-      # herdr panes start from the server's environment, and that server is a
-      # systemd user unit on default.target (modules/home/herdr.nix): it starts
-      # at boot, before niri-session imports the session environment, so its
-      # panes carry no WAYLAND_DISPLAY and every clipboard tool in them fails
-      # (lazygit "No clipboard utilities available", nvim's "+ register).
-      # Re-read the session's copy from the user manager instead of hardcoding
-      # it: the socket name depends on what the greeter consumed first. Guarded
-      # on HERDR_ENV so SSH and tty shells stay untouched, and on the empty
-      # variable so a terminal-launched server keeps its inherited environment.
-      #
-      # The read cannot be one-shot: a pane RESTORED at boot is spawned by the
-      # server seconds before niri-session imports anything, so a start-time
-      # read finds an empty environment and the shell would keep the hole for
-      # its whole life. Read once now — a pane created after login is done here,
-      # with nothing left in precmd — and on failure retry from precmd, which
-      # runs before every command including the agent resume herdr types in.
-      # The hook unhooks once the variables land, or after enough prompts that
-      # this pane plainly has no session to find (a headless server, ovis-only
-      # boot): no forking systemctl on every prompt forever.
-      if [[ $HERDR_ENV == 1 && -z $WAYLAND_DISPLAY ]]; then
-        _herdr_session_env_attempts=0
-        _herdr_session_env() {
-          local imported
-          imported=$(systemctl --user show-environment 2>/dev/null \
-            | grep -E '^(WAYLAND_DISPLAY|DISPLAY|NIRI_SOCKET|XDG_SESSION_TYPE|XDG_CURRENT_DESKTOP)=' \
-            | sed 's/^/export /')
-          if [[ -n $imported ]]; then
-            eval "$imported"
-          elif (( ++_herdr_session_env_attempts < 24 )); then
-            return 1
-          fi
-          precmd_functions=(''${precmd_functions:#_herdr_session_env})
-          unset _herdr_session_env_attempts
-        }
-        _herdr_session_env || precmd_functions+=(_herdr_session_env)
-      fi
-
       # CONTEXT7_API_KEY — runtime secret for the context7 MCP server
       # (expanded from the environment by ~/.omp/agent/mcp.json;
       # modules/home/omp.nix). Provisioned by sops-nix on dev-enabled hosts
