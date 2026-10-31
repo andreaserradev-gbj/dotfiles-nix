@@ -130,6 +130,13 @@ One unit has no second edge to cycle through, so none of those can recur. Do not
 re-introduce a second unit for this; if the wait ever has to move, it moves into
 the same `ExecStart`.
 
+The `ExecCondition` therefore also requires `WAYLAND_DISPLAY` on a desktop host.
+That is not redundant with the script: Home Manager's activation runs `sd-switch`,
+which starts new units itself (`Starting units: herdr.service`), so at boot the
+script would poll, time out after 10 s, and start the server without the value —
+the same failure by a slower route. Skipping instead leaves the unit `inactive`
+and the session target starts it later, once the import has landed.
+
 The herdr unit **yields instead of failing**: `ExecCondition` skips the start
 when another server already owns the socket (a terminal-launched one, say),
 taking the unit to `inactive` — never `failed`, no restart loop. The socket

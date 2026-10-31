@@ -133,7 +133,9 @@ lib.mkIf osConfig.local.dev.enable {
           # into failed/start-limit-hit. String match — `herdr status server`
           # exits 0 in both states. ExecCondition belongs in [Service]; in [Unit]
           # it is silently ignored.
-          ExecCondition = "/bin/sh -c '! ${herdrPkg}/bin/herdr status server | grep -q \"^status: running\"'";
+          ExecCondition =
+            "/bin/sh -c '! ${herdrPkg}/bin/herdr status server | grep -q \"^status: running\"'"
+            + lib.optionalString osConfig.local.desktop.enable " && test -n \"$WAYLAND_DISPLAY\"";
           ExecStart =
             if osConfig.local.desktop.enable then
               "${herdrStart}/bin/herdr-start"
