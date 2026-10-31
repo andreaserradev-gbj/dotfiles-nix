@@ -3,8 +3,10 @@
 geekom sits behind a home router, far from where its admin physically is.
 There are two ways in, both SSH, and they are deliberately independent: when
 one is broken the other is the fallback. Everything below assumes the box has
-booted with nobody logged in — `linger` keeps andrea's user manager and the
-herdr unit alive ([doc/herdr.md](herdr.md), "The unit").
+booted with nobody logged in — `linger` keeps andrea's user manager alive, but
+herdr is **not** running then: its unit is pulled in by
+`graphical-session.target`, so panes and agents exist only after a graphical
+login ([doc/herdr.md](herdr.md), "The unit"). SSH itself needs no login.
 
 | layer | transport | configured in |
 |---|---|---|

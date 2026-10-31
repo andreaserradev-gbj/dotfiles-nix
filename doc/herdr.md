@@ -28,7 +28,7 @@ evaluates it to the empty config.
 | agent skill (`~/.agents/skills/herdr/SKILL.md`) | **npx, manual** | `npx skills add herdrdev/herdr --skill herdr -g` |
 | reviewr plugin (`persiyanov.reviewr`, `~/.config/herdr/plugins`) | Nix | musl release tarball + vendored manifest [reviewr-herdr-plugin.toml](../config/herdr/plugins/reviewr-herdr-plugin.toml) assembled by [herdr-reviewr-prebuilt.nix](../modules/home/herdr-reviewr-prebuilt.nix) into a store dir; `home.activation` in [herdr.nix](../modules/home/herdr.nix) runs `herdr plugin link` on it every switch |
 | ovis plugin (`devswha.ovis`, `~/.config/herdr/plugins`) | Nix | built from the pinned tag by [ovis-prebuilt.nix](../modules/home/ovis-prebuilt.nix) (no server asset is released, so this one is not a prebuilt FOD); `home.activation` in [ovis.nix](../modules/home/ovis.nix) links it, dev-gated. Ownership, the access model and the tailnet runbook: [ovis.md](ovis.md) |
-| `~/.config/systemd/user/herdr.service` | Nix | user unit from [herdr.nix](../modules/home/herdr.nix) (dev-gated); geekom's host file sets `users.users.<name>.linger`, which keeps the user manager alive at boot |
+| `~/.config/systemd/user/herdr.service` | Nix | user unit from [herdr.nix](../modules/home/herdr.nix) (dev-gated), pulled in by `graphical-session.target` so panes inherit the session environment — see "The unit" below |
 
 The agent extension is deployed by [modules/home/herdr.nix](../modules/home/herdr.nix),
 **not** by omp.nix: the herdr↔agent coupling stays in one
@@ -86,37 +86,97 @@ exit is 1 either way (negative control measured on a throwaway copy via
 ## The unit
 
 The server is a systemd **user** unit ([modules/home/herdr.nix](../modules/home/herdr.nix)),
-`WantedBy=default.target`: it starts with the user manager, which `linger`
-(geekom's host file) keeps alive with nobody logged in — after a reboot there
-is still a server to attach to over SSH.
+`WantedBy=graphical-session.target`: its normal start is at login, with the
+session. That ordering is the whole point — see below.
 
-The unit **yields instead of failing**: `ExecCondition` skips the start when
-another server already owns the socket (a terminal-launched one, say), taking
-the unit to `inactive` — never `failed`, no restart loop. The guard must
-string-match `status: running`, because `herdr status server` exits 0 in both
-states.
+`WantedBy` is **not** what enforces it, and trusting it alone is the trap this
+section exists to prevent. Three separate facts break the naive reading, all
+measured on 2026-10-31:
+
+1. **The target is reached before the environment exists.** `niri` *sets*
+   `WAYLAND_DISPLAY` — it names the socket it creates — and imports it into the
+   user manager a fraction of a second **after** `graphical-session.target` goes
+   active. The unit's condition ran at 07:48:17.76 and saw no variable; the
+   target was reached at 07:48:18.19.
+2. **Home Manager starts new units itself.** Its activation calls `sd-switch`,
+   which starts every new unit explicitly (`Starting units: herdr.service` in
+   the journal) without consulting the target. Measured: a unit whose
+   `WantedBy` target does not exist is still started. So every `nrs` hands the
+   server a pre-import environment.
+3. **The boot activation lags a generation.** It still carries the previous
+   generation's `default.target.wants` link, so the first boot after a change
+   starts the server at `Reached target Main User Target` — measured 07:34:27,
+   ~70 s before login.
+
+The repair is a separate **waiter** unit, `herdr-session-env`, also
+session-scoped. It polls `systemctl --user show-environment` every 200 ms for up
+to 10 s and then `Wants=` herdr: the server is exec'd only after the import has
+landed, so its own exec inherits the right value. It exits 0 on timeout as well,
+keeping the pair `inactive` rather than `failed` so a pre-login or headless start
+does not burn the restart budget.
+
+The wait **cannot** live inside the herdr unit — this is the non-obvious part.
+A process inherits its environment at exec, so polling `$WAYLAND_DISPLAY` from
+`ExecCondition` or `ExecStartPre` keeps re-reading the copy it was born with:
+measured, a unit started with the variable absent still saw it absent after the
+manager imported it 0.5 s later. Only a *different* process, which waits and
+then asks the manager to start the server, can see the new value.
+
+Both units are emitted only where `local.desktop.enable` is on. The VM's cage
+kiosk imports nothing into the user manager, so the poll could only time out;
+its herdr keeps starting on `default.target` as before.
+
+The herdr unit **yields instead of failing**: `ExecCondition` skips the start
+when another server already owns the socket (a terminal-launched one, say),
+taking the unit to `inactive` — never `failed`, no restart loop. The socket
+guard must string-match `status: running`, because `herdr status server` exits 0
+in both states. **This is why `systemctl --user is-active herdr` reads
+`inactive` while the stack works**: a server you launched from a pane owns the
+socket, so the unit yields and never runs as a unit at all. Check
+`herdr status server` or `pgrep -f 'herdr server'`, not the unit.
 
 The manual restart is `systemctl --user restart herdr.service` — mind the
-restart cost under [Operational gotchas](#operational-gotchas) first.
+restart cost under [Operational gotchas](#operational-gotchas) first. It is also
+the recovery move when a server is found running without a session environment:
+restart it once the session is up, and it re-inherits the manager's environment.
 
-Starting on `default.target` means the server's environment is frozen at boot,
-**before** `niri-session` imports the session environment
-(`dbus-update-activation-environment --systemd --all`). Its panes therefore
-carry no `WAYLAND_DISPLAY`, and every clipboard tool in them fails —
-lazygit answers `y` with "No clipboard utilities available" (its
-`atotto/clipboard` only looks at `wl-copy` when that variable is non-empty),
-nvim's `"+` register is empty. [shell.nix](../modules/home/shell.nix) repairs it
-per pane: when `HERDR_ENV=1` and `WAYLAND_DISPLAY` is empty, it re-reads those
-variables from the user manager. The read runs at shell start **and, if it comes
-back empty, again from `precmd`**: a pane the server *restores* at boot is
-spawned ~10 s before `niri-session` imports, so a one-shot start-time read finds
-the user manager empty and that shell would keep the hole for its whole life —
-including the agent resume herdr types into it. The hook unhooks itself once the
-variables land, or after 23 prompts, so a headless pane does not fork
-`systemctl` forever; a pane created after login is repaired at start and never
-hooks. Binding the unit to
-`graphical-session.target` instead would fix the environment and lose the
-headless server ovis depends on ([ovis.md](ovis.md)).
+### Why the session target, and why it must stay that way
+
+The server's environment is inherited by **every pane and every agent**, and it
+is fixed at the moment the unit starts. `niri-session` runs
+`dbus-update-activation-environment --systemd --all` and only then starts
+niri, which is `Before=graphical-session.target`; so a server pulled in by that
+target already sees `WAYLAND_DISPLAY`, `NIRI_SOCKET`, `DISPLAY`,
+`XDG_SESSION_TYPE` and `XDG_CURRENT_DESKTOP`.
+
+Start it any earlier — `default.target`, i.e. at boot — and its environment is
+frozen *before* that import. Panes then carry no `WAYLAND_DISPLAY`, and every
+clipboard tool in them fails: lazygit answers `y` with "No clipboard utilities
+available" (its `atotto/clipboard` only consults `wl-copy` when that variable
+is set), nvim's `"+` register is empty, and omp's clipboard path is skipped
+outright (it gates on `process.env.WAYLAND_DISPLAY`).
+
+The subtlety that made this look intermittent: herdr **restores panes and
+resumes their agents at server start** (`session.resume_agents_on_restore`,
+default on). A boot-time server therefore execs `omp --resume=…` seconds before
+the session exists, and that agent keeps the hole for its whole life — no
+in-process repair is possible either, because `Bun.spawn` uses the environment
+captured at exec, not a mutated `process.env`. Repairing after the fact cannot
+work: the environment has to be right *at spawn*. Two shell-level repairs and an
+omp wrapper were tried here before and each only moved the race; the ordering
+above removes it.
+
+An ssh-only, pre-login path deliberately does not exist any more: after a reboot
+nothing runs herdr until someone logs in at the console. That is acceptable
+because the things agents need — the keyring-unlocked `gh` token, the Wayland
+socket — only exist after a graphical login anyway. `linger` (geekom's host file)
+is still on, so a user manager survives a logout for SSH; it does not start
+herdr.
+
+The VM is the exception: its cage kiosk (`hosts/vm/default.nix`) is a **system**
+unit and starts no `graphical-session.target`, so the module keeps
+`default.target` for a host where `local.desktop.enable` is off. There is no
+session import to race there, and panes inherit cage's own environment.
 
 ## Update checklist (per nfb bump)
 
