@@ -110,17 +110,27 @@ measured on 2026-10-31:
 
 The repair is a separate **waiter** unit, `herdr-session-env`, also
 session-scoped. It polls `systemctl --user show-environment` every 200 ms for up
-to 10 s and then `Wants=` herdr: the server is exec'd only after the import has
-landed, so its own exec inherits the right value. It exits 0 on timeout as well,
-keeping the pair `inactive` rather than `failed` so a pre-login or headless start
-does not burn the restart budget.
+to 10 s, and herdr names it in `Wants=`/`After=` so the server cannot start until
+the poll has finished — its exec then inherits the value the import landed.
 
-The wait **cannot** live inside the herdr unit — this is the non-obvious part.
-A process inherits its environment at exec, so polling `$WAYLAND_DISPLAY` from
-`ExecCondition` or `ExecStartPre` keeps re-reading the copy it was born with:
-measured, a unit started with the variable absent still saw it absent after the
-manager imported it 0.5 s later. Only a *different* process, which waits and
-then asks the manager to start the server, can see the new value.
+Ordering is the whole trick, and it took three shapes to get right. Making both
+units `WantedBy` the target is **not** enough: they are then independent, and
+measured 08:14:29 herdr won the race by 0.4 s and started with the pre-import
+environment while the waiter's later `systemctl start` was a no-op on an
+already-active unit — clipboard dead on the very first reboot with the fix.
+Putting `Before=herdr.service` on the waiter instead is worse: herdr is
+`WantedBy` the same target, so the pair closes a loop
+(target → waiter → herdr → target) that systemd breaks by **deleting herdr's
+start job** (measured 08:02:05). Ordering from herdr's side, `Wants`+`After` on
+the waiter, gives the same guarantee with no cycle: verified with a probe, a main
+unit waited for a 2 s oneshot and started after it.
+
+The wait **cannot** live inside the herdr unit — this is the other non-obvious
+part. A process inherits its environment at exec, so polling `$WAYLAND_DISPLAY`
+from `ExecCondition` or `ExecStartPre` keeps re-reading the copy it was born
+with: measured, a unit started with the variable absent still saw it absent after
+the manager imported it 0.5 s later. Only a *different* process, which waits and
+then lets the manager start the server, can see the new value.
 
 Both units are emitted only where `local.desktop.enable` is on. The VM's cage
 kiosk imports nothing into the user manager, so the poll could only time out;

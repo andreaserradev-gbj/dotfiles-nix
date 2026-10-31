@@ -95,27 +95,34 @@ lib.mkIf osConfig.local.dev.enable {
       # starting on default.target as before.
       sessionEnvWait = {
         Unit = {
-          Description = "Wait for the graphical session environment, then start herdr";
-          # NO `Before=herdr.service`, and no `Wants=herdr.service` either: both
-          # are cycles. herdr is WantedBy this unit's own target, which makes
-          # herdr After=graphical-session.target, while this unit is After that
-          # same target — so ordering before herdr closes the loop
-          # target -> waiter -> herdr -> target. systemd reports it and, worse,
-          # breaks it by DELETING herdr's queued start job (measured 08:02:05),
-          # which is exactly the "still inactive" failure.
+          Description = "Wait for the graphical session environment";
+          # herdr names this unit in Requires+After, so systemd starts the
+          # server only once this oneshot has finished. Do NOT instead give this
+          # unit `Before=herdr.service`: herdr is WantedBy the target this unit
+          # is also WantedBy, so both would belong to that target's transaction
+          # and systemd resolves the resulting loop
+          # (target -> waiter -> herdr -> target) by DELETING herdr's start job
+          # (measured 08:02:05). Ordering via herdr's own Requires is the same
+          # guarantee without closing a cycle.
+          #
+          # And do NOT rely on two independent WantedBy units: measured
+          # 08:14:29, herdr and the waiter started in PARALLEL, herdr won by
+          # 0.4 s, and its `systemctl start` from the waiter was a no-op because
+          # the unit was already active — so the server kept the pre-import
+          # environment and every clipboard tool was dead again (server pid 2665,
+          # no WAYLAND_DISPLAY, while the waiter had already exited 0).
           After = [ "graphical-session.target" ];
         };
         Service = {
           Type = "oneshot";
           RemainAfterExit = true;
           # Poll the manager (the only place the imported value appears) every
-          # 200 ms for up to 10 s, then START herdr explicitly. An explicit
-          # start is what survives the ordering cycle systemd would otherwise
-          # resolve by dropping the target's own herdr job; the server's exec
-          # then inherits the value this loop just waited for. A timeout still
-          # starts nothing and exits 0, so neither unit ends up `failed` and a
-          # pre-login or headless boot does not burn the restart budget.
-          ExecStart = "/bin/sh -c 'for i in $(seq 50); do systemctl --user show-environment | grep -q \"^WAYLAND_DISPLAY=\" && break; sleep 0.2; done; systemctl --user start herdr.service || true'";
+          # 200 ms for up to 10 s. `break` rather than `exit` so the unit records
+          # success either way: on timeout herdr still starts, with whatever
+          # environment exists (on a host with no session that is the old
+          # behaviour, and its own socket guard decides the rest). A `failed`
+          # waiter would take herdr down with it through the Requires edge.
+          ExecStart = "/bin/sh -c 'for i in $(seq 50); do systemctl --user show-environment | grep -q \"^WAYLAND_DISPLAY=\" && break; sleep 0.2; done'";
         };
         Install.WantedBy = [ "graphical-session.target" ];
       };
@@ -126,6 +133,14 @@ lib.mkIf osConfig.local.dev.enable {
           Description = "herdr background server";
           StartLimitIntervalSec = 60;
           StartLimitBurst = 3;
+        }
+        # Ordering that actually holds: the server cannot start until the
+        # waiter has seen the session environment. Conditional (Wants) rather
+        # than hard (Requires) so the VM, which has no waiter unit at all, still
+        # starts herdr normally; `After` is what makes the wait effective.
+        // lib.optionalAttrs osConfig.local.desktop.enable {
+          Wants = [ "herdr-session-env.service" ];
+          After = [ "herdr-session-env.service" ];
         };
         Service = {
           # exec, not forking: `herdr server` stays in the foreground, so a
