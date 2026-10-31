@@ -124,7 +124,11 @@ lib.mkIf osConfig.local.dev.enable {
           # waiter would take herdr down with it through the Requires edge.
           ExecStart = "/bin/sh -c 'for i in $(seq 50); do systemctl --user show-environment | grep -q \"^WAYLAND_DISPLAY=\" && break; sleep 0.2; done'";
         };
-        Install.WantedBy = [ "graphical-session.target" ];
+        # NOT WantedBy the target: being in the same transaction as herdr is
+        # what closes the loop. herdr's Wants+After above is the only edge, with
+        # graphical-session.target reaching herdr, herdr reaching this unit —
+        # one direction, no cycle (verified: the unit start job survives).
+        Install.WantedBy = [ "herdr.service" ];
       };
     in
     {

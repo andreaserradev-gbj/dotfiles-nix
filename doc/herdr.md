@@ -122,8 +122,12 @@ Putting `Before=herdr.service` on the waiter instead is worse: herdr is
 `WantedBy` the same target, so the pair closes a loop
 (target → waiter → herdr → target) that systemd breaks by **deleting herdr's
 start job** (measured 08:02:05). Ordering from herdr's side, `Wants`+`After` on
-the waiter, gives the same guarantee with no cycle: verified with a probe, a main
-unit waited for a 2 s oneshot and started after it.
+the waiter, gives the same guarantee with no cycle — but only if the waiter is
+**not** also `WantedBy` the target: that puts both units in one transaction and
+the loop returns (measured 08:20:38, `Job herdr.service/start deleted`). The waiter
+is `WantedBy=herdr.service`, so the transaction runs target → herdr → waiter in one
+direction. Verified by loading the generated pair under test names: the waiter
+finished, then the server started, no cycle reported.
 
 The wait **cannot** live inside the herdr unit — this is the other non-obvious
 part. A process inherits its environment at exec, so polling `$WAYLAND_DISPLAY`
