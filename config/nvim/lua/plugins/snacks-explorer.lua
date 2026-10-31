@@ -21,11 +21,12 @@ return {
               -- first (confirm) and then hidden alive — wiping it would kill
               -- the buffer-local refresh autocmds upstream. Headless hosts
               -- (no DISPLAY/WAYLAND_DISPLAY) fall back to the raw buffer.
+              -- Non-md keeps the upstream `o` (explorer_open): system application.
               open_markdown_preview = function(picker)
                 local item = picker:current()
                 local path = item and (item.file or item._path)
                 if not path or not path:match("%.md$") then
-                  return picker:action("confirm")
+                  return picker:action("explorer_open")
                 end
                 if not vim.env.DISPLAY and not vim.env.WAYLAND_DISPLAY then
                   vim.notify("No display — opening raw buffer (no browser preview)")
