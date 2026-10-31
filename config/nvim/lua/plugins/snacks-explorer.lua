@@ -16,11 +16,13 @@ return {
                 vim.notify("Copied path: " .. path)
               end,
               -- `o` on a .md file opens ONLY the browser preview (mdkite via
-              -- xdg-open); in-buffer editing stays with render-markdown.nvim.
+              -- the system opener); in-buffer editing stays with
+              -- render-markdown.nvim.
               -- mdkite previews the *current* buffer, so the file is opened
               -- first (confirm) and then hidden alive — wiping it would kill
-              -- the buffer-local refresh autocmds upstream. Headless hosts
-              -- (no DISPLAY/WAYLAND_DISPLAY) fall back to the raw buffer.
+              -- the buffer-local refresh autocmds upstream. Headless Linux
+              -- hosts (no DISPLAY/WAYLAND_DISPLAY; macOS never sets them)
+              -- fall back to the raw buffer.
               -- Non-md keeps the upstream `o` (explorer_open): system application.
               open_markdown_preview = function(picker)
                 local item = picker:current()
@@ -28,7 +30,7 @@ return {
                 if not path or not path:match("%.md$") then
                   return picker:action("explorer_open")
                 end
-                if not vim.env.DISPLAY and not vim.env.WAYLAND_DISPLAY then
+                if vim.fn.has("mac") == 0 and not vim.env.DISPLAY and not vim.env.WAYLAND_DISPLAY then
                   vim.notify("No display — opening raw buffer (no browser preview)")
                   return picker:action("confirm")
                 end
