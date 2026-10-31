@@ -108,23 +108,34 @@ measured on 2026-10-31:
    starts the server at `Reached target Main User Target` — measured 07:34:27,
    ~70 s before login.
 
-The repair is a separate **waiter** unit, `herdr-session-env`, also
-session-scoped. It polls `systemctl --user show-environment` every 200 ms for up
-to 10 s and then `Wants=` herdr: the server is exec'd only after the import has
-landed, so its own exec inherits the right value. It exits 0 on timeout as well,
-keeping the pair `inactive` rather than `failed` so a pre-login or headless start
-does not burn the restart budget.
+The repair is inside the one unit: on a desktop host its `ExecStart` is not the
+binary but a small store script ([herdr.nix](../modules/home/herdr.nix),
+`herdrStart`) that polls `systemctl --user show-environment` every 200 ms for up
+to 10 s and then **`exec`s the server with the value it read**. The child gets an
+environment its parent never had, which is the only way this can work — polling
+`$WAYLAND_DISPLAY` from `ExecCondition` or `ExecStartPre` reads just the copy the
+process was born with (measured: a unit started without the variable still saw it
+absent after the manager imported it 0.5 s later).
 
-The wait **cannot** live inside the herdr unit — this is the non-obvious part.
-A process inherits its environment at exec, so polling `$WAYLAND_DISPLAY` from
-`ExecCondition` or `ExecStartPre` keeps re-reading the copy it was born with:
-measured, a unit started with the variable absent still saw it absent after the
-manager imported it 0.5 s later. Only a *different* process, which waits and
-then asks the manager to start the server, can see the new value.
+Three shapes were tried and abandoned before this one, and each failure is worth
+knowing because they all look reasonable:
 
-Both units are emitted only where `local.desktop.enable` is on. The VM's cage
-kiosk imports nothing into the user manager, so the poll could only time out;
-its herdr keeps starting on `default.target` as before.
+| shape | outcome |
+|---|---|
+| both units `WantedBy` the target | started in **parallel**; herdr won by 0.4 s, and the waiter's later `systemctl start` was a no-op on an active unit (08:14) |
+| `Before=herdr.service` on the waiter | ordering cycle `target → waiter → herdr → target`; systemd **deleted herdr's start job** (08:02) |
+| `Wants`/`After` on herdr, waiter still `WantedBy` the target | same cycle, reached from the other side; start job deleted again (08:20) |
+
+One unit has no second edge to cycle through, so none of those can recur. Do not
+re-introduce a second unit for this; if the wait ever has to move, it moves into
+the same `ExecStart`.
+
+The `ExecCondition` therefore also requires `WAYLAND_DISPLAY` on a desktop host.
+That is not redundant with the script: Home Manager's activation runs `sd-switch`,
+which starts new units itself (`Starting units: herdr.service`), so at boot the
+script would poll, time out after 10 s, and start the server without the value —
+the same failure by a slower route. Skipping instead leaves the unit `inactive`
+and the session target starts it later, once the import has landed.
 
 The herdr unit **yields instead of failing**: `ExecCondition` skips the start
 when another server already owns the socket (a terminal-launched one, say),

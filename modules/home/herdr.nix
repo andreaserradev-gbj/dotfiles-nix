@@ -57,67 +57,63 @@ lib.mkIf osConfig.local.dev.enable {
     $DRY_RUN_CMD ${herdrPkg}/bin/herdr plugin link ${herdrReviewrPlugin}
   '';
 
-  # The server as a systemd USER unit, plus a waiter that is what actually
-  # makes its environment correct. Both together are the fix; either alone is
-  # not. doc/herdr.md ("The unit") carries the incident and the measurements.
+  # The server as a systemd USER unit.
   #
-  # The invariant: the server's environment is inherited by every pane and every
-  # agent, and is fixed at exec. If it starts before the session environment is
-  # imported, every restored pane's agent runs without WAYLAND_DISPLAY and all
-  # clipboard tools fail. Binding the unit to default.target (boot) guaranteed
-  # that failure; binding it to graphical-session.target is necessary but NOT
-  # sufficient, because niri sets WAYLAND_DISPLAY itself and imports it a
-  # fraction of a second after that target is reached. Hence the waiter.
+  # THE INVARIANT: the server's environment is inherited by every pane and every
+  # agent, and it is fixed when the server execs. If it starts before the session
+  # environment is imported, every restored pane's agent runs without
+  # WAYLAND_DISPLAY and all clipboard tools fail (doc/herdr.md, "The unit").
   #
-  # graphical-session.target does not exist on a host without a session (the
-  # VM's cage kiosk starts none), so those hosts keep the boot target: there is
-  # no session import to race and panes inherit cage's own environment.
+  # `WantedBy=graphical-session.target` is necessary but NOT sufficient: niri
+  # SETS `WAYLAND_DISPLAY` itself — naming the socket it creates — and imports it
+  # into the user manager a fraction of a second AFTER that target is reached. So
+  # on a desktop host the unit does not exec herdr directly; ExecStart waits for
+  # the manager to have the variable and then execs the server with it.
+  #
+  # One unit, not two, and that is deliberate. A separate waiter has to be
+  # ordered against this one, and every ordering tried here closed a cycle with
+  # the target's transaction (target -> herdr -> waiter -> target), which systemd
+  # resolves by DELETING herdr's start job — twice measured, 08:02:05 and
+  # 08:20:38. Waiting inside the one unit has no second edge to cycle through.
+  #
+  # A child CAN be given an environment its parent lacks (verified: a unit with
+  # the variable absent exec'd `env` showing it after the manager imported it).
+  # That is why this works where polling `$WAYLAND_DISPLAY` from ExecCondition or
+  # ExecStartPre cannot — those read only the copy the process was born with.
   systemd.user.services =
     let
-      # WAITER, and the reason it exists: `WantedBy=graphical-session.target` does
-      # NOT mean the session environment is present when the server starts. niri
-      # SETS `WAYLAND_DISPLAY` itself (naming the socket it creates) and imports it
-      # into the user manager a fraction of a second AFTER the target is reached —
-      # measured: target at 07:48:18.19, the unit's condition at 07:48:17.76 saw no
-      # variable and skipped the start, so no server came up. Home Manager's
-      # sd-switch is the other half: it starts new units explicitly without
-      # consulting their target at all.
+      # The wait lives in a SCRIPT, not an inline `sh -c`: nested quoting in a
+      # systemd ExecStart is where the first attempts broke (a stray quote made
+      # the poll a no-op silently), and a store script is testable on its own.
       #
-      # The wait cannot live inside the herdr unit: a process inherits its
-      # environment at exec, so polling `$WAYLAND_DISPLAY` from ExecCondition or
-      # ExecStartPre keeps reading the copy it was born with (measured: a unit
-      # started with the variable absent still saw it absent after the manager
-      # imported it 0.5 s later). Only a process that waits and THEN asks the
-      # manager to start the server gets the imported value — which is this unit.
+      # It reads WAYLAND_DISPLAY out of the user manager — the only place the
+      # imported value appears — for up to ~10 s, then execs the server with it.
+      # A child CAN be given an environment its parent lacks (verified: a unit
+      # without the variable exec'd a child that had it), which is why this
+      # works where polling `$WAYLAND_DISPLAY` from ExecCondition or
+      # ExecStartPre cannot: those read only the copy the process was born with.
       #
-      # Desktop hosts only: the VM's cage kiosk imports nothing into the user
-      # manager, so the poll there could only ever time out; its herdr keeps
-      # starting on default.target as before.
-      sessionEnvWait = {
-        Unit = {
-          Description = "Wait for the graphical session environment, then start herdr";
-          # NO `Before=herdr.service`, and no `Wants=herdr.service` either: both
-          # are cycles. herdr is WantedBy this unit's own target, which makes
-          # herdr After=graphical-session.target, while this unit is After that
-          # same target — so ordering before herdr closes the loop
-          # target -> waiter -> herdr -> target. systemd reports it and, worse,
-          # breaks it by DELETING herdr's queued start job (measured 08:02:05),
-          # which is exactly the "still inactive" failure.
-          After = [ "graphical-session.target" ];
-        };
-        Service = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-          # Poll the manager (the only place the imported value appears) every
-          # 200 ms for up to 10 s, then START herdr explicitly. An explicit
-          # start is what survives the ordering cycle systemd would otherwise
-          # resolve by dropping the target's own herdr job; the server's exec
-          # then inherits the value this loop just waited for. A timeout still
-          # starts nothing and exits 0, so neither unit ends up `failed` and a
-          # pre-login or headless boot does not burn the restart budget.
-          ExecStart = "/bin/sh -c 'for i in $(seq 50); do systemctl --user show-environment | grep -q \"^WAYLAND_DISPLAY=\" && break; sleep 0.2; done; systemctl --user start herdr.service || true'";
-        };
-        Install.WantedBy = [ "graphical-session.target" ];
+      # After the timeout the server starts anyway, with whatever environment
+      # exists. On a desktop that is the failure this file fights, but a missing
+      # server is worse and the socket guard still decides ownership.
+      herdrStart = pkgs.writeTextFile {
+        name = "herdr-start";
+        executable = true;
+        destination = "/bin/herdr-start";
+        text = ''
+          #!${pkgs.runtimeShell}
+          set -eu
+          v=""
+          for _ in $(seq 50); do
+            v=$(systemctl --user show-environment 2>/dev/null | grep -E '^WAYLAND_DISPLAY=' || true)
+            [ -n "$v" ] && break
+            sleep 0.2
+          done
+          if [ -n "$v" ]; then
+            export "$v"
+          fi
+          exec ${herdrPkg}/bin/herdr server
+        '';
       };
     in
     {
@@ -128,29 +124,34 @@ lib.mkIf osConfig.local.dev.enable {
           StartLimitBurst = 3;
         };
         Service = {
-          # exec, not forking: `herdr server` stays in the foreground, so a
-          # forking unit would report a dead MainPID.
+          # exec, not forking: the server stays in the foreground, so a forking
+          # unit would report a dead MainPID. herdrStart ends in `exec`, so the
+          # server is still the unit's main process.
           Type = "exec";
           # Two servers cannot share one socket: without the guard, a
           # terminal-launched server makes the unit exit 1 and on-failure retries
           # into failed/start-limit-hit. String match — `herdr status server`
           # exits 0 in both states. ExecCondition belongs in [Service]; in [Unit]
           # it is silently ignored.
-          ExecCondition = "/bin/sh -c '! ${herdrPkg}/bin/herdr status server | grep -q \"^status: running\"'";
-          ExecStart = "${herdrPkg}/bin/herdr server";
+          ExecCondition =
+            "/bin/sh -c '! ${herdrPkg}/bin/herdr status server | grep -q \"^status: running\"'"
+            + lib.optionalString osConfig.local.desktop.enable " && test -n \"$WAYLAND_DISPLAY\"";
+          ExecStart =
+            if osConfig.local.desktop.enable then
+              "${herdrStart}/bin/herdr-start"
+            else
+              "${herdrPkg}/bin/herdr server";
           Restart = "on-failure";
           RestartSec = 5;
         };
         # Keyed on the same seam that decides whether a graphical session exists:
         # geekom (niri) gets a session-scoped server, the VM's cage kiosk — which
-        # starts no such target — keeps the boot one. See the block above.
+        # starts no such target — keeps the boot one. There is no session import
+        # to race there, and panes inherit cage's own environment.
         Install.WantedBy =
           lib.optionals (!osConfig.local.desktop.enable) [ "default.target" ]
           ++ lib.optionals osConfig.local.desktop.enable [ "graphical-session.target" ];
       };
-    }
-    // lib.optionalAttrs osConfig.local.desktop.enable {
-      herdr-session-env = sessionEnvWait;
     };
   # No HERDR_STARTUP_CWD: a client attach to a workspace-less server creates
   # the workspace itself (cwd $HOME) — the case on the VM, where the boot
