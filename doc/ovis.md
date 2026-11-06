@@ -135,8 +135,8 @@ Nix exempts from the network namespace.
 | tree | size | role |
 |---|---|---|
 | `nodeModulesDev` | 441 MiB x86_64 / 434 MiB aarch64 | build-only: `vite` and the client's own dependencies |
-| `nodeModulesProd` | 2.0 MiB | shipped: `jsonc-parser`, `qrcode-generator`, `web-push` |
-| final plugin root | 43 MiB | `dist` 37 + `server` 3.5 + `node_modules` 2.0 + `bin` 0.53 + `shared` 0.28 + `scripts` 0.05 |
+| `nodeModulesProd` | 4.1 MiB | shipped: `jsonc-parser`, `qrcode-generator`, `web-push`, `tweetnacl`, `base64-js`, `@noble/hashes`, `@noble/curves`, `@noble/ciphers` |
+| final plugin root | 44 MiB | `dist` 35 + `server` 4.1 + `node_modules` 4.1 + `bin` 0.53 + `shared` 0.5 + `scripts` 0.05 |
 
 The production tree is a **hand-written allowlist**, not `bun install
 --production`: that keeps every runtime dependency and resolves to 302 MiB, of
