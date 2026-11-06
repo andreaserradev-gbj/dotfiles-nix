@@ -1,5 +1,10 @@
 [
   "jsonc-parser",
   "qrcode-generator",
-  "web-push"
+  "web-push",
+  "tweetnacl",
+  "base64-js",
+  "@noble/hashes",
+  "@noble/curves",
+  "@noble/ciphers"
 ]
