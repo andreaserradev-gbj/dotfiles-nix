@@ -276,12 +276,56 @@ To move to a new release (e.g. 26.05 → 26.11):
 > after upgrading. The vm's `"Did you read the comment?"` marker exists to
 > guard exactly this.
 
-> **Pre-flight for the next jump (26.05 → 26.11):** verify `ollama-vulkan`
-> still exists as an attribute in the new nixpkgs and that the
-> `OLLAMA_IGPU_ENABLE` reasoning in `hosts/geekom/default.nix` still applies —
-> the vulkan backend is the fragile spot on the geekom box (see the
-> ROCm-regression comment there). A missing attribute fails at eval time, so
-> `nrp` catches it before anything is activated.
+> **Pre-flight for the next jump (26.05 → 26.11).** Each item is either an eval
+> failure or a diff line, so step 2 and step 3 above surface all of them except
+> the home-manager branch, which fails when the lock is written. What follows is
+> what to expect and where the fact lives.
+>
+> - `boot.initrd.verbose` is **removed** (`system/boot/stage-1.nix` registers it
+>   with `mkRemovedOptionModule`), and `hosts/geekom/greeter.nix` sets it:
+>   `error: The option 'boot.initrd.verbose' can no longer be used since it's
+>   been removed`. Delete the line; it silenced only the NixOS scripts' own
+>   messages, which the same file's `quiet`, `rd.udev.log_level=3` and
+>   `boot.consoleLogLevel` already cover, and `boot.initrd.systemd.enable`
+>   defaults true, so no scripted-stage-1 behaviour is lost. Removed alongside,
+>   unused here: `boot.initrd.extraFiles`, `boot.initrd.stage1Greeting`.
+> - `security.polkit.enablePkexecWrapper` is **opt-in**
+>   (`nixos/modules/security/polkit.nix`). GNOME and the noctalia-greeter
+>   module default it on; the niri session takes polkit from
+>   `programs/wayland/wayland-session.nix`, which does not, so geekom loses the
+>   wrapper `noctalia` calls to sync its appearance to the greeter ("secure
+>   greeter sync requires pkexec"). Set it on that host.
+>   `programs.fuse` is opt-in too and needs nothing: the niri session reaches it
+>   through `xdg.portal.enable`, defaulted true there, so both hosts keep
+>   `fusermount`/`fusermount3`.
+> - `ollama-vulkan` keeps its attribute path, and geekom installs it from
+>   `nixpkgs-unstable`, so the jump does not move it: the `OLLAMA_IGPU_ENABLE`
+>   reasoning in `hosts/geekom/default.nix` needs re-reading against the new
+>   release, not re-measuring (see the ROCm-regression comment there).
+> - `pkgs.brave` resolves from the new release. Switchover is a separate,
+>   earlier step, not part of the jump: the `brave` flake input follows our
+>   nixpkgs, so carrying it into a new release puts a third-party expression
+>   built against an untested nixpkgs in the commit that moves the kernel. The
+>   tripwire is the package path on the channel branch — 404 means the bump has
+>   not happened yet, 200 means switch over and drop the input,
+>   `brave.nixosModules.default` and the baseline entry:
+>
+>   ```sh
+>   curl -s -o /dev/null -w '%{http_code}\n' \
+>     https://raw.githubusercontent.com/NixOS/nixpkgs/nixos-26.05/pkgs/applications/networking/browsers/brave/default.nix
+>   ```
+>
+>   While the input is still present it shadows the missing attribute, so a
+>   throw from `pkgs/top-level/aliases.nix` means the input went away before the
+>   release carried the package.
+> - `home-manager/release-<new>` exists. HM branches are cut per NixOS release,
+>   so the second URL in [flake.nix](../flake.nix) resolves nothing before
+>   branch-off — attempting the edit early fails at lock time, not at eval.
+> - The jump is also the moment to take nixpkgs' own noctalia modules, or the
+>   overlay hides them: 26.11 ships `programs.noctalia` and
+>   `services.displayManager.noctalia-greeter`, while
+>   `hosts/geekom/default.nix` overlays `noctalia` from unstable and
+>   `hosts/geekom/greeter.nix` hand-wires the greeter for want of a module.
 
 Between releases, version bumps for fast-moving CLI tools (zellij) land on
 `nixos-unstable` only — they are not backported to the stable branch, so

@@ -168,6 +168,10 @@ in
     # none should be added. No version is named on purpose — a stale literal
     # reads as a verified fact, and eval is the check.
     #
+    # The input is a stopgap until a channel bump restores `pkgs.brave`;
+    # tripwire, switchover and the ordering against the release jump:
+    # doc/workflow.md, "Upgrading to a new NixOS release".
+    #
     # PDF work: three tools for three unrelated jobs.
     #   xournalpp   — annotate, and stamp a signature image onto a page
     #   pdfarranger — reorder, merge, split, rotate, delete pages
