@@ -7,11 +7,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793917222,
-        "narHash": "sha256-4rygrUarE8d+QcATL6SuT/62n57TDbw0PkWDI8jIqkA=",
+        "lastModified": 1794014811,
+        "narHash": "sha256-1kahbxlsma1KNavOrhBjgRnyzieWTwlij7DkkfDVxEQ=",
         "ref": "main",
-        "rev": "d03db5f694a668992e5d764b6c4a18baa2c572ee",
-        "revCount": 3,
+        "rev": "35bfbc3349e6145f9b4cc840b8c0ced7121c55a2",
+        "revCount": 5,
         "type": "git",
         "url": "https://codeberg.org/buckley310/brave-browser-nix"
       },
@@ -217,16 +217,16 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1793938338,
-        "narHash": "sha256-Vj8ZF3M4JF3P6hbHgyzCP2Ai4MzxmOAERoMwH283NGk=",
+        "lastModified": 1794014307,
+        "narHash": "sha256-yJao6bG6Y9BjLaY39I65dmfIqcpC4L8qwHaBXVVIjYw=",
         "owner": "can1357",
         "repo": "oh-my-pi",
-        "rev": "75e7801e247d4e3263439d4cc08ccad60dc64bdd",
+        "rev": "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
         "type": "github"
       },
       "original": {
         "owner": "can1357",
-        "ref": "v18.17.0",
+        "ref": "v18.18.0",
         "repo": "oh-my-pi",
         "type": "github"
       }
