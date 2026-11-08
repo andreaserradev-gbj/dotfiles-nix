@@ -45,6 +45,9 @@ jobs:
       # hook runs nixfmt alone. `--fail` is what makes deadnix a gate at all.
       - run: nix develop -c statix check .
       - run: nix develop -c deadnix --fail
+      # Shell lint, same binary the devShell ships. Scope is deliberate:
+      # bootstrap.sh + scripts/*.sh only — config/zsh/_pnpm is zsh, not shell.
+      - run: nix develop -c shellcheck -x bootstrap.sh scripts/*.sh
       # The registry's dead-code hazard: deadnix flags unused let bindings and
       # lambda patterns but NOT unused attrset entries, so an orphaned feature
       # entry passes every other gate (doc/dendritic-pattern.md, "A registry

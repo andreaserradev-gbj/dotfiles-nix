@@ -18,8 +18,14 @@ lib.mkIf osConfig.local.dev.enable {
     # 0.64.0 renamed it to `git.diffRenderers`. The config is a read-only store
     # symlink, so lazygit cannot auto-migrate it in place — a nixpkgs bump across
     # that boundary yields a config lazygit rejects. Re-check on each flake.lock
-    # bump.
+    # bump. The macOS copy spells it `git.diffRenderers` because it runs a newer
+    # lazygit: when syncing in either direction, port settings, never keys.
     settings = {
+      # delta renders side-by-side (~/.gitconfig `[delta]`), so the diff panel
+      # gets the room: narrower side column, no command log (`@` shows it for
+      # the session). Full-screen diff: `0` to focus it, then `+` twice.
+      gui.sidePanelWidth = 0.2;
+      gui.showCommandLog = false;
       git.pagers = [
         {
           colorArg = "always";

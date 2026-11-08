@@ -70,14 +70,25 @@ phone over SSH). `prefix+d` is deliberately not among them: reviewr owns it
 below. The bare singles are **arrows**, not `alt+hjkl`: neovim
 claims `alt+h` (toggle-hidden in grep/fzf pickers), and any bare alt-letter here
 swallows it before it reaches the pane. Arrows leave hjkl to the app inside the
-pane, and zellij already trains the Alt-arrow habit. Two upstream gaps worth
-knowing: there is **no quit key** (`prefix+q` *detaches* — the server keeps
+pane, and zellij already trains the Alt-arrow habit. Zoom's bare single is
+`alt+z`, not `alt+f`: once herdr has taken the arrows, `alt+f` is zsh's
+`forward-word` and the only word jump left inside a pane. Two upstream gaps
+worth knowing: there is **no quit key** (`prefix+q` *detaches* — the server keeps
 running; killing it is a CLI action), and wider zellij-mirror bindings were
 deliberately left out of the asset — extend it after testing, don't ship
 unverified keymap claims. Plugin actions bind as `[[keys.command]]` with
 `type = "plugin_action"` and the qualified `plugin.id.action`; reviewr's toggle
 lives on `prefix+d` (`prefix+r` is resize_mode, and bare alt-letters would
-swallow keys inside panes). `herdr config check` validates the asset and is a real gate, not a formality:
+swallow keys inside panes).
+
+Shell-out bindings use the same `[[keys.command]]` block with `type = "popup"`
+(a floating pane that takes all input until the command exits) or `"shell"`
+(background). `prefix+y` opens lazygit at 90% in the focused pane's directory
+(`HERDR_ACTIVE_PANE_CWD`), so the diff is one keystroke from the pane you were
+reading; `prefix+f` ("open the directory") is deliberately **not** bound — it is
+a Finder binding on macOS, geekom ships `xdg-open`/`nautilus` but the cage VM
+ships neither, and this one asset serves both hosts. `herdr config check`
+validates the asset and is a real gate, not a formality:
 a bad binding is reported and disabled (`invalid keybinding: … disabling
 binding`), a bogus key prints `unknown config key …; ignoring key`, and the
 exit is 1 either way (negative control measured on a throwaway copy via

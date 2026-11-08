@@ -68,6 +68,10 @@ lib.mkIf osConfig.local.dev.enable {
       lg2 = "eza --tree --level=2 --icons --git --git-ignore";
       lg3 = "eza --tree --level=3 --icons --git --git-ignore";
       ll = "eza -lg --icons";
+      # oh-my-zsh's lib/directories.zsh aliases `la` to `ls -lAh` and our
+      # aliases are emitted after it. Redefine it rather than leave `ls` in the
+      # mix; `-A` (almost-all) is the hidden-file half, `-g` matches `ll`.
+      la = "eza -lAg --icons";
 
       # `cdz` is zoxide (programs.zoxide below) under the name actually typed; an
       # alias nothing in the config reads is not dead code.
@@ -237,6 +241,13 @@ lib.mkIf osConfig.local.dev.enable {
         sudo nix-collect-garbage &&
         sudo /nix/var/nix/profiles/system/bin/switch-to-configuration boot
       }
+
+      # Alt+Left/Right move by word. Ghostty 1.3.1 binds no Alt+arrow by
+      # default, so a terminal sends the xterm sequence ESC [ 1 ; 3 D/C straight
+      # through — nothing to remap on the terminal side. Inside herdr those
+      # chords are consumed by pane focus, so ^[b/^[f remain the in-pane jump.
+      bindkey '^[[1;3D' backward-word
+      bindkey '^[[1;3C' forward-word
 
       export FZF_DEFAULT_OPTS="
           --style full

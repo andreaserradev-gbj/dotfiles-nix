@@ -8,6 +8,31 @@
 #
 # Lives in config/zsh/ rather than inline in modules/home/shell.nix so it stays
 # lintable zsh instead of nix-escaped text; shell.nix installs it into fpath.
+#
+# Two local additions, both ahead of the dispatcher: a guard, because pnpm is
+# usually only on PATH inside a dev shell and forking it outside one just
+# errors; and `pnpm run <TAB>`, because the completion-server lists scripts only
+# once a prefix is typed. That script branch RETURNS, so `pnpm run <TAB>` never
+# reaches the flag filter below.
+
+(( $+commands[pnpm] )) || return 1
+
+if (( CURRENT == 3 )) && [[ $words[2] == (run|run-script) ]] && (( $+commands[jq] )); then
+  local dir=$PWD
+  while [[ $dir != / && ! -f $dir/package.json ]]; do dir=${dir:h}; done
+  if [[ -f $dir/package.json ]]; then
+    local -a scripts
+    # _describe splits "name:description" at the first unescaped colon, so a
+    # colon inside a script name (build:credit-limits) has to be escaped.
+    scripts=(${(f)"$(jq -r '.scripts // {} | to_entries[]
+      | "\(.key | gsub(":"; "\\:")):\(.value | gsub("\n"; " "))"' \
+      "$dir/package.json" 2>/dev/null)"})
+    if (( $#scripts )); then
+      _describe 'script' scripts
+      return
+    fi
+  fi
+fi
 
 local -a reply
 local si=$IFS

@@ -220,6 +220,9 @@
             statix
             nil
             deadnix
+            # Same binary CI lints with, so `nix develop -c shellcheck -x …` is
+            # the reproducible form of the gate below.
+            shellcheck
             sops
             ssh-to-age
             age
