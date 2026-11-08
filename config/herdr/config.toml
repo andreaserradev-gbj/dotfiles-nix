@@ -26,7 +26,8 @@ name = "catppuccin"
 
 # Each action's trailing prefix+* entry is herdr's own default, re-declared for
 # Alt-less keyboards — a configured list replaces that action's default. Why:
-# doc/herdr.md.
+# doc/herdr.md. Zoom is alt+z, not alt+f: inside a pane alt+f is zsh's
+# forward-word, the only word jump left once herdr has taken the arrows.
 [keys]
 focus_pane_left  = ["prefix+alt+h", "alt+left", "prefix+h"]
 focus_pane_down  = ["prefix+alt+j", "alt+down", "prefix+j"]
@@ -34,10 +35,29 @@ focus_pane_up    = ["prefix+alt+k", "alt+up", "prefix+k"]
 focus_pane_right = ["prefix+alt+l", "alt+right", "prefix+l"]
 split_vertical   = ["alt+n", "prefix+v"]
 split_horizontal = ["alt+d", "prefix+minus"]
-zoom             = ["alt+f", "prefix+z"]
+zoom             = ["alt+z", "prefix+z"]
 new_tab          = ["alt+t", "prefix+c"]
 next_tab         = ["alt+shift+right", "prefix+n"]
 previous_tab     = ["alt+shift+left", "prefix+p"]
+
+# Shell-out bindings. `type` accepts `shell`, `pane`, `popup`, `plugin_action`
+# (herdr's own parse error lists exactly these; anything else is rejected);
+# `shell` runs it in the background, `popup` floats over the tab and takes all
+# input until the command exits, `description` is what prefix+? shows.
+# HERDR_ACTIVE_PANE_CWD is the focused pane's directory.
+#
+# prefix+f ("open the directory") is deliberately NOT bound here: it is a
+# macOS binding, geekom ships xdg-open/nautilus but the cage VM ships neither,
+# and this asset is shared by both hosts.
+#
+# prefix+y: lazygit in the focused pane's repo.
+[[keys.command]]
+key = "prefix+y"
+type = "popup"
+command = 'cd "$HERDR_ACTIVE_PANE_CWD" && lazygit'
+description = "lazygit in the pane's directory"
+width = "90%"
+height = "90%"
 
 # prefix+d is free (prefix+shift+d closes a workspace) and a bare alt-letter
 # would swallow that key inside pane apps.

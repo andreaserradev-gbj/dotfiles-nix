@@ -107,21 +107,30 @@ systems=(x86_64-linux aarch64-linux)
 # an upstream path/format change before it is vendored) and a marker regex
 # whose matched line is reported old -> new on re-vendor. Tools without
 # vendored assets simply declare no <tool>_asset_* arrays.
-herdr_asset_up=(src/integration/assets/omp/herdr-agent-state.ts)
-herdr_asset_dest=(config/omp/herdr-omp-agent-state.ts)
-herdr_asset_guard=('^// HERDR_INTEGRATION_ID=omp$')
-herdr_asset_marker=('^// HERDR_INTEGRATION_VERSION=')
-reviewr_asset_up=(herdr-plugin.toml)
-reviewr_asset_dest=(config/herdr/plugins/reviewr-herdr-plugin.toml)
-reviewr_asset_guard=('^id = "persiyanov.reviewr"$')
-reviewr_asset_marker=('^version = ')
-# The pristine upstream manifest. The derivation rewrites the launcher commands
-# on the way into the store, so this copy must stay byte-identical to the tag —
-# rewriting it here too would hide an upstream change to that launcher.
-ovis_asset_up=(herdr-plugin.toml)
-ovis_asset_dest=(config/ovis/ovis-herdr-plugin.toml)
-ovis_asset_guard=('^id = "devswha.ovis"$')
-ovis_asset_marker=('^version = ')
+#
+# SC2034 is disabled for this BLOCK only: shellcheck cannot see that
+# fetch/write_vendored_assets read these arrays through `local -n` namerefs. A
+# file-level disable would also hide a genuinely unused variable, so keep the
+# directive here, next to the declarations it excuses.
+# shellcheck disable=SC2034
+{
+  herdr_asset_up=(src/integration/assets/omp/herdr-agent-state.ts)
+  herdr_asset_dest=(config/omp/herdr-omp-agent-state.ts)
+  herdr_asset_guard=('^// HERDR_INTEGRATION_ID=omp$')
+  herdr_asset_marker=('^// HERDR_INTEGRATION_VERSION=')
+  reviewr_asset_up=(herdr-plugin.toml)
+  reviewr_asset_dest=(config/herdr/plugins/reviewr-herdr-plugin.toml)
+  reviewr_asset_guard=('^id = "persiyanov.reviewr"$')
+  reviewr_asset_marker=('^version = ')
+  # The pristine upstream manifest. The derivation rewrites the launcher
+  # commands on the way into the store, so this copy must stay byte-identical
+  # to the tag — rewriting it here too would hide an upstream change to that
+  # launcher.
+  ovis_asset_up=(herdr-plugin.toml)
+  ovis_asset_dest=(config/ovis/ovis-herdr-plugin.toml)
+  ovis_asset_guard=('^id = "devswha.ovis"$')
+  ovis_asset_marker=('^version = ')
+}
 
 case "$(uname -m)" in
   x86_64) host_system="x86_64-linux" ;;
