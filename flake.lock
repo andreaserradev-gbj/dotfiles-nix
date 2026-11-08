@@ -7,11 +7,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794014811,
-        "narHash": "sha256-1kahbxlsma1KNavOrhBjgRnyzieWTwlij7DkkfDVxEQ=",
+        "lastModified": 1794098541,
+        "narHash": "sha256-BcItUzUgcKeWxMr5ccY4Fyd26RnVPKCd/5DJAayhCgQ=",
         "ref": "main",
-        "rev": "35bfbc3349e6145f9b4cc840b8c0ced7121c55a2",
-        "revCount": 5,
+        "rev": "5a80e5bfadb4ba376038656f7dd840848a355b28",
+        "revCount": 6,
         "type": "git",
         "url": "https://codeberg.org/buckley310/brave-browser-nix"
       },
@@ -188,11 +188,11 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1793726008,
-        "narHash": "sha256-jQp1wKvbwWdLBASTXkSi/VYmDJ5AbBi1WvcMt9HWJC8=",
+        "lastModified": 1793876309,
+        "narHash": "sha256-Wojg9lIH/hDH91iDVH2/EPw8oDSpxjxhXONbU1yf4Zg=",
         "owner": "NixOs",
         "repo": "nixpkgs",
-        "rev": "1d060086d60cb76a40cf37109f979d88a5bd6396",
+        "rev": "f9a75f41be3a74eab55d3a7679d34ad6cc0da977",
         "type": "github"
       },
       "original": {
@@ -217,16 +217,16 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1794014307,
-        "narHash": "sha256-yJao6bG6Y9BjLaY39I65dmfIqcpC4L8qwHaBXVVIjYw=",
+        "lastModified": 1794096864,
+        "narHash": "sha256-vMdG/xSsGezg1gQcUP0brpnt5P6cRPzd/dKaaZ+5i0s=",
         "owner": "can1357",
         "repo": "oh-my-pi",
-        "rev": "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+        "rev": "24439066040e006eb08da7b204f0ac41c79d2de9",
         "type": "github"
       },
       "original": {
         "owner": "can1357",
-        "ref": "v18.18.0",
+        "ref": "v18.18.1",
         "repo": "oh-my-pi",
         "type": "github"
       }
