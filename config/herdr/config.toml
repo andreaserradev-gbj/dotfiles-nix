@@ -59,6 +59,34 @@ description = "lazygit in the pane's directory"
 width = "90%"
 height = "90%"
 
+# prefix+shift+y: dev-workflow dashboard TUI (`devdash`, zsh initContent in
+# modules/home/shell.nix), next to lazygit on prefix+y. It is a shell function
+# and node comes from the dev seam, so it needs an interactive zsh. Scans the
+# pane's directory unless ~/.config/dev-dashboard/config.json sets scanDirs.
+[[keys.command]]
+key = "prefix+shift+y"
+type = "popup"
+command = 'cd "$HERDR_ACTIVE_PANE_CWD" && exec zsh -ic devdash'
+description = "dev-workflow dashboard"
+width = "90%"
+height = "90%"
+
+# prefix+shift+n: neovim on the pane's directory (`nv`, shell.nix alias).
+# Through an interactive zsh so the alias resolves and LSPs get the dev
+# seam's node.
+#
+# SHADOWING TRAP: prefix+shift+n is herdr's DEFAULT new_workspace binding
+# (config/keybinds.rs: user bindings are registered before defaults, and a
+# default that collides is dropped silently, no diagnostic). New workspace
+# then comes from the sidebar or `herdr workspace new`, or bind it elsewhere.
+[[keys.command]]
+key = "prefix+shift+n"
+type = "popup"
+command = 'cd "$HERDR_ACTIVE_PANE_CWD" && exec zsh -ic "nv ."'
+description = "neovim in the pane's directory"
+width = "90%"
+height = "90%"
+
 # prefix+d is free (prefix+shift+d closes a workspace) and a bare alt-letter
 # would swallow that key inside pane apps.
 [[keys.command]]

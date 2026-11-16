@@ -85,9 +85,28 @@ Shell-out bindings use the same `[[keys.command]]` block with `type = "popup"`
 (a floating pane that takes all input until the command exits) or `"shell"`
 (background). `prefix+y` opens lazygit at 90% in the focused pane's directory
 (`HERDR_ACTIVE_PANE_CWD`), so the diff is one keystroke from the pane you were
-reading; `prefix+f` ("open the directory") is deliberately **not** bound — it is
-a Finder binding on macOS, geekom ships `xdg-open`/`nautilus` but the cage VM
-ships neither, and this one asset serves both hosts. `herdr config check`
+reading; `prefix+shift+y` opens the dev-workflow dashboard TUI next to it
+(`devdash`, a zsh function in [shell.nix](../modules/home/shell.nix) — the skill
+is npx-installed, so the function resolves it at call time), and
+`prefix+shift+n` opens neovim on the pane's directory (`nv .`); both go through
+an interactive zsh because neither target is a plain binary (the dashboard is a
+shell function, and `nv` is an alias). `prefix+f` ("open the directory") is
+deliberately **not** bound — it is a Finder binding on macOS, geekom ships
+`xdg-open`/`nautilus` but the cage VM ships neither, and this one asset serves
+both hosts.
+
+**Shadowing trap.** `prefix+shift+n` is herdr's own default for
+`new_workspace`, and a `[[keys.command]]` on a default's chord wins
+*statically*: user bindings register before defaults, and a default that
+collides is dropped with no diagnostic (`src/config/keybinds.rs`, the
+`source == Default && first.source == User` early return in `reject_binding`).
+`herdr config check` therefore still says `config: ok` — only a
+user-vs-user collision is reported (`kept keys.command[0].key, disabled …`).
+New workspace is then reachable from the sidebar or `herdr workspace new`; to
+get the chord back, move the action, e.g. `new_workspace = "prefix+shift+m"`
+under `[keys]` (measured: `config check` stays clean either way).
+
+`herdr config check`
 validates the asset and is a real gate, not a formality:
 a bad binding is reported and disabled (`invalid keybinding: … disabling
 binding`), a bogus key prints `unknown config key …; ignoring key`, and the

@@ -134,6 +134,22 @@ lib.mkIf osConfig.local.dev.enable {
       fcd() { cd "$(find . -type d -not -path '*/.*' | fzf)" && l; }
       fv()  { nvim "$(find . -type f -not -path '*/.*' | fzf)"; }
 
+      # devdash — launch the dev-workflow plugin's dashboard TUI. The skill is
+      # npx-installed (unversioned, unlike the macOS copy's Claude plugin
+      # registry), so it is looked up in the two skill roots the installer
+      # writes, at call time. Extra args pass through (`--scan <dir>`).
+      devdash() {
+        local dir
+        for dir in "$HOME/.agents/skills/dev-dashboard-tui" "$HOME/.claude/skills/dev-dashboard-tui"; do
+          if [ -f "$dir/scripts/launch.sh" ]; then
+            bash "$dir/scripts/launch.sh" "$@"
+            return
+          fi
+        done
+        print -ru2 -- 'devdash: dev-dashboard-tui skill not installed (npx skills add andreaserradev-gbj/dev-workflow)'
+        return 1
+      }
+
       # vts — serve the current project's Vite dev server to the phone over the
       # tailnet. Three flags are load-bearing, not taste: `--host 127.0.0.1`
       # because Vite binds ::1 by default and `tailscale serve` proxies only to

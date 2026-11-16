@@ -126,9 +126,14 @@
             "keyColor": "#bb8af4",
         },
         {
-            "type": "terminalfont",
-            "key": "│ ├",
+            // fastfetch's built-in TerminalFont reports nothing when the shell
+            // runs inside herdr (it asks herdr, not the terminal under it), so
+            // the font is read from the terminal's own config: ghostty first,
+            // foot on the VM (no desktop there, so no ghostty).
+            "type": "command",
+            "key": "│ ├",
             "keyColor": "#bb8af4",
+            "text": "f=$(ghostty +show-config 2>/dev/null | sed -n 's/^font-family = //p' | head -n1); [ -n \"$f\" ] || f=$(sed -n 's/^font *= *\\([^,:]*\\).*/\\1/p' ~/.config/foot/foot.ini 2>/dev/null | head -n1); printf '%s\\n' \"$f\""
         },
         {
             "type": "terminal",
