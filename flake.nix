@@ -44,7 +44,7 @@
     # add a third nixpkgs tree for zero benefit. What this repo installs is the
     # prebuilt release from tool-pins.json, not the from-source build (doc/omp.md).
     omp = {
-      url = "github:can1357/oh-my-pi?ref=v18.20.3";
+      url = "github:can1357/oh-my-pi?ref=v18.22.2";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
       inputs.nixpkgs-darwin-x64.follows = "nixpkgs";
     };
