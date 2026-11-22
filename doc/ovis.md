@@ -25,10 +25,10 @@ config.
 | plugin root (Bun server, built client, runtime deps, Rust PTY host) | Nix | built from the pinned tag by [ovis-prebuilt.nix](../modules/home/ovis-prebuilt.nix); version, source hash, both dependency trees and the PTY-host hash from the `ovis` entry in [tool-pins.json](../modules/home/tool-pins.json) |
 | `~/.config/herdr/plugins/config/devswha.ovis/env` | Nix | `xdg.configFile`, a store symlink to the verbatim asset [config/ovis/env](../config/ovis/env) |
 | herdr plugin registry entry (`devswha.ovis`) | Nix | `home.activation` runs `herdr plugin link` on the store path every switch — the [reviewr](herdr.md) pattern |
-| the manifest's launcher commands | Nix, at build time | `["sh","scripts/with-bun.sh",…]` is rewritten to `${bun}/bin/bun` in the store copy; the vendored [config/ovis/ovis-herdr-plugin.toml](../config/ovis/ovis-herdr-plugin.toml) stays pristine and `nfb` re-fetches it with the pin |
+| the manifest's commands | Nix, at build time | `["sh","scripts/with-bun.sh",…]` becomes `${bun}/bin/bun`, `scripts/plugin-launch.ts` becomes `scripts/plugin.ts`, and the `[[build]]` entries are dropped; the vendored [config/ovis/ovis-herdr-plugin.toml](../config/ovis/ovis-herdr-plugin.toml) stays pristine and `nfb` re-fetches it with the pin |
 | `~/.config/ovis/` | runtime state | written by the server on first start — see "State files" below |
-| `~/.local/state/herdr/plugins/devswha.ovis/` | runtime state | `server.log` and `server.pid`, written by the plugin launcher under the state dir herdr gives it |
-| the autostart hook | Nix, upstream | the plugin's `[[startup]]` entry runs `scripts/plugin-launch.ts start` once per herdr start; herdr is a session-scoped user unit ([herdr.md](herdr.md)), so ovis comes up with the session and nothing new supervises anything |
+| `~/.local/state/herdr/plugins/devswha.ovis/` | runtime state | `server.log` and `server.pid`, written by `scripts/plugin.ts` under the state dir herdr gives it |
+| the autostart hook | Nix, upstream | the plugin's `[[startup]]` entry runs `scripts/plugin.ts start` once per herdr start; herdr is a session-scoped user unit ([herdr.md](herdr.md)), so ovis comes up with the session and nothing new supervises anything |
 
 **Nothing writes back into the store.** The plugin root is read-only, and that is
 deliberate: the update checker runs `git rev-parse HEAD`, fails because there is
@@ -158,21 +158,24 @@ which the server and the built client load nothing. The list lives in
 `nfb` and the derivation read one copy; it is gated, because a hand-written list
 drifts.
 
-There are **two** `bun build` gates, and they fail on different mistakes:
+There are **three** checks, and they fail on different mistakes:
 
-- In `buildPhase`, over the prod dependency tree: it proves the allowlist is
-  complete. `scripts/plugin.ts` is in scope because it imports
+- In `buildPhase`, over the prod dependency tree: `bun build` proves the
+  allowlist is complete. `scripts/plugin.ts` is in scope because it imports
   `qrcode-generator`, which a `server/`-only check misses — a `server/`-only
   allowlist really did break `plugin.ts status`.
-- In `installPhase`, over `$out`: it proves the *copy* is complete. The same
-  entry points are bundled again from the installed tree, so a module the
-  installPhase list forgot, or one upstream added between tags, fails the build
-  and names itself. This gate exists because a green build once shipped a plugin
-  whose manifest pointed at `scripts/plugin-launch.ts`, a file the store did not
-  contain: the first gate covered packages only, and every command died with
-  "Module not found" after a successful link.
+- In `installPhase`, over `$out`: the same `bun build`, so it proves the *copy*
+  is complete — a module the installPhase list forgot, or one upstream added
+  between tags, fails the build and names itself.
+- In `installPhase`, over the rewritten manifest: every `scripts/`- or
+  `server/`-path a command names must exist in `$out`. `bun build` follows
+  imports, not manifest strings, so it cannot see this one.
 
-Both must run **after** the dev tree is swapped for the prod tree. A gate run
+The last two exist because a green build once shipped a plugin whose manifest
+pointed at `scripts/plugin-launch.ts`, a file the store did not contain: the
+gate covered packages only, and every command died after a successful link.
+
+All of them run **after** the dev tree is swapped for the prod tree. A gate run
 against the dev tree resolves everything and can never fail — that bug was
 written and caught here.
 
@@ -207,33 +210,47 @@ Node, and upstream marks the arm64 `node-pty` "not tested". If the host ever fai
 its probe, panes fall back to mirrored repaints and the log says
 `PTY host: none … panes are mirrored`.
 
-### The manifest's `[[build]]` entries are inert here
+### The manifest is rewritten to run `scripts/plugin.ts`
 
-The substitution rewrites **every** `["sh", "scripts/with-bun.sh", …]` occurrence —
-three `[[build]]`, one `[[startup]]`, three `[[actions]]` and one `[[panes]]`. What
-survives untouched are the entries that name a script this build does not ship:
-`scripts/preflight.sh`, `scripts/preflight.ps1` and `scripts/plugin.ps1` (the
-powershell forms). So the manifest still carries seven `[[build]]` entries, three of
-them naming a path absent from the store root. They cannot run:
+Two upstream shapes are undone on the way into the store, by
+[rewrite-ovis-manifest.ts](../modules/home/rewrite-ovis-manifest.ts):
 
-- `herdr plugin link` parses the entries and never executes them (measured: a
-  build entry that touches a file creates nothing on link).
-- `herdr plugin update` refuses a linked plugin outright — `plugin is locally
-  linked and cannot be updated` — so there is no update path that would run them.
+- **The launcher is repointed.** Upstream's commands run
+  `scripts/plugin-launch.ts`, a *source-checkout* entry point: it installs the
+  release's server into `$root/.ovis/server` before running anything. A store
+  path is read-only, so every one of its commands died with
+  `EROFS: read-only file system, mkdir '…/.ovis'` — herdr's own startup log,
+  exit 1. `scripts/plugin.ts` needs nothing writable under the root: it runs the
+  tree in place and keeps state under `HERDR_PLUGIN_STATE_DIR`. It is what
+  0.5.3's manifest called, before upstream moved to the launcher.
+- **The `[[build]]` entries are dropped.** They are the checkout's own installer
+  (preflight, then `plugin-launch.ts install`) for a tree Nix already built, and
+  herdr runs build entries only when it installs a plugin from a source — never
+  for `plugin link` (measured: a linked probe plugin's build entry never ran).
+  They could only fail, and after the repoint they would name a file that is no
+  longer shipped.
 
-If a future herdr version did run them, they would fail loudly on the missing
-script rather than half-succeed. Stripping the block instead was rejected: a TOML
-block-skipper in `installPhase` would have to parse the manifest, and the
-assertions that matter (`id`, `version`, `min_herdr_version`, no `with-bun.sh`)
-are already there.
+`plugin.ps1` embeds the launcher path itself, so it is rewritten too. The build
+fails if either rewrite missed (`grep plugin-launch`, `grep '^\[\[build\]\]'`)
+or if the shipped manifest names any `scripts/`- or `server/`-path that does not
+exist in `$out`.
+
+The vendored [config/ovis/ovis-herdr-plugin.toml](../config/ovis/ovis-herdr-plugin.toml)
+stays byte-identical to the tag — that is what `nfb` diffs and re-fetches; the
+rewrite happens only in the store copy.
+
+The `.sh`/`.ps1` launcher helpers (`with-bun.sh`, `preflight.*`,
+`plugin-launch.ts`, `server-install.ts`, `server-manifest.ts`, `pty-sidecar.ts`)
+are not shipped at all: nothing the manifest runs reaches them.
 
 ### `bun` comes from `nixpkgs-unstable`
 
-Pinned 26.05 ships 1.3.13, and upstream's `scripts/preflight.sh` rejects
-`0.*` and `1.[0-3].*`; unstable ships 1.4.2. It is the interpreter named by
-absolute path in the manifest, so a stable `bun` would be rejected at install
-time. Threaded through `home-manager.extraSpecialArgs` and referenced **only**
-inside the dev gate — the rule at the bottom of [flake.nix](../flake.nix).
+Pinned 26.05 ships 1.3.13, and upstream requires 1.4 or newer (its
+`scripts/preflight.sh` rejects `0.*` and `1.[0-3].*`); unstable ships 1.4.4. It
+is the interpreter named by absolute path in the manifest **and** the one that
+builds the client, so a stable `bun` would fail either way. Threaded through
+`home-manager.extraSpecialArgs` and referenced **only** inside the dev gate — the
+rule at the bottom of [flake.nix](../flake.nix).
 
 ## Tailnet runbook
 
@@ -348,6 +365,8 @@ confirm the recorded trees still match after a `nixpkgs` change.
 | symptom | first check |
 |---|---|
 | `start` exits 127 mentioning `bun not found` | the manifest was not rewritten — `grep with-bun.sh` the store copy |
+| `start` exits 1 with `EROFS … mkdir '…/.ovis'` | the manifest still runs `scripts/plugin-launch.ts`, which wants a writable checkout — `grep plugin-launch` the store copy; [rewrite-ovis-manifest.ts](../modules/home/rewrite-ovis-manifest.ts) should have repointed it to `scripts/plugin.ts` |
+| `herdr plugin log list` shows a `startup` failure | that log holds the last run's exit code and stderr; compare its `finished_unix_ms` with `date +%s` — an entry older than the last `herdr plugin link` is the previous generation's |
 | `/api/health` says `terminal_attach: false` | the PTY host's record: `sha256` must equal the binary's, `version` must equal `package.json`'s |
 | `server did not answer …/api/health` | `~/.local/state/herdr/plugins/devswha.ovis/server.log`, last lines |
 | the plugin is missing from herdr | `herdr plugin list --json`; a failed link fails the switch, so a switch that went through linked it |

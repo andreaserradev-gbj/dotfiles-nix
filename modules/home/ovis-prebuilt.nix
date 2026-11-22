@@ -123,12 +123,11 @@ let
     hash = ptyHostHash;
   };
 
-  # What herdr can launch: the manifest's commands, plus the entry points the
-  # compiled binary exposes (server/entries.ts, ENTRIES). One list, read by both
-  # closure gates and by the check that each file exists in the shipped tree, so
-  # a name cannot be in one place and missing from another.
+  # What herdr can launch: the manifest's commands (scripts/plugin.ts), plus the
+  # entry points the compiled binary exposes (server/entries.ts, ENTRIES). One
+  # list, read by both closure gates and by the check that each file exists in
+  # the shipped tree, so a name cannot be in one place and missing from another.
   entryPoints = [
-    "scripts/plugin-launch.ts"
     "scripts/plugin.ts"
     "scripts/plugin-port.ts"
     "scripts/plugin-runtime.ts"
@@ -143,12 +142,13 @@ let
     "server/browser-mcp.ts"
   ];
 
-  # The scripts the manifest and the launcher reach, by name. Not "all of
-  # scripts/": upstream keeps 400+ browser-QA and fixture scripts there, 7 MiB
-  # of nothing a running plugin reads. The closure gate re-bundles from $out, so
-  # a file missing here fails the build instead of shipping.
+  # The scripts the manifest's commands reach, by name — the closure of
+  # scripts/plugin.ts, which is the only entry point left (see the manifest
+  # rewrite in installPhase). Not "all of scripts/": upstream keeps 400+
+  # browser-QA and fixture scripts there, 7 MiB of nothing a running plugin
+  # reads. The installed-tree gate re-bundles from $out, so a file missing here
+  # fails the build instead of shipping.
   scriptsClosure = [
-    "plugin-launch.ts"
     "plugin.ts"
     "plugin-port.ts"
     "plugin-runtime.ts"
@@ -157,13 +157,7 @@ let
     "plugin-link.ts"
     "plugin-recover.ts"
     "plugin-confirm.ts"
-    "pty-sidecar.ts"
-    "server-install.ts"
-    "server-manifest.ts"
-    "preflight.sh"
-    "preflight.ps1"
     "plugin.ps1"
-    "bun-path.sh"
   ];
 
   # The vendored upstream manifest, re-fetched by nfb in lockstep with the pin.
@@ -271,8 +265,39 @@ stdenvNoCC.mkDerivation {
     cp ${manifestSrc} herdr-plugin.toml
     substituteInPlace herdr-plugin.toml \
       --replace-fail '["sh", "scripts/with-bun.sh", ' '["${lib.getExe bun}", '
+
+    # The launcher is a SOURCE-CHECKOUT entry point: scripts/plugin-launch.ts
+    # installs the release's server into `$root/.ovis/server` before running
+    # anything, and a store path is read-only, so every command it carries ends
+    # in `EROFS: read-only file system, mkdir '…/.ovis'` (measured: herdr's own
+    # startup log, exit 1). scripts/plugin.ts needs nothing writable under the
+    # root — it runs the tree in place and keeps its state under
+    # HERDR_PLUGIN_STATE_DIR — and it is what 0.5.3's manifest called, before
+    # upstream moved to the launcher.
+    #
+    # The [[build]] steps go with it: they are the checkout's own installer
+    # (preflight, then `plugin-launch.ts install`) for a tree Nix already built,
+    # and herdr runs them only when it installs a plugin from a source, never for
+    # `plugin link` (measured: a linked probe plugin's build step never ran).
+    ${lib.getExe bun} run ${./rewrite-ovis-manifest.ts} herdr-plugin.toml
+
+    # plugin.ps1 embeds the launcher path itself, so the manifest rewrite alone
+    # would leave Windows pointing at it.
+    substituteInPlace "$out/scripts/plugin.ps1" \
+      --replace-fail 'plugin-launch.ts' 'plugin.ts'
+
     if grep -q 'with-bun.sh' herdr-plugin.toml; then
       echo "ovis: herdr-plugin.toml still launches through scripts/with-bun.sh" >&2
+      exit 1
+    fi
+    # A missed rewrite ships a plugin whose every command fails on a read-only
+    # root; a missed [[build]] drop ships an installer for a tree already built.
+    if grep -q 'plugin-launch' herdr-plugin.toml "$out/scripts/plugin.ps1"; then
+      echo "ovis: the shipped manifest or plugin.ps1 still names scripts/plugin-launch.ts" >&2
+      exit 1
+    fi
+    if grep -q '^\[\[build\]\]' herdr-plugin.toml; then
+      echo "ovis: herdr-plugin.toml still carries [[build]] steps" >&2
       exit 1
     fi
 
@@ -294,6 +319,21 @@ stdenvNoCC.mkDerivation {
     ( cd "$out" && ${lib.getExe bun} build \
       ${lib.escapeShellArgs entryPoints} \
       --target=bun --outdir="$TMPDIR/installed-gate" )
+
+    # Every command the manifest runs must exist in the tree that ships: read
+    # the paths out of the rewritten manifest and check each one. Bun resolves
+    # imports, not manifest strings, so nothing above covers this.
+    ${lib.getExe bun} -e '
+      import { existsSync } from "node:fs";
+      const out = process.argv[1];
+      const text = await Bun.file(out + "/herdr-plugin.toml").text();
+      const paths = [...text.matchAll(/"((?:scripts|server)\/[^"]+)"/g)].map((m) => m[1]);
+      const missing = paths.filter((p) => !existsSync(out + "/" + p));
+      if (missing.length) {
+        console.error("ovis: manifest names missing files: " + missing.join(", "));
+        process.exit(1);
+      }
+    ' "$out"
 
     runHook postInstall
   '';
