@@ -161,16 +161,10 @@ in
     # if sane-airscan ever regresses — re-enable by deleting this line.
     hardware.sane.disabledDefaultBackends = [ "escl" ];
 
-    # Brave comes from the `brave` flake input's overlay (see flake.nix), which
-    # makes `pkgs.brave` here resolve. It has no NixOS module (unlike
-    # programs.firefox), so it goes in as a plain package. MPL-2.0 with
-    # meta.unfree = false: no allowUnfreePredicate entry in common.nix, and
-    # none should be added. No version is named on purpose — a stale literal
-    # reads as a verified fact, and eval is the check.
-    #
-    # The input is a stopgap until a channel bump restores `pkgs.brave`;
-    # tripwire, switchover and the ordering against the release jump:
-    # doc/workflow.md, "Upgrading to a new NixOS release".
+    # Brave is in nixpkgs. No NixOS module, so it goes in as a plain package.
+    # MPL-2.0 with meta.unfree = false: no allowUnfreePredicate entry in
+    # common.nix, and none should be added. No version is named on purpose — a
+    # stale literal reads as a verified fact, and eval is the check.
     #
     # PDF work: three tools for three unrelated jobs.
     #   xournalpp   — annotate, and stamp a signature image onto a page

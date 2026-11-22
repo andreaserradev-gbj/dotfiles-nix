@@ -22,17 +22,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # brave lives outside nixpkgs (dropped by its browser-security policy: no
-    # committer among the maintainers). This flake continues the package from
-    # upstream's release binaries, hash-pinned — the omp-prebuilt trust trade
-    # (doc/omp.md). MPL-2.0, meta.unfree = false: no allowUnfree wiring, ever.
-    # `?ref=main` rides `nfu` on purpose — a browser must track security
-    # releases; if their main breaks eval, pin a rev in this URL until it heals.
-    brave = {
-      url = "git+https://codeberg.org/buckley310/brave-browser-nix?ref=main";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # Not in nixpkgs, so the package comes from upstream's flake, TAG-PINNED —
     # an unpinned github: input moves on every `nfu`. This `?ref=` must stay a
     # literal (Nix's flake parser), so `nfb` (scripts/nfb.sh) rewrites it
@@ -56,7 +45,6 @@
       nixpkgs-unstable,
       home-manager,
       sops-nix,
-      brave,
       omp,
       ...
     }:
@@ -109,10 +97,6 @@
         # `mkIf (cfg.secrets != {})`, and hplaptop is deliberately not a recipient.
         # Kept here so a host opting in later is a one-line change.
         sops-nix.nixosModules.sops
-        # An overlay making `pkgs.brave` resolve from the brave input for
-        # features/desktop/nixos.nix. Inert on a host that never forces the
-        # attribute — the VM's closure does not move from it.
-        brave.nixosModules.default
         home-manager.nixosModules.home-manager
         (
           {

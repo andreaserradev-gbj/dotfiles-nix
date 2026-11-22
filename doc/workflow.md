@@ -302,22 +302,6 @@ To move to a new release (e.g. 26.05 → 26.11):
 >   `nixpkgs-unstable`, so the jump does not move it: the `OLLAMA_IGPU_ENABLE`
 >   reasoning in `hosts/geekom/default.nix` needs re-reading against the new
 >   release, not re-measuring (see the ROCm-regression comment there).
-> - `pkgs.brave` resolves from the new release. Switchover is a separate,
->   earlier step, not part of the jump: the `brave` flake input follows our
->   nixpkgs, so carrying it into a new release puts a third-party expression
->   built against an untested nixpkgs in the commit that moves the kernel. The
->   tripwire is the package path on the channel branch — 404 means the bump has
->   not happened yet, 200 means switch over and drop the input,
->   `brave.nixosModules.default` and the baseline entry:
->
->   ```sh
->   curl -s -o /dev/null -w '%{http_code}\n' \
->     https://raw.githubusercontent.com/NixOS/nixpkgs/nixos-26.05/pkgs/applications/networking/browsers/brave/default.nix
->   ```
->
->   While the input is still present it shadows the missing attribute, so a
->   throw from `pkgs/top-level/aliases.nix` means the input went away before the
->   release carried the package.
 > - `home-manager/release-<new>` exists. HM branches are cut per NixOS release,
 >   so the second URL in [flake.nix](../flake.nix) resolves nothing before
 >   branch-off — attempting the edit early fails at lock time, not at eval.
