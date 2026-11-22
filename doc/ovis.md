@@ -28,7 +28,7 @@ config.
 | the manifest's launcher commands | Nix, at build time | `["sh","scripts/with-bun.sh",…]` is rewritten to `${bun}/bin/bun` in the store copy; the vendored [config/ovis/ovis-herdr-plugin.toml](../config/ovis/ovis-herdr-plugin.toml) stays pristine and `nfb` re-fetches it with the pin |
 | `~/.config/ovis/` | runtime state | written by the server on first start — see "State files" below |
 | `~/.local/state/herdr/plugins/devswha.ovis/` | runtime state | `server.log` and `server.pid`, written by the plugin launcher under the state dir herdr gives it |
-| the autostart hook | Nix, upstream | the plugin's `[[startup]]` entry runs `scripts/plugin.ts start` once per herdr start; herdr is a session-scoped user unit ([herdr.md](herdr.md)), so ovis comes up with the session and nothing new supervises anything |
+| the autostart hook | Nix, upstream | the plugin's `[[startup]]` entry runs `scripts/plugin-launch.ts start` once per herdr start; herdr is a session-scoped user unit ([herdr.md](herdr.md)), so ovis comes up with the session and nothing new supervises anything |
 
 **Nothing writes back into the store.** The plugin root is read-only, and that is
 deliberate: the update checker runs `git rev-parse HEAD`, fails because there is
@@ -135,8 +135,21 @@ Nix exempts from the network namespace.
 | tree | size | role |
 |---|---|---|
 | `nodeModulesDev` | 441 MiB x86_64 / 434 MiB aarch64 | build-only: `vite` and the client's own dependencies |
-| `nodeModulesProd` | 4.1 MiB | shipped: `jsonc-parser`, `qrcode-generator`, `web-push`, `tweetnacl`, `base64-js`, `@noble/hashes`, `@noble/curves`, `@noble/ciphers` |
-| final plugin root | 44 MiB | `dist` 35 + `server` 4.1 + `node_modules` 4.1 + `bin` 0.53 + `shared` 0.5 + `scripts` 0.05 |
+| `nodeModulesProd` | 5.5 MiB | shipped: `jsonc-parser`, `qrcode-generator`, `react`, `web-push`, `tweetnacl`, `base64-js`, `@noble/hashes`, `@noble/curves`, `@noble/ciphers` |
+| final plugin root | 65 MiB | `dist` 43 + `server` 8 + `node_modules` 6 + `src/lib` 5 + `shared` 4 + `bin` 1 + `scripts` 1 |
+
+`src/lib` is in the shipped root because the plugin scripts reach it at run
+time — not the client, which Vite already bundled into `dist/`. The closure gate
+re-bundles every entry point from the installed tree, so a file this copy misses
+fails the build and names itself.
+
+`react` is a *server* dependency, not a client one: the relay code the plugin
+scripts reach (`src/lib/account/myMachinesRoute.ts`, through
+`plugin-link.ts` → `myPcs.ts` → `relay/shellState.ts`) imports
+`useSyncExternalStore` at value level, so the closure gate resolves it. Its
+range is a caret (`^19.3.0`), which is why the measurement must see `bun.lock`:
+without the lock it resolves the newest patch and the pin names a tree the FOD
+never builds.
 
 The production tree is a **hand-written allowlist**, not `bun install
 --production`: that keeps every runtime dependency and resolves to 302 MiB, of
@@ -145,17 +158,23 @@ which the server and the built client load nothing. The list lives in
 `nfb` and the derivation read one copy; it is gated, because a hand-written list
 drifts.
 
-The gate is `bun build` over every entry point the manifest can launch
-(`scripts/plugin*.ts`, `server/{index,managed,supervisor}.ts`) **against the tree
-that ships**. It exits non-zero and names the missing package and importing file
-when the allowlist is short. Two things about it are load-bearing:
+There are **two** `bun build` gates, and they fail on different mistakes:
 
-- It must run **after** the dev tree is swapped for the prod tree. A gate run
-  against the dev tree resolves everything and can never fail — that bug was
-  written and caught here.
-- `scripts/plugin.ts` is in scope because it imports `qrcode-generator`, which a
-  `server/`-only check misses. That miss was real: a `server/`-only allowlist
-  broke `plugin.ts status` at runtime.
+- In `buildPhase`, over the prod dependency tree: it proves the allowlist is
+  complete. `scripts/plugin.ts` is in scope because it imports
+  `qrcode-generator`, which a `server/`-only check misses — a `server/`-only
+  allowlist really did break `plugin.ts status`.
+- In `installPhase`, over `$out`: it proves the *copy* is complete. The same
+  entry points are bundled again from the installed tree, so a module the
+  installPhase list forgot, or one upstream added between tags, fails the build
+  and names itself. This gate exists because a green build once shipped a plugin
+  whose manifest pointed at `scripts/plugin-launch.ts`, a file the store did not
+  contain: the first gate covered packages only, and every command died with
+  "Module not found" after a successful link.
+
+Both must run **after** the dev tree is swapped for the prod tree. A gate run
+against the dev tree resolves everything and can never fail — that bug was
+written and caught here.
 
 `@pierre/diffs` is deliberately absent. The client imports it, but Vite bundles
 it into `dist/`; only `server/repo-diff.test.ts` resolves it, and the gate
@@ -304,6 +323,13 @@ of seconds. The dev tree is per-arch and genuinely differs (441 vs 434 MiB,
 different native bindings), so both are measured even from a single host: the
 FOD passes `--cpu=<arch>` on either host, which makes an `--cpu=arm64` install
 the same tree an aarch64 host would produce.
+
+Both measurements copy the tag's `bun.lock` next to the rewritten
+`package.json`, because the FOD installs inside the source tree and therefore
+uses the lock. Leaving it out is invisible while every allowlist entry is
+pinned exactly or has no newer patch; the moment one carries a caret range and
+the registry publishes a patch, the measurement resolves a tree the FOD never
+builds and the pin fails with a hash mismatch.
 
 That measurement is also reachable without a release, which matters because the
 bump path only gets there once a newer tag exists and you answer `y`:

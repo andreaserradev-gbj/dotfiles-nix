@@ -123,6 +123,49 @@ let
     hash = ptyHostHash;
   };
 
+  # What herdr can launch: the manifest's commands, plus the entry points the
+  # compiled binary exposes (server/entries.ts, ENTRIES). One list, read by both
+  # closure gates and by the check that each file exists in the shipped tree, so
+  # a name cannot be in one place and missing from another.
+  entryPoints = [
+    "scripts/plugin-launch.ts"
+    "scripts/plugin.ts"
+    "scripts/plugin-port.ts"
+    "scripts/plugin-runtime.ts"
+    "scripts/plugin-state.ts"
+    "server/index.ts"
+    "server/managed.ts"
+    "server/supervisor.ts"
+    "server/remote-entry.ts"
+    "server/herdr-core/machine-entry.ts"
+    "server/ssh-askpass.ts"
+    "server/windows-launch.ts"
+    "server/browser-mcp.ts"
+  ];
+
+  # The scripts the manifest and the launcher reach, by name. Not "all of
+  # scripts/": upstream keeps 400+ browser-QA and fixture scripts there, 7 MiB
+  # of nothing a running plugin reads. The closure gate re-bundles from $out, so
+  # a file missing here fails the build instead of shipping.
+  scriptsClosure = [
+    "plugin-launch.ts"
+    "plugin.ts"
+    "plugin-port.ts"
+    "plugin-runtime.ts"
+    "plugin-state.ts"
+    "plugin-tui.ts"
+    "plugin-link.ts"
+    "plugin-recover.ts"
+    "plugin-confirm.ts"
+    "pty-sidecar.ts"
+    "server-install.ts"
+    "server-manifest.ts"
+    "preflight.sh"
+    "preflight.ps1"
+    "plugin.ps1"
+    "bun-path.sh"
+  ];
+
   # The vendored upstream manifest, re-fetched by nfb in lockstep with the pin.
   # Deploying this repo's copy rather than reading the source tree's is what
   # makes a pin/manifest disagreement a rebuild failure instead of a session
@@ -163,9 +206,13 @@ stdenvNoCC.mkDerivation {
     # the tree that ships. A missing runtime package fails the build and names
     # itself. A grep over imports was the alternative, and it missed
     # qrcode-generator — reached through a script entry point, not server/.
+    #
+    # It runs here, over the PROD tree, and it gates packages only: a file the
+    # installPhase forgot is invisible to it (Bun fails on a missing module in
+    # the source tree too, which is why the same build is repeated against
+    # $out at the end of installPhase).
     ${lib.getExe bun} build \
-      scripts/plugin.ts scripts/plugin-port.ts scripts/plugin-runtime.ts scripts/plugin-state.ts \
-      server/index.ts server/managed.ts server/supervisor.ts \
+      ${lib.escapeShellArgs entryPoints} \
       --target=bun --outdir="$TMPDIR/closure-gate"
 
     runHook postBuild
@@ -175,15 +222,31 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
     mkdir -p "$out"/{bin,scripts}
 
-    # What the plugin runs: the server, the shared protocol, the four scripts
-    # its manifest names, the built client, the manifests. Tests and fixtures
-    # are 5.6 MiB + 2.2 MiB of nothing a running server reads.
+    # What the plugin runs: the server, the shared protocol, the scripts the
+    # manifest and the launcher reach, the built client, the manifests. Tests,
+    # fixtures and the browser-QA scripts beside them are megabytes of nothing a
+    # running server reads.
+    #
+    # This list is not trusted on its own: the closure gate at the end of this
+    # phase re-bundles the entry points FROM $out, so a module this list misses
+    # fails the build and names itself. That is the 0.5.4 failure mode — the
+    # list was frozen at the four 0.5.3 scripts while the manifest had moved on
+    # to scripts/plugin-launch.ts, so the plugin linked and every command died
+    # with "Module not found" while the build stayed green.
     cp -r server shared dist node_modules "$out"/
     find "$out/server" "$out/shared" -name '*.test.ts' -delete
     rm -rf "$out/server/fixtures"
-    for f in plugin.ts plugin-port.ts plugin-runtime.ts plugin-state.ts; do
-      cp "scripts/$f" "$out/scripts/"
-    done
+    # src/lib, not all of src/: the entry points reach the relay/account code
+    # under src/lib (plugin-link.ts → src/lib/account/* → src/lib/relay/*) and
+    # nothing else there — src/components and src/App.tsx are the Vite build's
+    # input, already bundled into dist/.
+    install -d "$out/src"
+    cp -r src/lib "$out/src/lib"
+    find "$out/src" \( -name '*.test.ts' -o -name '*.test.tsx' \) -delete
+    rm -rf "$out/src/lib/fixtures-input-rows"
+    ${lib.concatMapStringsSep "\n" (
+      f: ''install -Dm644 "${src}/scripts/${f}" "$out/scripts/${f}"''
+    ) scriptsClosure}
     cp package.json bunfig.toml tsconfig.json LICENSE THIRD_PARTY_NOTICES.md "$out"/
 
     # The Rust PTY host: upstream's static musl sidecar, byte-identical
@@ -221,6 +284,17 @@ stdenvNoCC.mkDerivation {
     grep -q '^min_herdr_version = ' herdr-plugin.toml
 
     cp herdr-plugin.toml "$out"/
+
+    # Closure gate against the SHIPPED tree. The buildPhase gate proves the prod
+    # dependency tree is complete; this one proves the copy is. It bundles each
+    # entry point from $out, so a module the installPhase list forgot, or one
+    # upstream added between tags, fails here and names itself — the class of
+    # failure that shipped a plugin whose manifest pointed at a file the store
+    # did not contain. --outdir is in $TMPDIR: the bundles are proof, not output.
+    ( cd "$out" && ${lib.getExe bun} build \
+      ${lib.escapeShellArgs entryPoints} \
+      --target=bun --outdir="$TMPDIR/installed-gate" )
+
     runHook postInstall
   '';
 

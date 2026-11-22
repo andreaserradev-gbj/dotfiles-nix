@@ -286,8 +286,14 @@ ovis_dep_hashes() {
 
   # prod: the allowlist from config/ovis/runtime-deps.json, which the derivation
   # also reads. Not `--production`: that keeps every runtime dependency.
+  #
+  # bun.lock comes along because the FOD has it (installDeps runs in the source
+  # tree, which carries the lock): without it, a caret range resolves to whatever
+  # the registry publishes now instead of the locked patch, and the pin names a
+  # tree the FOD never builds.
   mkdir -p "$tmp/prod"
   cp -r "$tmp/dev/patches" "$tmp/prod/"
+  cp "$src_tree/bun.lock" "$tmp/prod/"
   jq --slurpfile keep <(jq -c . "$repo_root/config/ovis/runtime-deps.json") \
     '($keep[0]) as $k
      | .dependencies |= with_entries(select(.key as $n | $k | index($n)))

@@ -22,8 +22,8 @@
       "aarch64-linux": "sha256-Z0VT905lWRaJ8j/BpjVjTPVg7d4/uMMddhC/7D8mJ1Q="
     },
     "nodeModulesProd": {
-      "x86_64-linux": "sha256-eeU3SPJ2BS6FOPvRLgD1t3xVNn5IYyH/bJ6xed1Sl38=",
-      "aarch64-linux": "sha256-eeU3SPJ2BS6FOPvRLgD1t3xVNn5IYyH/bJ6xed1Sl38="
+      "x86_64-linux": "sha256-t9Tp6pXDD4U7zQNW/zFvqOMmF6euppGeP+Y9razR+KE=",
+      "aarch64-linux": "sha256-t9Tp6pXDD4U7zQNW/zFvqOMmF6euppGeP+Y9razR+KE="
     },
     "ptyHost": {
       "x86_64-linux": "sha256-GH4c9WiGLZBEjvrAVGVh660pRO5Sv5fSiU2wjjXD5n4=",
