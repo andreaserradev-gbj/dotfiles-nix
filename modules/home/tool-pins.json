@@ -1,8 +1,8 @@
 {
   "omp": {
-    "version": "18.22.2",
-    "x86_64-linux": "sha256-gKaSxa25xxEkuxHne9fts8+Pu6tpgNsyBty2pMspBbU=",
-    "aarch64-linux": "sha256-gqiAugTXPxyBoSkxRH+fntiUVYGZhWTq6QDBI49FAuI="
+    "version": "19.1.0",
+    "x86_64-linux": "sha256-vitFxDe2I+FcKbH4yYqsuEL5IRgZZFS16e7YhDWemgE=",
+    "aarch64-linux": "sha256-eF6OUZrLVYUqheVJUnHXaKIhypLAlcBDzT6w1/jT6vw="
   },
   "herdr": {
     "version": "0.9.5",
@@ -15,19 +15,19 @@
     "aarch64-linux": "sha256-0fn1HewXNog7Fmwpc7i907itZNyiDPaB1vDHnIieSUQ="
   },
   "ovis": {
-    "version": "0.5.4",
-    "source": "sha256-0g/FJe1ckwEj71ZO2N7t4kHP8mRIGUjRPJbylTM3l2s=",
+    "version": "0.5.9",
+    "source": "sha256-cyd5nlr+YGMEuOh+aE8YG9s4i3zTWjUUYaLAPPd6SaY=",
     "nodeModulesDev": {
-      "x86_64-linux": "sha256-yuix3Q0Y/fJHZBOhM7QFTKA7BykG6UoO6afQiw5eN60=",
-      "aarch64-linux": "sha256-0ereKfCkREqIUGEvz9cQKtw4Ri75qMMUVqzk7ZuW+rw="
+      "x86_64-linux": "sha256-vCUURBWl5dZcXEDrA8BzAYNpDv9FyRLz6++lE5lHnV4=",
+      "aarch64-linux": "sha256-Z0VT905lWRaJ8j/BpjVjTPVg7d4/uMMddhC/7D8mJ1Q="
     },
     "nodeModulesProd": {
       "x86_64-linux": "sha256-eeU3SPJ2BS6FOPvRLgD1t3xVNn5IYyH/bJ6xed1Sl38=",
       "aarch64-linux": "sha256-eeU3SPJ2BS6FOPvRLgD1t3xVNn5IYyH/bJ6xed1Sl38="
     },
     "ptyHost": {
-      "x86_64-linux": "sha256-BE6w3KCNhEqVZNml8jEp1Ti3Vf1v1HR/eWZJTUZna9I=",
-      "aarch64-linux": "sha256-B36cKPk1ELXE02OYsPpHblm6MG0RzkA+BwVu84mF4ZA="
+      "x86_64-linux": "sha256-GH4c9WiGLZBEjvrAVGVh660pRO5Sv5fSiU2wjjXD5n4=",
+      "aarch64-linux": "sha256-2kkqYJQSTbsORHAQEo1oLR4g9kBbyuTYStab6HVUZEA="
     }
   }
 }
