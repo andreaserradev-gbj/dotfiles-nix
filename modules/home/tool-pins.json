@@ -15,15 +15,15 @@
     "aarch64-linux": "sha256-0fn1HewXNog7Fmwpc7i907itZNyiDPaB1vDHnIieSUQ="
   },
   "ovis": {
-    "version": "0.5.9",
-    "source": "sha256-cyd5nlr+YGMEuOh+aE8YG9s4i3zTWjUUYaLAPPd6SaY=",
+    "version": "0.5.13",
+    "source": "sha256-85n3S5I9oEw/6BJdGj5SN6SGFRXKXKEL3//I7sSTbvg=",
     "nodeModulesDev": {
-      "x86_64-linux": "sha256-vCUURBWl5dZcXEDrA8BzAYNpDv9FyRLz6++lE5lHnV4=",
-      "aarch64-linux": "sha256-Z0VT905lWRaJ8j/BpjVjTPVg7d4/uMMddhC/7D8mJ1Q="
+      "x86_64-linux": "sha256-UraUIJWrNlc/jhayztd2r1MvvKYmlqE0ajUjxatAmCU=",
+      "aarch64-linux": "sha256-ur5PZ6VhRGnmUvF/+H6LEO3G/+DzGzGSjw8qmIuLMVs="
     },
     "nodeModulesProd": {
-      "x86_64-linux": "sha256-t9Tp6pXDD4U7zQNW/zFvqOMmF6euppGeP+Y9razR+KE=",
-      "aarch64-linux": "sha256-t9Tp6pXDD4U7zQNW/zFvqOMmF6euppGeP+Y9razR+KE="
+      "x86_64-linux": "sha256-OtRdnJWJlpymVcx0Adob2ggAtkQ0BXvOYVoFGbHZFAM=",
+      "aarch64-linux": "sha256-OtRdnJWJlpymVcx0Adob2ggAtkQ0BXvOYVoFGbHZFAM="
     },
     "ptyHost": {
       "x86_64-linux": "sha256-GH4c9WiGLZBEjvrAVGVh660pRO5Sv5fSiU2wjjXD5n4=",

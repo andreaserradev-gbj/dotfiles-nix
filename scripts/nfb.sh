@@ -3,8 +3,13 @@
 # to their latest release: modules/home/tool-pins.json (version + both per-arch
 # hashes), the matching `?ref=` in flake.nix for the tools that have a flake
 # input, each tool's vendored assets, then re-lock just those inputs. TTY-interactive by design
-# — the git diff is the review surface — and with no TTY it reports and writes
-# nothing. It never runs the full `nix flake update`: that stays `nfu`'s job.
+# — the git diff is the review surface — and with no TTY the bump loop reports
+# and writes nothing. It never runs the full `nix flake update`: that stays `nfu`'s job.
+#
+# ovis is the one source build, so its bump is PROVEN before it is recorded:
+# nfb builds the plugin derivation this host's system closure holds, and its
+# gates — the runtime allowlist, the shipped tree, the manifest rewrite — fail
+# here, at the prompt, rather than in nrp after "applied" was printed.
 #
 # The `?ref=` must stay a LITERAL in flake.nix, which is why this script rewrites
 # it instead of Nix deriving it from tool-pins.json (owner of that rule: the omp
@@ -20,7 +25,7 @@ usage() {
 nfb — bump the pinned tool tags (omp, herdr, herdr-reviewr, ovis) to their
 latest upstream release.
 
-usage: nfb.sh [--help] [--verify-ovis-hashes]
+usage: nfb.sh [--help] [--verify-ovis-hashes] [--write-ovis-hashes]
 
 For each tool in turn: reports whether a newer release exists and, on a TTY,
 asks before writing. A bump updates modules/home/tool-pins.json (version + both
@@ -36,21 +41,23 @@ config/ovis/ stays the pristine upstream file.
 
 --verify-ovis-hashes re-measures ovis's four committed hashes and compares them
 with tool-pins.json, then exits: no API call, no prompt, no write. The bump path
-reaches that measurement only when a newer tag exists and the user answers y, so
-this is the only non-interactive way to re-check the invariant.
+reaches that measurement only when a newer tag exists and the user answers y.
+
+--write-ovis-hashes runs the same measurement for the PINNED tag and writes it
+to tool-pins.json, then builds the plugin and re-records the baseline like a
+bump. It is the step after a bump's build failed.
 EOF
 }
 
 verify_ovis=0
+write_ovis=0
 case "${1:-}" in
   --help | -h)
     usage
     exit 0
     ;;
-  # Re-measure ovis's committed hashes without a release. The bump path reaches
-  # ovis_dep_hashes only after a newer tag prompts `y`, so this is the only way
-  # to re-check that the pins are the trees the FODs produce.
   --verify-ovis-hashes) verify_ovis=1 ;;
+  --write-ovis-hashes) write_ovis=1 ;;
   "") ;;
   *)
     usage >&2
@@ -141,7 +148,8 @@ if [ -z "$host_system" ]; then
   printf 'nfb: unknown architecture %s — hashes will not be cross-checked locally\n' "$(uname -m)" >&2
 fi
 
-# Any abort after a prompt means NOTHING is left half-written for that tool.
+# Any abort leaves nothing half-written: every check runs before the write, and
+# a bump whose build fails afterwards stays complete, baseline untouched.
 fail() {
   printf '!! %s\n' "$1" >&2
   exit 1
@@ -238,8 +246,8 @@ write_vendored_assets() {
 #
 # The two dependency trees are the FODs' outputs, so they are computed the way
 # the FODs compute them: a `bun install` for the target arch with HOME and the
-# cache inside a scratch dir. `--cpu` matters — the dev tree is per-arch (441 MiB
-# vs 434 MiB, different bindings), while the prod allowlist is arch-independent
+# cache inside a scratch dir. `--cpu` matters — the dev tree is per-arch (different
+# native bindings), while the prod allowlist is arch-independent
 # and resolves identically for both. That is why both prod entries carry one
 # value and nfb writes it twice rather than measuring twice.
 ovis_dep_hashes() {
@@ -309,18 +317,99 @@ ovis_dep_hashes() {
   printf '%s %s %s\n' "$src" "$dev" "$prod"
 }
 
+# ovis_assert_same SRC_X86 SRC_ARM PROD_X86 PROD_ARM — the two invariants every
+# ovis measurement rests on: the source FOD is arch-independent, and the prod
+# allowlist holds nothing platform-specific. Measured, not assumed, each time.
+ovis_assert_same() {
+  [ "$1" = "$2" ] ||
+    fail "ovis: source hash differs per arch ($1 vs $2) — the source FOD is arch-independent, so this is a bug"
+  [ "$3" = "$4" ] ||
+    fail "ovis: prod tree hash differs per arch ($3 vs $4) — runtime-deps.json gained a platform-specific package"
+}
+
+# ovis_pin_json VER SRC DEV_X86 DEV_ARM PROD PTY_X86 PTY_ARM PINS — ovis's entry
+# of the pin table with the measured values, as JSON on stdout. One writer for
+# the bump and the re-measure: the PTY-host pair is the release's on a bump and
+# the table's own on a re-measure.
+ovis_pin_json() {
+  jq --indent 2 \
+    --arg v "$1" --arg src "$2" \
+    --arg dx "$3" --arg da "$4" --arg pr "$5" \
+    --arg px "$6" --arg pa "$7" \
+    '.ovis.version = $v
+     | .ovis.source = $src
+     | .ovis.nodeModulesDev["x86_64-linux"] = $dx
+     | .ovis.nodeModulesDev["aarch64-linux"] = $da
+     | .ovis.nodeModulesProd["x86_64-linux"] = $pr
+     | .ovis.nodeModulesProd["aarch64-linux"] = $pr
+     | .ovis.ptyHost["x86_64-linux"] = $px
+     | .ovis.ptyHost["aarch64-linux"] = $pa' \
+    "$8"
+}
+
+# build_ovis_plugin — build the ovis plugin derivation this host's system
+# closure holds. It is looked up in the toplevel's inputs rather than rebuilt
+# from a second copy of ovis.nix's callPackage, so what is proven here is what
+# nrp builds, by construction; and the lookup goes through the flake, so an
+# untracked file fails here exactly as it would there. A host whose closure
+# holds no ovis has nothing to prove. On failure the log's last lines are
+# printed: that is where a gate names what it missed, and vite's asset listing
+# above them is not worth the screen.
+build_ovis_plugin() {
+  local toplevel drv
+  toplevel="$(nix eval --raw ".#nixosConfigurations.$(hostname).config.system.build.toplevel.drvPath")" ||
+    fail "nfb: '$(hostname)' is not a host of this flake — the ovis build cannot be proven here"
+  drv="$(nix path-info --derivation --recursive "$toplevel" | grep -- '-ovis-plugin-[^/]*\.drv$' | head -n 1)"
+  [ -n "$drv" ] || return 0
+  # ^* selects the outputs: a bare .drv path is a valid store path already, so
+  # `nix build <drv>` succeeds having built nothing.
+  nix build --no-link "$drv^*" >/dev/null && return 0
+  printf -- '--- ovis build log, last lines (vite asset listing dropped)\n' >&2
+  nix log "$drv" 2>&1 | grep -vE '^dist/' | tail -n 20 >&2
+  return 1
+}
+
+# prove_ovis TAG — build the pinned plugin; on failure say where the tree stands
+# and what the next step is. 0 when the build holds or this host ships no ovis.
+prove_ovis() {
+  build_ovis_plugin && return 0
+  printf '!! ovis %s is pinned, but its plugin derivation does not build: the bump is written,\n' "$1" >&2
+  printf '!! the baseline is not. Fix what the log names (as a rule a package missing from\n' >&2
+  printf '!! config/ovis/runtime-deps.json), then run: nfb --write-ovis-hashes\n' >&2
+  return 1
+}
+
 failed=0
 applied=0
 
-if [ "$verify_ovis" = 1 ]; then
-  # The same four values a bump would write, against the committed ones. The
-  # comparison is what makes this a check rather than a print: a mismatch means
-  # the derivation would resolve a different tree than the pin records.
+if [ "$verify_ovis" = 1 ] || [ "$write_ovis" = 1 ]; then
+  # The same four values a bump would write, for the pinned tag: compared with
+  # the committed ones, or written in their place. The comparison is what makes
+  # --verify-ovis-hashes a check rather than a print: a mismatch means the
+  # derivation would resolve a different tree than the pin records.
   vtag="v$(jq -r '.ovis.version' "$pins_file")"
   vx="$(ovis_dep_hashes "$vtag" x86_64-linux)" || exit 1
   read -r vsrc vdev_x86 vprod_x86 <<<"$vx"
   va="$(ovis_dep_hashes "$vtag" aarch64-linux)" || exit 1
   read -r vsrc_arm vdev_arm vprod_arm <<<"$va"
+
+  if [ "$write_ovis" = 1 ]; then
+    # The invariants as hard stops rather than `ok`/`FAIL` rows: a value that
+    # differs per arch is not something to pin. Then what a bump does after its
+    # write — prove the build, record the baseline only once it holds.
+    ovis_assert_same "$vsrc" "$vsrc_arm" "$vprod_x86" "$vprod_arm"
+    tmp_pins="$(mktemp)"
+    ovis_pin_json "${vtag#v}" "$vsrc" "$vdev_x86" "$vdev_arm" "$vprod_x86" \
+      "$(jq -r '.ovis.ptyHost["x86_64-linux"]' "$pins_file")" \
+      "$(jq -r '.ovis.ptyHost["aarch64-linux"]' "$pins_file")" \
+      "$pins_file" >"$tmp_pins"
+    mv "$tmp_pins" "$pins_file"
+    printf 'nfb: ovis %s hashes re-measured and written\n' "$vtag"
+    prove_ovis "$vtag" || exit 1
+    "$repo_root/scripts/record-baseline.sh" || exit 1
+    git status --short
+    exit 0
+  fi
 
   mismatch=0
   expect() {
@@ -395,23 +484,15 @@ for tool in "${tools[@]}"; do
   # Its pin carries the PTY-host asset (same shape as the others) plus the source
   # tree and the two dependency trees. Measured here because no FOD can be
   # resolved without the hash it would produce.
-  ovis_pin=""
   if [ "$tool" = ovis ]; then
     # Both arches are measured from whatever host runs nfb: the FOD passes
     # `--cpu=<arch>` on either host, so an `--cpu=arm64` install here is the very
-    # tree the FOD produces on aarch64. Measured, not assumed: the source hash
-    # must not vary by arch, and the two must agree on it.
+    # tree the FOD produces on aarch64.
     ovis_x86="$(ovis_dep_hashes "$tag" x86_64-linux)" || fail "ovis: hashing x86_64 failed — nothing written"
     read -r ovis_src ovis_dev_x86 ovis_prod_x86 <<<"$ovis_x86"
     ovis_arm="$(ovis_dep_hashes "$tag" aarch64-linux)" || fail "ovis: hashing aarch64 failed — nothing written"
     read -r ovis_src_arm ovis_dev_arm ovis_prod_arm <<<"$ovis_arm"
-    [ "$ovis_src" = "$ovis_src_arm" ] ||
-      fail "ovis: source hash differs per arch ($ovis_src vs $ovis_src_arm) — the source FOD is arch-independent, so this is a bug"
-    # The prod allowlist has no platform-specific package: it resolves to the
-    # same tree for both arches (measured). Assert it rather than assume it.
-    [ "$ovis_prod_x86" = "$ovis_prod_arm" ] ||
-      fail "ovis: prod tree hash differs per arch ($ovis_prod_x86 vs $ovis_prod_arm) — runtime-deps.json gained a platform-specific package"
-    ovis_pin="$ovis_src $ovis_dev_x86 $ovis_dev_arm $ovis_prod_x86"
+    ovis_assert_same "$ovis_src" "$ovis_src_arm" "$ovis_prod_x86" "$ovis_prod_arm"
   fi
 
   # ---- resolve + verify both hashes (no writes yet) ----
@@ -451,20 +532,8 @@ for tool in "${tools[@]}"; do
   # ---- write the pin table, the input ref, then the assets ----
   tmp_pins="$(mktemp)"
   if [ "$tool" = ovis ]; then
-    read -r ovis_src ovis_dev_x86 ovis_dev_arm ovis_prod <<<"$ovis_pin"
-    jq --indent 2 \
-      --arg v "$new" --arg src "$ovis_src" \
-      --arg dx "$ovis_dev_x86" --arg da "$ovis_dev_arm" --arg pr "$ovis_prod" \
-      --arg px "$sri_x86" --arg pa "$sri_arm" \
-      '.ovis.version = $v
-       | .ovis.source = $src
-       | .ovis.nodeModulesDev["x86_64-linux"] = $dx
-       | .ovis.nodeModulesDev["aarch64-linux"] = $da
-       | .ovis.nodeModulesProd["x86_64-linux"] = $pr
-       | .ovis.nodeModulesProd["aarch64-linux"] = $pr
-       | .ovis.ptyHost["x86_64-linux"] = $px
-       | .ovis.ptyHost["aarch64-linux"] = $pa' \
-      "$pins_file" >"$tmp_pins"
+    ovis_pin_json "$new" "$ovis_src" "$ovis_dev_x86" "$ovis_dev_arm" "$ovis_prod_x86" \
+      "$sri_x86" "$sri_arm" "$pins_file" >"$tmp_pins"
   else
     jq --indent 2 \
       --arg t "$tool" --arg v "$new" --arg x "$sri_x86" --arg a "$sri_arm" \
@@ -477,6 +546,16 @@ for tool in "${tools[@]}"; do
 
   if tool_has_vendored_assets "$tool"; then
     write_vendored_assets "$tool"
+  fi
+
+  # ---- ovis: the pin and the manifest are written; prove the tree before
+  # anything records it ----
+  if [ "$tool" = ovis ]; then
+    printf '   building the plugin derivation (its gates run here, not in nrp)\n'
+    prove_ovis "$tag" || {
+      failed=1
+      continue
+    }
   fi
 
   # ---- re-lock just this input (helper stages first) ----
@@ -492,7 +571,8 @@ for tool in "${tools[@]}"; do
 done
 
 # A bump is an intended move, so re-record the baseline here instead of leaving
-# the user to notice the gate failing. The recorder stages it with the bump.
+# the user to notice the gate failing. The recorder stages it with the bump. A
+# bump whose build failed keeps the previous baseline: `failed` holds it back.
 if [ "$applied" = 1 ] && [ "$failed" = 0 ]; then
   "$repo_root/scripts/record-baseline.sh" || failed=1
 fi

@@ -134,22 +134,30 @@ Nix exempts from the network namespace.
 
 | tree | size | role |
 |---|---|---|
-| `nodeModulesDev` | 441 MiB x86_64 / 434 MiB aarch64 | build-only: `vite` and the client's own dependencies |
-| `nodeModulesProd` | 5.5 MiB | shipped: `jsonc-parser`, `qrcode-generator`, `react`, `web-push`, `tweetnacl`, `base64-js`, `@noble/hashes`, `@noble/curves`, `@noble/ciphers` |
-| final plugin root | 65 MiB | `dist` 43 + `server` 8 + `node_modules` 6 + `src/lib` 5 + `shared` 4 + `bin` 1 + `scripts` 1 |
+| `nodeModulesDev` | 459 MiB x86_64 / 451 MiB aarch64 | build-only: `vite` and the client's own dependencies |
+| `nodeModulesProd` | 5.4 MiB | shipped: `jsonc-parser`, `qrcode-generator`, `web-push`, `tweetnacl`, `base64-js`, `@noble/hashes`, `@noble/curves`, `@noble/ciphers`, `@sindresorhus/slugify` |
+| final plugin root | 62 MiB | `dist` 43 + `server` 9 + `node_modules` 5 + `shared` 3 + `tui` 1 + `bin` 1 + the rest <1 |
 
-`src/lib` is in the shipped root because the plugin scripts reach it at run
-time — not the client, which Vite already bundled into `dist/`. The closure gate
-re-bundles every entry point from the installed tree, so a file this copy misses
-fails the build and names itself.
+**What ships is what the entry points load.**
+[ovis-shipped-files.ts](../modules/home/ovis-shipped-files.ts) walks that the
+way Bun resolves it, and the derivation installs the list and nothing else of
+the source. Two kinds of edge: an import — static, or a dynamic import whose
+specifier is a literal — and a path written as a string literal that is no
+import, because `server/file-pool.ts` starts its worker with
+`new URL("./file-worker.ts", import.meta.url)`, which no import reaches.
+Packages are left to the allowlist below; so are tests, fixtures, the
+browser-QA scripts, and the client's `src/` except the files under `src/lib`
+the plugin scripts reach — none of the rest is something the plugin can load.
 
-`react` is a *server* dependency, not a client one: the relay code the plugin
-scripts reach (`src/lib/account/myMachinesRoute.ts`, through
-`plugin-link.ts` → `myPcs.ts` → `relay/shellState.ts`) imports
-`useSyncExternalStore` at value level, so the closure gate resolves it. Its
-range is a caret (`^19.3.0`), which is why the measurement must see `bun.lock`:
-without the lock it resolves the newest patch and the pin names a tree the FOD
-never builds.
+The bundler's module list is not the same thing, and was the alternative: its
+source map carries neither the two files `server/approvals/cmd.ts` loads from
+`integrations/` as text, nor a module whose exports the bundle tree-shook away
+while the runtime still loads the file.
+
+Beside the list, by hand and each for a reason: `dist/` (the Vite build), the
+prod `node_modules/`, `package.json`, `bunfig.toml` and `tsconfig.json` (what
+Bun reads at start-up), the licences, and `scripts/plugin.ps1`, the Windows
+launcher the manifest names.
 
 The production tree is a **hand-written allowlist**, not `bun install
 --production`: that keeps every runtime dependency and resolves to 302 MiB, of
@@ -165,8 +173,7 @@ There are **three** checks, and they fail on different mistakes:
   `qrcode-generator`, which a `server/`-only check misses — a `server/`-only
   allowlist really did break `plugin.ts status`.
 - In `installPhase`, over `$out`: the same `bun build`, so it proves the *copy*
-  is complete — a module the installPhase list forgot, or one upstream added
-  between tags, fails the build and names itself.
+  is complete — a module the walk missed fails the build and names itself.
 - In `installPhase`, over the rewritten manifest: every `scripts/`- or
   `server/`-path a command names must exist in `$out`. `bun build` follows
   imports, not manifest strings, so it cannot see this one.
@@ -179,9 +186,15 @@ All of them run **after** the dev tree is swapped for the prod tree. A gate run
 against the dev tree resolves everything and can never fail — that bug was
 written and caught here.
 
-`@pierre/diffs` is deliberately absent. The client imports it, but Vite bundles
-it into `dist/`; only `server/repo-diff.test.ts` resolves it, and the gate
-passes without it.
+The entry points both `bun build` gates bundle, and the walk starts from, are
+read at build time from upstream's own table — `ENTRIES`, in
+`server/entries.ts` — not copied into the derivation: a copy has no gate, so an
+entry upstream added between tags would ship a tree that cannot launch it, with
+a green build.
+
+`@pierre/diffs` and `react` are deliberately absent. The client imports both and
+Vite bundles them into `dist/`; only tests and the browser-QA fixtures under
+`scripts/` resolve them, and the gate passes without them.
 
 ### Three build traps
 
@@ -336,10 +349,21 @@ source hash disagrees across arches or the prod tree does. The vendored manifest
 is re-fetched in the same run with `guard = '^id = "devswha.ovis"$'`.
 
 A bump therefore costs two `bun install` runs plus one archive fetch, a few tens
-of seconds. The dev tree is per-arch and genuinely differs (441 vs 434 MiB,
-different native bindings), so both are measured even from a single host: the
-FOD passes `--cpu=<arch>` on either host, which makes an `--cpu=arm64` install
-the same tree an aarch64 host would produce.
+of seconds, plus the plugin build itself, which `nrp` then reuses. The dev tree
+is per-arch and genuinely differs (459 vs 451 MiB, different native bindings),
+so both are measured even from a single host: the FOD passes `--cpu=<arch>` on
+either host, which makes an `--cpu=arm64` install the same tree an aarch64 host
+would produce.
+
+**The bump is then proven before it is recorded.** `nfb` builds the plugin
+derivation this host's system closure holds — looked up in the toplevel's
+inputs, so it is the very one `nrp` builds — and the three gates above run at
+the prompt instead of in `nrp`. A host that ships no ovis has nothing to
+prove. A
+gate that fails prints the last lines of the build log, which name what the tag
+moved — as a rule a package missing from the allowlist. The bump stays written
+(the pin is complete; it is the allowlist that needs the entry), the baseline
+is not re-recorded, and `nfb` exits 1.
 
 Both measurements copy the tag's `bun.lock` next to the rewritten
 `package.json`, because the FOD installs inside the source tree and therefore
@@ -360,6 +384,16 @@ arch invariants, prints `ok` or `FAIL` with both hashes, writes nothing, calls n
 API, and exits non-zero on a mismatch. Run it after a hand-edited pin, or to
 confirm the recorded trees still match after a `nixpkgs` change.
 
+```sh
+./scripts/nfb.sh --write-ovis-hashes
+```
+
+The same measurement, **written**: for the pinned tag it rewrites ovis's entry
+of the pin table, builds the plugin and — only once that holds — re-records the
+baseline, as a bump does. It is the step after a bump's build failed: fix what
+the log named, run it, and the prod hash follows the allowlist with no
+hand-measured value.
+
 ## Troubleshooting
 
 | symptom | first check |
@@ -372,4 +406,6 @@ confirm the recorded trees still match after a `nixpkgs` change.
 | the plugin is missing from herdr | `herdr plugin list --json`; a failed link fails the switch, so a switch that went through linked it |
 | `Serve is not enabled on your tailnet` | step 1 above |
 | `Access denied: serve config denied` | step 2 above — `OperatorUser` is unset, so `extraSetFlags` did not apply; `tailscale serve reset` is the one-command test |
-| a rebuild wants a new hash | `nfb`; a manual `bun install` in the wrong HOME produces a different tree |
+| `nfb` ends with `ovis … does not build` | the log lines above the message name what the tag moved, as a rule a package to add to [config/ovis/runtime-deps.json](../config/ovis/runtime-deps.json) — then `nfb --write-ovis-hashes` |
+| a command dies on a missing file of the plugin root while the build stayed green | a file loaded by a computed path, which neither an import nor a literal names: add it to the hand-written data files in [ovis-prebuilt.nix](../modules/home/ovis-prebuilt.nix) |
+| a rebuild wants a new hash | `nfb --write-ovis-hashes` re-measures for the pinned tag; a manual `bun install` in the wrong HOME produces a different tree |

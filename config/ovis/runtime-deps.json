@@ -1,11 +1,11 @@
 [
   "jsonc-parser",
   "qrcode-generator",
-  "react",
   "web-push",
   "tweetnacl",
   "base64-js",
   "@noble/hashes",
   "@noble/curves",
-  "@noble/ciphers"
+  "@noble/ciphers",
+  "@sindresorhus/slugify"
 ]
