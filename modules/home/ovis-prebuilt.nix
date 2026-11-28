@@ -21,8 +21,9 @@ let
 
   # What the server and the plugin scripts resolve at run time, and nothing
   # else: server/push.ts imports web-push, server/skills/walk.ts jsonc-parser,
-  # scripts/plugin.ts qrcode-generator. `bun build` fails the build when the
-  # list drifts, and it names the missing package and the importing file.
+  # server/cmd.ts @sindresorhus/slugify, scripts/plugin.ts qrcode-generator.
+  # `bun build` fails the build when the list drifts, and it names the missing
+  # package and the importing file.
   #
   # @pierre/diffs is NOT here. The client imports it, but Vite bundles it into
   # dist/ (its themes and diff worker are chunks there), so the server never
@@ -123,43 +124,6 @@ let
     hash = ptyHostHash;
   };
 
-  # What herdr can launch: the manifest's commands (scripts/plugin.ts), plus the
-  # entry points the compiled binary exposes (server/entries.ts, ENTRIES). One
-  # list, read by both closure gates and by the check that each file exists in
-  # the shipped tree, so a name cannot be in one place and missing from another.
-  entryPoints = [
-    "scripts/plugin.ts"
-    "scripts/plugin-port.ts"
-    "scripts/plugin-runtime.ts"
-    "scripts/plugin-state.ts"
-    "server/index.ts"
-    "server/managed.ts"
-    "server/supervisor.ts"
-    "server/remote-entry.ts"
-    "server/herdr-core/machine-entry.ts"
-    "server/ssh-askpass.ts"
-    "server/windows-launch.ts"
-    "server/browser-mcp.ts"
-  ];
-
-  # The scripts the manifest's commands reach, by name — the closure of
-  # scripts/plugin.ts, which is the only entry point left (see the manifest
-  # rewrite in installPhase). Not "all of scripts/": upstream keeps 400+
-  # browser-QA and fixture scripts there, 7 MiB of nothing a running plugin
-  # reads. The installed-tree gate re-bundles from $out, so a file missing here
-  # fails the build instead of shipping.
-  scriptsClosure = [
-    "plugin.ts"
-    "plugin-port.ts"
-    "plugin-runtime.ts"
-    "plugin-state.ts"
-    "plugin-tui.ts"
-    "plugin-link.ts"
-    "plugin-recover.ts"
-    "plugin-confirm.ts"
-    "plugin.ps1"
-  ];
-
   # The vendored upstream manifest, re-fetched by nfb in lockstep with the pin.
   # Deploying this repo's copy rather than reading the source tree's is what
   # makes a pin/manifest disagreement a rebuild failure instead of a session
@@ -178,6 +142,19 @@ stdenvNoCC.mkDerivation {
   buildPhase = ''
     runHook preBuild
 
+    # The entry points: upstream's own table — ENTRIES, in server/entries.ts —
+    # read rather than copied, so an entry it gains is gated with no edit here.
+    # Both closure gates bundle this list; the shipped-files walk starts from it.
+    entryList="$(${lib.getExe bun} -e '
+      import { ENTRIES } from "./server/entries.ts";
+      console.log(Object.values(ENTRIES).join("\n"));
+    ')"
+    mapfile -t entryPoints <<< "$entryList"
+    if [ -z "''${entryPoints[0]:-}" ]; then
+      echo "ovis: server/entries.ts lists no entry points" >&2
+      exit 1
+    fi
+
     # Vite writes node_modules/.cache and dist/, and a store input is
     # read-only, so the build runs in a writable copy.
     export HOME=$PWD/.home
@@ -185,6 +162,14 @@ stdenvNoCC.mkDerivation {
     chmod -R u+w .
     cp -r ${devTree} node_modules
     chmod -R u+w node_modules
+
+    # The files that ship, listed once for installPhase by
+    # ovis-shipped-files.ts (its header says how they are found).
+    "${lib.getExe bun}" run ${./ovis-shipped-files.ts} "$PWD" "''${entryPoints[@]}" > "$TMPDIR/shipped"
+    if [ ! -s "$TMPDIR/shipped" ]; then
+      echo "ovis: ovis-shipped-files.ts listed nothing" >&2
+      exit 1
+    fi
 
     # By path, not through node_modules/.bin. Both work on a writable tree
     # (measured); the path names no symlink, so it cannot become the thing that
@@ -205,8 +190,7 @@ stdenvNoCC.mkDerivation {
     # installPhase forgot is invisible to it (Bun fails on a missing module in
     # the source tree too, which is why the same build is repeated against
     # $out at the end of installPhase).
-    ${lib.getExe bun} build \
-      ${lib.escapeShellArgs entryPoints} \
+    ${lib.getExe bun} build "''${entryPoints[@]}" \
       --target=bun --outdir="$TMPDIR/closure-gate"
 
     runHook postBuild
@@ -216,32 +200,17 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
     mkdir -p "$out"/{bin,scripts}
 
-    # What the plugin runs: the server, the shared protocol, the scripts the
-    # manifest and the launcher reach, the built client, the manifests. Tests,
-    # fixtures and the browser-QA scripts beside them are megabytes of nothing a
-    # running server reads.
-    #
-    # This list is not trusted on its own: the closure gate at the end of this
-    # phase re-bundles the entry points FROM $out, so a module this list misses
-    # fails the build and names itself. That is the 0.5.4 failure mode — the
-    # list was frozen at the four 0.5.3 scripts while the manifest had moved on
-    # to scripts/plugin-launch.ts, so the plugin linked and every command died
-    # with "Module not found" while the build stayed green.
-    cp -r server shared dist node_modules "$out"/
-    find "$out/server" "$out/shared" -name '*.test.ts' -delete
-    rm -rf "$out/server/fixtures"
-    # src/lib, not all of src/: the entry points reach the relay/account code
-    # under src/lib (plugin-link.ts → src/lib/account/* → src/lib/relay/*) and
-    # nothing else there — src/components and src/App.tsx are the Vite build's
-    # input, already bundled into dist/.
-    install -d "$out/src"
-    cp -r src/lib "$out/src/lib"
-    find "$out/src" \( -name '*.test.ts' -o -name '*.test.tsx' \) -delete
-    rm -rf "$out/src/lib/fixtures-input-rows"
-    ${lib.concatMapStringsSep "\n" (
-      f: ''install -Dm644 "${src}/scripts/${f}" "$out/scripts/${f}"''
-    ) scriptsClosure}
+    # Every file the entry points load — the list buildPhase wrote — and what
+    # is read without being a module.
+    while IFS= read -r file; do
+      install -Dm644 "$file" "$out/$file"
+    done < "$TMPDIR/shipped"
+    # The built client, and the dependency tree that ships.
+    cp -r dist node_modules "$out"/
+    # Read at run time without being imported: the configuration Bun loads, the
+    # licences of what ships, and the Windows launcher the manifest names.
     cp package.json bunfig.toml tsconfig.json LICENSE THIRD_PARTY_NOTICES.md "$out"/
+    install -Dm644 scripts/plugin.ps1 "$out/scripts/plugin.ps1"
 
     # The Rust PTY host: upstream's static musl sidecar, byte-identical
     # (dontStrip above). Its record is what server/pty/host.ts checks — sha256
@@ -312,12 +281,11 @@ stdenvNoCC.mkDerivation {
 
     # Closure gate against the SHIPPED tree. The buildPhase gate proves the prod
     # dependency tree is complete; this one proves the copy is. It bundles each
-    # entry point from $out, so a module the installPhase list forgot, or one
-    # upstream added between tags, fails here and names itself — the class of
-    # failure that shipped a plugin whose manifest pointed at a file the store
-    # did not contain. --outdir is in $TMPDIR: the bundles are proof, not output.
-    ( cd "$out" && ${lib.getExe bun} build \
-      ${lib.escapeShellArgs entryPoints} \
+    # entry point from $out, so a module the walk missed fails here and names
+    # itself — the class of failure that shipped a plugin whose manifest
+    # pointed at a file the store did not contain. --outdir is in $TMPDIR: the
+    # bundles are proof, not output.
+    ( cd "$out" && ${lib.getExe bun} build "''${entryPoints[@]}" \
       --target=bun --outdir="$TMPDIR/installed-gate" )
 
     # Every command the manifest runs must exist in the tree that ships: read

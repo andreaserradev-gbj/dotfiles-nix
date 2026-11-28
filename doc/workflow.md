@@ -127,9 +127,11 @@ to it:
 that install them — so both run the recorder themselves
 ([`scripts/record-baseline.sh`](../scripts/record-baseline.sh)): it re-records
 the baseline, prints each host's old → new drvPath, and stages the file with
-the bump. No separate step is needed. Any other intended move (a hand edit that
-shifts a host) still needs `./scripts/check-hosts.sh --update-baseline` in the
-same change.
+the bump. No separate step is needed, except after an `ovis` bump whose plugin
+build fails: `nfb` then leaves the baseline alone on purpose
+([doc/ovis.md](ovis.md), "`nfb` and the pin"). Any other intended move (a hand
+edit that shifts a host) still needs `./scripts/check-hosts.sh --update-baseline`
+in the same change.
 
 The baseline is not the `verified` ref in the CI section below — that one
 decides what CI *builds*; this file decides whether an evaluation *move* is
